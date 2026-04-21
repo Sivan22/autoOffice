@@ -91,7 +91,7 @@ export async function runAgent(
             callbacks.onMessage({
               role: 'assistant',
               content: '',
-              toolActivity: { toolName: `lookup_skill(${(tc.args as { name: string }).name})`, status: 'done' },
+              toolActivity: { toolName: `lookup_skill(${(tc.input as { name: string }).name})`, status: 'done' },
             });
           }
         }
@@ -117,7 +117,7 @@ export async function runAgent(
     for (const step of (steps ?? [])) {
       for (const tc of step.toolCalls) {
         if (tc.toolName === 'execute_code') {
-          const code = (tc.args as { code: string }).code;
+          const code = (tc.input as { code: string }).code;
 
           callbacks.onMessage({
             role: 'assistant',
