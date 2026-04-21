@@ -1,4 +1,4 @@
-import { experimental_createMCPClient as createMCPClient } from 'ai';
+import { experimental_createMCPClient as createMCPClient } from '@ai-sdk/mcp';
 import type { McpServerConfig } from '../store/settings.ts';
 import type { ToolSet } from 'ai';
 

@@ -10,7 +10,7 @@
     "certs": "office-addin-dev-certs install",
     "start": "office-addin-debugging start manifest.xml --app word",
     "stop": "office-addin-debugging stop manifest.xml",
-    "sideload": "office-addin-debugging sideload manifest.xml --app word"
+    "sideload": "office-addin-debugging start manifest.xml desktop --no-debug"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.71",

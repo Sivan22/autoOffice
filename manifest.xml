@@ -2,14 +2,19 @@
 <OfficeApp
   xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+  xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
   xsi:type="TaskPaneApp">
 
   <Id>a1b2c3d4-e5f6-7890-abcd-ef1234567890</Id>
-  <Version>0.1.0</Version>
+  <Version>1.0.0.0</Version>
   <ProviderName>AutoOffice</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="AutoOffice" />
   <Description DefaultValue="AI-powered dynamic code execution add-in for Microsoft Word" />
+  <IconUrl DefaultValue="https://localhost:3721/assets/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://localhost:3721/assets/icon-80.png" />
+  <SupportUrl DefaultValue="https://localhost:3721" />
 
   <Hosts>
     <Host Name="Document" />
@@ -34,6 +39,11 @@
             <OfficeTab id="TabHome">
               <Group id="AutoOfficeGroup">
                 <Label resid="CommandsGroup.Label" />
+                <Icon>
+                  <bt:Image size="16" resid="Icon.16x16" />
+                  <bt:Image size="32" resid="Icon.32x32" />
+                  <bt:Image size="80" resid="Icon.80x80" />
+                </Icon>
                 <Control xsi:type="Button" id="TaskpaneButton">
                   <Label resid="TaskpaneButton.Label" />
                   <Supertip>
