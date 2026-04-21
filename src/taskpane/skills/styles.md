@@ -64,8 +64,38 @@ await Word.run(async (context) => {
 - Lists: "List Paragraph"
 - Other: "Title", "Subtitle", "Emphasis", "Strong"
 
+## Create a Custom Style
+
+```javascript
+await Word.run(async (context) => {
+  // styleType: paragraph | character | table | list
+  const newStyle = context.document.addStyle("MyHeading", Word.StyleType.paragraph);
+
+  newStyle.baseStyle        = "Heading 1";       // inherit from Heading 1
+  newStyle.nextParagraphStyle = "Normal";         // next para uses Normal
+  newStyle.font.color       = "#C00000";
+  newStyle.font.size        = 18;
+  newStyle.font.bold        = true;
+
+  await context.sync();
+});
+```
+
+## Import Styles from JSON
+
+```javascript
+// Copy styles from another document that was exported as JSON
+await Word.run(async (context) => {
+  // stylesJson is a JSON string produced by a previous getStyles() + serialize call
+  context.document.importStylesFromJson(stylesJson);
+  await context.sync();
+});
+```
+
 ## Common Pitfalls
 
 - Style names are locale-dependent — "Heading 1" in English may differ in other languages
 - Use `nameLocal` to get the localized style name
 - Setting `.style` on a paragraph applies it immediately (no separate sync needed for the property assignment, but sync is needed to push to the document)
+- `addStyle` throws if a style with that name already exists — check with `getStyles()` first
+- `baseStyle` and `nextParagraphStyle` accept locale-dependent name strings; prefer `BuiltInStyleName` values when possible

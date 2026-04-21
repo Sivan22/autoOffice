@@ -13,6 +13,13 @@ import headersFooters from './headers-footers.md?raw';
 import images from './images.md?raw';
 import lists from './lists.md?raw';
 import documentSkill from './document.md?raw';
+import bookmarks from './bookmarks.md?raw';
+import hyperlinks from './hyperlinks.md?raw';
+import footnotes from './footnotes.md?raw';
+import fields from './fields.md?raw';
+import trackChanges from './track-changes.md?raw';
+import pageSetup from './page-setup.md?raw';
+import ooxml from './ooxml.md?raw';
 
 SKILLS['context-sync'] = contextSync;
 SKILLS['formatting'] = formatting;
@@ -26,11 +33,20 @@ SKILLS['headers-footers'] = headersFooters;
 SKILLS['images'] = images;
 SKILLS['lists'] = lists;
 SKILLS['document'] = documentSkill;
+SKILLS['bookmarks'] = bookmarks;
+SKILLS['hyperlinks'] = hyperlinks;
+SKILLS['footnotes'] = footnotes;
+SKILLS['fields'] = fields;
+SKILLS['track-changes'] = trackChanges;
+SKILLS['page-setup'] = pageSetup;
+SKILLS['ooxml'] = ooxml;
 
 export const SKILL_NAMES = [
   'formatting', 'tables', 'content-controls', 'styles',
   'ranges', 'search', 'comments', 'headers-footers',
   'images', 'lists', 'document', 'context-sync',
+  'bookmarks', 'hyperlinks', 'footnotes', 'fields',
+  'track-changes', 'page-setup', 'ooxml',
 ] as const;
 
 export type SkillName = (typeof SKILL_NAMES)[number];

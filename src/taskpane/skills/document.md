@@ -91,8 +91,83 @@ await Word.run(async (context) => {
 });
 ```
 
+## Document Events (onParagraphAdded / Changed / Deleted)
+
+```javascript
+await Word.run(async (context) => {
+  // React when the user adds a paragraph
+  context.document.onParagraphAdded.add(async (args) => {
+    await Word.run(async (innerContext) => {
+      for (const id of args.uniqueLocalIds) {
+        const para = innerContext.document.getParagraphByUniqueLocalId(id);
+        para.load("text");
+        await innerContext.sync();
+        console.log("New paragraph:", para.text);
+      }
+    });
+  });
+
+  await context.sync();
+  console.log("Event handler registered");
+});
+```
+
+```javascript
+// Get a specific paragraph by its stable session ID
+await Word.run(async (context) => {
+  const para = context.document.body.paragraphs.getFirst();
+  para.load("uniqueLocalId");
+  await context.sync();
+
+  const id = para.uniqueLocalId;
+
+  // Later, retrieve it by ID (within the same session)
+  const found = context.document.getParagraphByUniqueLocalId(id);
+  found.load("text");
+  await context.sync();
+  console.log("Found:", found.text);
+});
+```
+
+## Custom Document Properties
+
+```javascript
+// Read all custom properties
+await Word.run(async (context) => {
+  const customProps = context.document.properties.customProperties;
+  customProps.load("items");
+  await context.sync();
+
+  for (const prop of customProps.items) {
+    prop.load("key,value,type");
+  }
+  await context.sync();
+
+  return customProps.items.map(p => ({ key: p.key, value: p.value, type: p.type }));
+});
+```
+
+```javascript
+// Add or update a custom property
+await Word.run(async (context) => {
+  const customProps = context.document.properties.customProperties;
+  customProps.add("ProjectCode", "PRJ-2024");
+  await context.sync();
+});
+```
+
+```javascript
+// Delete a custom property
+await Word.run(async (context) => {
+  const prop = context.document.properties.customProperties.getItem("ProjectCode");
+  prop.delete();
+  await context.sync();
+});
+```
+
 ## Common Pitfalls
 
 - `context.document.body` gives you the main body; headers/footers are accessed through sections
 - `insertParagraph` returns the new Paragraph object for further modification
 - Document properties are read/write but some (like creationDate) are read-only
+- Custom property values are always stored as strings; numeric/boolean values are coerced

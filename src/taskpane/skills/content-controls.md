@@ -1,7 +1,7 @@
-# Content Controls — Rich Text, Plain Text, Dropdowns
+# Content Controls — Rich Text, Plain Text, Dropdowns, Checkboxes
 
 ## Key Types
-- `Word.ContentControl` — tag, title, type, appearance, color, placeholderText
+- `Word.ContentControl` — tag, title, type, appearance, color, placeholderText, cannotDelete, cannotEdit, temporary
 - Types: `Word.ContentControlType.richText`, `plainText`, `dropDownList`, `checkBox`
 
 ## Insert a Content Control
@@ -57,8 +57,114 @@ await Word.run(async (context) => {
 });
 ```
 
+## Checkbox Content Control
+
+```javascript
+// Insert a checkbox
+await Word.run(async (context) => {
+  const selection = context.document.getSelection();
+  const cc = selection.insertContentControl();
+  cc.type = Word.ContentControlType.checkBox;
+  cc.tag = "agree_terms";
+  cc.title = "Agree to Terms";
+  await context.sync();
+});
+```
+
+```javascript
+// Read and toggle checkbox state
+await Word.run(async (context) => {
+  const controls = context.document.contentControls.getByTag("agree_terms");
+  controls.load("items");
+  await context.sync();
+
+  const cc = controls.items[0];
+  const checked = cc.getCheckedState();
+  checked.load();
+  await context.sync();
+
+  cc.setCheckedState(!checked.value); // toggle
+  await context.sync();
+});
+```
+
+## Dropdown List Content Control
+
+```javascript
+await Word.run(async (context) => {
+  const selection = context.document.getSelection();
+  const cc = selection.insertContentControl();
+  cc.type = Word.ContentControlType.dropDownList;
+  cc.tag = "status";
+  cc.title = "Status";
+
+  // Add choices to the dropdown
+  cc.dropdownListEntries.add("Draft", "draft");
+  cc.dropdownListEntries.add("In Review", "review");
+  cc.dropdownListEntries.add("Approved", "approved");
+
+  await context.sync();
+});
+```
+
+## Protect a Content Control
+
+```javascript
+await Word.run(async (context) => {
+  const controls = context.document.contentControls.getByTag("field_1");
+  controls.load("items");
+  await context.sync();
+
+  const cc = controls.items[0];
+  cc.cannotDelete = true;  // user cannot delete the CC
+  cc.cannotEdit   = true;  // user cannot edit the CC's content
+  await context.sync();
+});
+```
+
+## Temporary Content Control
+
+```javascript
+await Word.run(async (context) => {
+  const selection = context.document.getSelection();
+  const cc = selection.insertContentControl();
+  cc.temporary = true; // CC is removed when user edits inside it
+  await context.sync();
+});
+```
+
+## Clear a Content Control's Content
+
+```javascript
+await Word.run(async (context) => {
+  const controls = context.document.contentControls.getByTag("field_1");
+  controls.load("items");
+  await context.sync();
+
+  controls.items[0].clear();
+  await context.sync();
+});
+```
+
+## Delete a Content Control
+
+```javascript
+await Word.run(async (context) => {
+  const controls = context.document.contentControls.getByTag("field_1");
+  controls.load("items");
+  await context.sync();
+
+  // keepContent: true preserves the inner text; false removes it too
+  controls.items[0].delete(true);
+  await context.sync();
+});
+```
+
 ## Common Pitfalls
 
 - Content controls wrap existing content — select the content first, then wrap
 - Use `.getByTag()` or `.getByTitle()` for efficient lookups
 - `appearance` controls visual style: `tags` shows tag markers, `boundingBox` shows a box, `hidden` shows nothing
+- `cannotEdit = true` also blocks API writes to that control's content — set it only after populating
+- `getCheckedState()` returns a proxy — load its `value` before reading it
+- `temporary = true` means the CC auto-removes itself on first edit; useful for placeholder behaviour

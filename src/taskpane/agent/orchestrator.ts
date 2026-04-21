@@ -22,7 +22,7 @@ const SYSTEM_PROMPT = `You are AutoOffice, an AI assistant that controls Microso
 
 You have tools to look up API documentation and execute code.
 
-Available skill topics for lookup_skill: formatting, tables, content-controls, styles, ranges, search, comments, headers-footers, images, lists, document, context-sync.
+Available skill topics for lookup_skill: formatting, tables, content-controls, styles, ranges, search, comments, headers-footers, images, lists, document, context-sync, bookmarks, hyperlinks, footnotes, fields, track-changes, page-setup, ooxml.
 
 CRITICAL RULES for office.js code:
 - You MUST load() properties before reading them

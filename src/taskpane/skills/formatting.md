@@ -1,7 +1,7 @@
 # Formatting — Font, Color, Paragraph
 
 ## Key Types
-- `Word.Font` — bold, italic, color, size, name, underline, highlightColor
+- `Word.Font` — bold, italic, color, size, name, underline, highlightColor, subscript, superscript, strikeThrough, doubleStrikeThrough, hidden
 - `Word.ParagraphFormat` — alignment, lineSpacing, spaceAfter, spaceBefore, firstLineIndent
 
 ## Font Formatting
@@ -119,6 +119,121 @@ await Word.run(async (context) => {
 // If you set size=14 but get back 11, a paragraph style is overriding your font settings.
 ```
 
+## Paragraph Flow Control (outlineLevel, keepTogether, pageBreakBefore)
+
+```javascript
+await Word.run(async (context) => {
+  const paragraphs = context.document.body.paragraphs;
+  paragraphs.load("items");
+  await context.sync();
+
+  const para = paragraphs.items[0];
+
+  // Force a page break before this paragraph
+  para.pageBreakBefore = true;
+
+  // Keep all lines of this paragraph on the same page
+  para.keepTogether = true;
+
+  // Keep this paragraph on the same page as the next one
+  para.keepWithNext = true;
+
+  // Prevent orphan/widow lines
+  para.widowControl = true;
+
+  await context.sync();
+});
+```
+
+## Outline Level (for TOC and Navigation)
+
+```javascript
+await Word.run(async (context) => {
+  const paragraphs = context.document.body.paragraphs;
+  paragraphs.load("items");
+  await context.sync();
+
+  for (const para of paragraphs.items) {
+    para.load("style");
+  }
+  await context.sync();
+
+  // Assign outline level directly (1 = top level, 9 = deepest, 10 = body text)
+  paragraphs.items[0].outlineLevel = 1;
+  await context.sync();
+});
+```
+
+## Paragraph Indentation
+
+```javascript
+await Word.run(async (context) => {
+  const para = context.document.body.paragraphs.getFirst();
+
+  para.leftIndent  = 36; // 0.5 inch in points
+  para.rightIndent = 36;
+  para.firstLineIndent = 18; // hanging indent when negative
+
+  await context.sync();
+});
+```
+
+## Delete a Paragraph
+
+```javascript
+await Word.run(async (context) => {
+  const paragraphs = context.document.body.paragraphs;
+  paragraphs.load("items");
+  await context.sync();
+
+  paragraphs.items[0].delete();
+  await context.sync();
+});
+```
+
+## Navigate Paragraphs (getNext)
+
+```javascript
+await Word.run(async (context) => {
+  const para = context.document.body.paragraphs.getFirst();
+  const next = para.getNextOrNullObject();
+  next.load("isNullObject,text");
+  await context.sync();
+
+  if (!next.isNullObject) {
+    console.log("Next paragraph:", next.text);
+  }
+});
+```
+
+## Subscript, Superscript, Strikethrough
+
+```javascript
+await Word.run(async (context) => {
+  const selection = context.document.getSelection();
+
+  selection.font.subscript = true;       // e.g. H₂O
+  // or
+  selection.font.superscript = true;     // e.g. E=mc²
+  // or
+  selection.font.strikeThrough = true;   // single strikethrough
+  // or
+  selection.font.doubleStrikeThrough = true;
+
+  await context.sync();
+});
+```
+
+## Hidden Text
+
+```javascript
+await Word.run(async (context) => {
+  const selection = context.document.getSelection();
+  selection.font.hidden = true;  // hides text without deleting it
+  await context.sync();
+});
+```
+
 ## Common Pitfalls
 
 - Font color accepts hex strings (`"#FF0000"`) or named colors (`"red"`)
@@ -126,3 +241,4 @@ await Word.run(async (context) => {
 - Underline uses `Word.UnderlineType` enum: single, double, dotted, etc.
 - Alignment uses `Word.Alignment` enum: left, centered, right, justified
 - `font.bold = true` may not appear visually if the paragraph's style overrides it — use `styleBuiltIn = Word.BuiltInStyleName.strong` instead
+- `subscript` and `superscript` are mutually exclusive — setting one resets the other

@@ -65,8 +65,59 @@ await Word.run(async (context) => {
 });
 ```
 
+## Read Image Data as Base64
+
+```javascript
+await Word.run(async (context) => {
+  const pictures = context.document.body.inlinePictures;
+  pictures.load("items");
+  await context.sync();
+
+  const pic = pictures.items[0];
+  const base64 = pic.getBase64ImageSrc();
+  base64.load();
+  await context.sync();
+
+  // Returns the raw base64 string (without the data:image prefix)
+  console.log("Base64 length:", base64.value.length);
+  return base64.value;
+});
+```
+
+## Get Image Format
+
+```javascript
+await Word.run(async (context) => {
+  const pictures = context.document.body.inlinePictures;
+  pictures.load("items");
+  await context.sync();
+
+  for (const pic of pictures.items) {
+    pic.load("imageFormat");
+  }
+  await context.sync();
+
+  // imageFormat: "jpeg" | "png" | "gif" | "bmp" | "svg" | "undefined"
+  return pictures.items.map(p => p.imageFormat);
+});
+```
+
+## Delete an Image
+
+```javascript
+await Word.run(async (context) => {
+  const pictures = context.document.body.inlinePictures;
+  pictures.load("items");
+  await context.sync();
+
+  pictures.items[0].delete();
+  await context.sync();
+});
+```
+
 ## Common Pitfalls
 
 - Base64 string must NOT include the `data:image/png;base64,` prefix — just the raw base64
 - Width and height are in points (1 point = 1/72 inch)
 - `insertInlinePictureFromBase64` is available on Body, Paragraph, Range, etc.
+- `getBase64ImageSrc()` returns a proxy — load its `value` before reading
