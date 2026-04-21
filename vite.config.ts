@@ -30,6 +30,20 @@ export default defineConfig({
     headers: {
       'Access-Control-Allow-Origin': '*',
     },
+    proxy: {
+      '/api/anthropic': {
+        target: 'https://api.anthropic.com',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api\/anthropic/, ''),
+        secure: true,
+      },
+      '/api/openai': {
+        target: 'https://api.openai.com',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/api\/openai/, ''),
+        secure: true,
+      },
+    },
   },
   build: {
     outDir: 'dist',

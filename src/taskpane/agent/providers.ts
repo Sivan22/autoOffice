@@ -19,12 +19,14 @@ export function createModel(settings: AppSettings): LanguageModelV1 {
     case 'anthropic': {
       const anthropic = createAnthropic({
         apiKey: provider.apiKey,
+        baseURL: `${window.location.origin}/api/anthropic/v1`,
       });
       return anthropic(settings.selectedModel);
     }
     case 'openai': {
       const openai = createOpenAI({
         apiKey: provider.apiKey,
+        baseURL: `${window.location.origin}/api/openai/v1`,
       });
       return openai(settings.selectedModel);
     }
