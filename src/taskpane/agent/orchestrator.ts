@@ -1,4 +1,4 @@
-import { streamText, type CoreMessage, type ToolCallPart, type ToolResultPart } from 'ai';
+import { streamText, type CoreMessage } from 'ai';
 import { createModel } from './providers.ts';
 import { lookupSkillTool, executeCodeTool, readDocumentStateTool } from './tools.ts';
 import { lookupSkill } from '../skills/index.ts';
@@ -110,13 +110,11 @@ export async function runAgent(
       return messages;
     }
 
-    const response = await result;
+    const steps = await result.steps;
 
     // Check for tool calls that we need to handle manually
-    const toolCalls: ToolCallPart[] = [];
-    const toolResults: ToolResultPart[] = [];
 
-    for (const step of (response.steps ?? [])) {
+    for (const step of (steps ?? [])) {
       for (const tc of step.toolCalls) {
         if (tc.toolName === 'execute_code') {
           const code = (tc.args as { code: string }).code;
@@ -229,7 +227,7 @@ export async function runAgent(
     }
 
     // If no execute_code tool calls were made (just text response), we're done
-    const hasExecuteCall = (response.steps ?? []).some(s =>
+    const hasExecuteCall = (steps ?? []).some(s =>
       s.toolCalls.some(tc => tc.toolName === 'execute_code')
     );
     if (!hasExecuteCall) {
