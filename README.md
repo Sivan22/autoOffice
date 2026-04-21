@@ -60,13 +60,21 @@ npm run certs
 
 This installs a self-signed localhost certificate so Word will trust the add-in URL.
 
-### Run + sideload (recommended)
+### Run + sideload (with debugger)
 
 ```bash
 npm run start
 ```
 
-This starts the dev server **and** automatically sideloads the add-in into Word. The server runs at **https://localhost:3721**.
+Starts the dev server and sideloads the add-in into Word with the debugger attached. The server runs at **https://localhost:3721**.
+
+### Run + sideload (no debugger — recommended for regular dev)
+
+```bash
+npm run sideload
+```
+
+Same as `start` but without attaching the debugger. Faster startup, targets desktop Word directly. Use this for day-to-day testing when you don't need breakpoints.
 
 ### Run dev server only
 
@@ -74,15 +82,13 @@ This starts the dev server **and** automatically sideloads the add-in into Word.
 npm run dev
 ```
 
+Starts only the Vite dev server — no sideloading. Useful if you're working on the UI and sideloading separately.
+
 ### Sideload manually
 
-If Word is already open and the dev server is running:
+If the dev server is already running:
 
-```bash
-npm run sideload
-```
-
-Or manually: **Insert → Add-ins → Upload My Add-in** → pick `manifest.xml`.
+**Insert → Add-ins → Upload My Add-in** → pick `manifest.xml`.
 
 ### Stop
 
@@ -137,7 +143,8 @@ src/taskpane/
 |------|-------------|
 | `lookup_skill(name)` | Fetches `office.js` API docs for a domain (formatting, tables, ranges, etc.) |
 | `execute_code(code)` | Submits generated code to the sandboxed iframe for execution |
-| `read_document_state()` | Returns selected text, headings outline, and document length |
+
+To read document state the agent writes `execute_code` that loads and returns the needed properties directly — no separate tool required.
 
 MCP server tools are surfaced alongside these automatically.
 
@@ -171,3 +178,14 @@ Output goes to `dist/`. Deploy the `dist/` folder to any HTTPS host and update t
 - **Browser-only MCP:** The add-in runs entirely client-side. Only HTTP/SSE MCP transports work — no stdio. Local MCP servers need to expose an HTTP endpoint.
 - **CORS:** Direct browser-to-API calls work with Anthropic and OpenAI. If you hit CORS issues with a provider, you'll need a lightweight proxy.
 - **iframe context:** The sandbox iframe loads its own `office.js` instance. This follows the same pattern as Microsoft's Script Lab.
+
+## Roadmap
+
+### Chat History
+Conversation history currently lives in memory only and is lost when the task pane closes or the add-in reloads.
+
+Planned work:
+- **Persist conversation** — serialize `ModelMessage[]` to `Office.context.roamingSettings` (or `localStorage` in dev) on each turn and restore on init
+- **Named conversations** — let users save, rename, and switch between multiple conversation threads
+- **History panel** — a sidebar view that lists past conversations and lets users reload them into the chat pane
+- **Export** — copy conversation (including generated code and results) as markdown or plain text

@@ -1,7 +1,6 @@
-import { streamText, type CoreMessage } from 'ai';
+import { streamText, tool, jsonSchema, stepCountIs, type ModelMessage } from 'ai';
 import { createModel } from './providers.ts';
-import { lookupSkillTool, executeCodeTool, readDocumentStateTool } from './tools.ts';
-import { lookupSkill } from '../skills/index.ts';
+import { lookupSkillTool } from './tools.ts';
 import type { AppSettings } from '../store/settings.ts';
 import type { Sandbox } from '../executor/sandbox.ts';
 import { getMcpTools } from '../mcp/client.ts';
@@ -11,20 +10,17 @@ export interface ChatMessage {
   content: string;
   codeBlock?: {
     code: string;
-    status: 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'error';
+    status: 'pending' | 'rejected' | 'running' | 'success' | 'error';
     error?: string;
-    attempt?: number;
   };
   toolActivity?: {
     toolName: string;
-    status: 'calling' | 'done';
-    result?: string;
   };
 }
 
 const SYSTEM_PROMPT = `You are AutoOffice, an AI assistant that controls Microsoft Word by writing and executing office.js code.
 
-You have tools to look up API documentation, execute code, and read the current document state.
+You have tools to look up API documentation and execute code.
 
 Available skill topics for lookup_skill: formatting, tables, content-controls, styles, ranges, search, comments, headers-footers, images, lists, document, context-sync.
 
@@ -36,8 +32,8 @@ CRITICAL RULES for office.js code:
 - Code runs in a sandboxed iframe with access to the Word object model
 
 When the user asks you to do something with the document:
-1. If unsure about the API, call lookup_skill first to get the right patterns
-2. Optionally call read_document_state to understand the current context
+1. ALWAYS call lookup_skill before writing code — it provides the correct API patterns, types, and examples for the relevant topic
+2. To read document state, write execute_code that loads and returns the needed properties
 3. Generate the code and call execute_code
 4. If execution fails, analyze the error and try again (up to 3 attempts)
 
@@ -45,238 +41,110 @@ Your code can be either a full Word.run() block or just the inner body — the e
 
 export interface OrchestratorCallbacks {
   onMessage: (message: ChatMessage) => void;
-  onUpdateLastMessage: (update: Partial<ChatMessage>) => void;
   onStreamToken: (token: string) => void;
   requestApproval: (code: string) => Promise<boolean>;
 }
 
 export async function runAgent(
   userMessage: string,
-  conversationHistory: CoreMessage[],
+  conversationHistory: ModelMessage[],
   settings: AppSettings,
   sandbox: Sandbox,
   callbacks: OrchestratorCallbacks,
-): Promise<CoreMessage[]> {
+): Promise<ModelMessage[]> {
   const model = createModel(settings);
   const mcpTools = await getMcpTools(settings.mcpServers);
 
-  const messages: CoreMessage[] = [
+  const messages: ModelMessage[] = [
     ...conversationHistory,
     { role: 'user', content: userMessage },
   ];
 
   let retryCount = 0;
+  callbacks.onMessage({ role: 'assistant', content: '' });
 
-  // Agent loop — stream LLM response and handle tool calls
-  while (true) {
-    let assistantText = '';
-    callbacks.onMessage({ role: 'assistant', content: '' });
-
-    const result = streamText({
-      model,
-      system: SYSTEM_PROMPT,
-      messages,
-      tools: {
-        lookup_skill: lookupSkillTool,
-        execute_code: executeCodeTool,
-        read_document_state: readDocumentStateTool,
-        ...mcpTools,
+  const executeCode = tool({
+    description:
+      'Submit generated office.js code for execution in the sandbox. ' +
+      'The code can be either a complete Word.run(async (context) => { ... }) block, ' +
+      'or just the inner body (the executor wraps it automatically). ' +
+      'Always use proper load() and context.sync() patterns. ' +
+      'If you are unsure about the correct API, call lookup_skill first to get the right patterns and examples.',
+    inputSchema: jsonSchema<{ code: string }>({
+      type: 'object',
+      properties: {
+        code: { type: 'string', description: 'The office.js code to execute' },
       },
-      maxSteps: 10,
-      onStepFinish: async ({ toolCalls, toolResults }) => {
-        if (!toolCalls || toolCalls.length === 0) return;
+      required: ['code'],
+      additionalProperties: false,
+    }),
+    execute: async ({ code }) => {
+      const approved = settings.autoApprove || await callbacks.requestApproval(code);
+      if (!approved) return 'User rejected the code. Ask what they would like changed.';
 
-        for (const tc of toolCalls) {
-          if (tc.toolName === 'lookup_skill') {
-            callbacks.onMessage({
-              role: 'assistant',
-              content: '',
-              toolActivity: { toolName: `lookup_skill(${(tc.input as { name: string }).name})`, status: 'done' },
-            });
-          }
-        }
-      },
-    });
-
-    // Stream text tokens
-    try {
-      for await (const chunk of result.textStream) {
-        assistantText += chunk;
-        callbacks.onStreamToken(chunk);
+      const result = await sandbox.execute(code, settings.executionTimeout);
+      if (result.success) {
+        return `Code executed successfully. Output: ${JSON.stringify(result.output)}`;
       }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      callbacks.onMessage({ role: 'assistant', content: `Error: ${msg}` });
-      return messages;
-    }
 
-    const steps = await result.steps;
+      retryCount++;
+      if (retryCount >= settings.maxRetries) {
+        return `Failed after ${retryCount} attempts. Last error: ${result.error}`;
+      }
+      return `Execution failed: ${result.error}\n${result.stack || ''}\nPlease fix and try again.`;
+    },
+  });
 
-    // Check for tool calls that we need to handle manually
-
-    for (const step of (steps ?? [])) {
-      for (const tc of step.toolCalls) {
-        const assistantContent: CoreMessage['content'] = [
-          ...(step.text ? [{ type: 'text' as const, text: step.text }] : []),
-          { type: 'tool-call' as const, toolCallId: tc.toolCallId, toolName: tc.toolName, input: tc.input as Record<string, unknown> },
-        ];
+  const result = streamText({
+    model,
+    system: SYSTEM_PROMPT,
+    messages,
+    tools: {
+      lookup_skill: lookupSkillTool,
+      execute_code: executeCode,
+      ...mcpTools,
+    },
+    stopWhen: stepCountIs(settings.maxRetries + 5),
+    onStepFinish: ({ toolCalls, toolResults }) => {
+      for (let i = 0; i < toolCalls.length; i++) {
+        const tc = toolCalls[i];
+        const output = String((toolResults[i] as { output?: unknown })?.output ?? '');
 
         if (tc.toolName === 'execute_code') {
           const code = (tc.input as { code: string }).code;
-
+          const status = output.startsWith('User rejected') ? 'rejected'
+            : output.startsWith('Code executed successfully') ? 'success'
+            : 'error';
           callbacks.onMessage({
             role: 'assistant',
             content: '',
-            codeBlock: { code, status: 'pending', attempt: retryCount + 1 },
+            codeBlock: { code, status, error: status === 'error' ? output : undefined },
           });
-
-          // Request approval (or auto-approve)
-          const approved = settings.autoApprove || await callbacks.requestApproval(code);
-
-          if (!approved) {
-            callbacks.onUpdateLastMessage({
-              codeBlock: { code, status: 'rejected', attempt: retryCount + 1 },
-            });
-
-            // Tell the LLM the user rejected the code
-            messages.push(
-              { role: 'assistant', content: assistantContent },
-              {
-                role: 'tool' as CoreMessage['role'],
-                content: [{ type: 'tool-result', toolCallId: tc.toolCallId, toolName: tc.toolName, output: { type: 'text' as const, value: 'User rejected the code. Ask what they would like changed.' } }],
-              } as CoreMessage,
-            );
-            break;
-          }
-
-          callbacks.onUpdateLastMessage({
-            codeBlock: { code, status: 'running', attempt: retryCount + 1 },
-          });
-
-          // Execute in sandbox
-          const execResult = await sandbox.execute(code, settings.executionTimeout);
-
-          if (execResult.success) {
-            callbacks.onUpdateLastMessage({
-              codeBlock: { code, status: 'success', attempt: retryCount + 1 },
-            });
-
-            messages.push(
-              { role: 'assistant', content: assistantContent },
-              {
-                role: 'tool' as CoreMessage['role'],
-                content: [{ type: 'tool-result', toolCallId: tc.toolCallId, toolName: tc.toolName, output: { type: 'text' as const, value: `Code executed successfully. Output: ${JSON.stringify(execResult.output)}` } }],
-              } as CoreMessage,
-            );
-            retryCount = 0;
-            return messages;
-          }
-
-          // Execution failed
-          retryCount++;
-          callbacks.onUpdateLastMessage({
-            codeBlock: { code, status: 'error', error: execResult.error, attempt: retryCount },
-          });
-
-          if (retryCount >= settings.maxRetries) {
-            callbacks.onMessage({
-              role: 'assistant',
-              content: `Failed after ${retryCount} attempts. Last error: ${execResult.error}`,
-            });
-            retryCount = 0;
-            return messages;
-          }
-
-          // Feed error back to LLM for self-healing
-          callbacks.onMessage({
-            role: 'assistant',
-            content: `Attempt ${retryCount} failed: ${execResult.error}. Retrying...`,
-          });
-
-          messages.push(
-            { role: 'assistant', content: assistantContent },
-            {
-              role: 'tool' as CoreMessage['role'],
-              content: [{
-                type: 'tool-result',
-                toolCallId: tc.toolCallId,
-                toolName: tc.toolName,
-                output: { type: 'text' as const, value: `Execution failed: ${execResult.error}\n${execResult.stack || ''}\nPlease fix and try again.` },
-              }],
-            } as CoreMessage,
-          );
-          continue;
-        }
-
-        if (tc.toolName === 'read_document_state') {
+        } else if (tc.toolName === 'lookup_skill') {
           callbacks.onMessage({
             role: 'assistant',
             content: '',
-            toolActivity: { toolName: 'read_document_state', status: 'calling' },
+            toolActivity: { toolName: (tc.input as { name: string }).name },
           });
-
-          const state = await readDocumentState();
-
-          callbacks.onUpdateLastMessage({
-            toolActivity: { toolName: 'read_document_state', status: 'done', result: state },
-          });
-
-          messages.push(
-            { role: 'assistant', content: assistantContent },
-            {
-              role: 'tool' as CoreMessage['role'],
-              content: [{ type: 'tool-result', toolCallId: tc.toolCallId, toolName: tc.toolName, output: { type: 'text' as const, value: state } }],
-            } as CoreMessage,
-          );
         }
       }
-    }
 
-    // If no execute_code tool calls were made (just text response), we're done
-    const hasExecuteCall = (steps ?? []).some(s =>
-      s.toolCalls.some(tc => tc.toolName === 'execute_code')
-    );
-    if (!hasExecuteCall) {
-      messages.push({ role: 'assistant', content: assistantText });
-      return messages;
-    }
-  }
-}
+      if (toolCalls.length > 0) {
+        callbacks.onMessage({ role: 'assistant', content: '' });
+      }
+    },
+  });
 
-async function readDocumentState(): Promise<string> {
   try {
-    return await Word.run(async (context) => {
-      const body = context.document.body;
-      const selection = context.document.getSelection();
-
-      body.load('text');
-      selection.load('text');
-
-      const paragraphs = body.paragraphs;
-      paragraphs.load('items');
-
-      await context.sync();
-
-      // Get headings outline
-      const headings: string[] = [];
-      for (const para of paragraphs.items) {
-        para.load('style,text');
-      }
-      await context.sync();
-
-      for (const para of paragraphs.items) {
-        if (para.style && para.style.startsWith('Heading')) {
-          headings.push(`${para.style}: ${para.text}`);
-        }
-      }
-
-      return JSON.stringify({
-        selectedText: selection.text || '(no selection)',
-        headings: headings.length > 0 ? headings : ['(no headings found)'],
-        bodyLength: body.text.length,
-      });
-    });
-  } catch (e) {
-    return JSON.stringify({ error: 'Could not read document state. Are you in an Office environment?' });
+    for await (const chunk of result.textStream) {
+      callbacks.onStreamToken(chunk);
+    }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    callbacks.onMessage({ role: 'assistant', content: `Error: ${msg}` });
+    return messages;
   }
+
+  const response = await result.response;
+  return [...messages, ...response.messages];
 }

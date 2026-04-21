@@ -1,10 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { makeStyles, tokens, Button, Badge, Text } from '@fluentui/react-components';
 import {
-  CheckmarkCircle24Regular,
   DismissCircle24Regular,
   Play24Regular,
-  ArrowClockwise24Regular,
 } from '@fluentui/react-icons';
 
 const useStyles = makeStyles({
@@ -54,44 +52,41 @@ const useStyles = makeStyles({
   },
 });
 
-interface CodeBlockProps {
-  code: string;
-  status: 'pending' | 'approved' | 'rejected' | 'running' | 'success' | 'error';
-  error?: string;
-  attempt?: number;
-  onApprove: () => void;
-  onReject: () => void;
-}
+type CodeStatus = 'pending' | 'rejected' | 'running' | 'success' | 'error';
 
-const STATUS_LABELS: Record<string, string> = {
+const STATUS_LABELS: Record<CodeStatus, string> = {
   pending: 'Awaiting Approval',
-  approved: 'Approved',
   rejected: 'Rejected',
   running: 'Running...',
   success: 'Success',
   error: 'Error',
 };
 
-const STATUS_COLORS: Record<string, 'informative' | 'success' | 'danger' | 'warning' | 'important'> = {
+const STATUS_COLORS: Record<CodeStatus, 'informative' | 'success' | 'danger' | 'warning'> = {
   pending: 'informative',
-  approved: 'informative',
   rejected: 'warning',
   running: 'informative',
   success: 'success',
   error: 'danger',
 };
 
-export function CodeBlock({ code, status, error, attempt, onApprove, onReject }: CodeBlockProps) {
+interface CodeBlockProps {
+  code: string;
+  status: CodeStatus;
+  error?: string;
+  onApprove?: () => void;
+  onReject?: () => void;
+}
+
+export function CodeBlock({ code, status, error, onApprove, onReject }: CodeBlockProps) {
   const styles = useStyles();
 
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <Text size={200} weight="semibold">
-          office.js{attempt && attempt > 1 ? ` (attempt ${attempt})` : ''}
-        </Text>
-        <Badge appearance="filled" color={STATUS_COLORS[status] || 'informative'}>
-          {STATUS_LABELS[status] || status}
+        <Text size={200} weight="semibold">office.js</Text>
+        <Badge appearance="filled" color={STATUS_COLORS[status]}>
+          {STATUS_LABELS[status]}
         </Badge>
       </div>
 
@@ -99,22 +94,12 @@ export function CodeBlock({ code, status, error, attempt, onApprove, onReject }:
         <pre className={styles.code}>{code}</pre>
       </div>
 
-      {status === 'pending' && (
+      {status === 'pending' && onApprove && onReject && (
         <div className={styles.actions}>
-          <Button
-            appearance="primary"
-            icon={<Play24Regular />}
-            size="small"
-            onClick={onApprove}
-          >
+          <Button appearance="primary" icon={<Play24Regular />} size="small" onClick={onApprove}>
             Approve & Run
           </Button>
-          <Button
-            appearance="subtle"
-            icon={<DismissCircle24Regular />}
-            size="small"
-            onClick={onReject}
-          >
+          <Button appearance="subtle" icon={<DismissCircle24Regular />} size="small" onClick={onReject}>
             Reject
           </Button>
         </div>

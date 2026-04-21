@@ -1,5 +1,5 @@
 import React from 'react';
-import { makeStyles, tokens, Spinner, Text } from '@fluentui/react-components';
+import { makeStyles, tokens, Text } from '@fluentui/react-components';
 import { Checkmark12Regular } from '@fluentui/react-icons';
 
 const useStyles = makeStyles({
@@ -13,29 +13,12 @@ const useStyles = makeStyles({
   },
 });
 
-interface ToolActivityProps {
-  activity: {
-    toolName: string;
-    status: 'calling' | 'done';
-    result?: string;
-  };
-}
-
-export function ToolActivity({ activity }: ToolActivityProps) {
+export function ToolActivity({ toolName }: { toolName: string }) {
   const styles = useStyles();
-
   return (
     <div className={styles.container}>
-      {activity.status === 'calling' ? (
-        <Spinner size="tiny" />
-      ) : (
-        <Checkmark12Regular />
-      )}
-      <Text size={200} italic>
-        {activity.status === 'calling'
-          ? `Calling ${activity.toolName}...`
-          : `Called ${activity.toolName}`}
-      </Text>
+      <Checkmark12Regular />
+      <Text size={200} italic>looked up: {toolName}</Text>
     </div>
   );
 }

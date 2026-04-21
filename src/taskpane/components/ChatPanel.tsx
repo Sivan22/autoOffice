@@ -13,6 +13,7 @@ import {
 } from '@fluentui/react-icons';
 import type { ChatMessage } from '../agent/orchestrator.ts';
 import { MessageBubble } from './MessageBubble.tsx';
+import { CodeBlock } from './CodeBlock.tsx';
 
 const useStyles = makeStyles({
   container: {
@@ -52,6 +53,11 @@ const useStyles = makeStyles({
     padding: '24px',
     textAlign: 'center',
   },
+  approvalArea: {
+    padding: '8px 12px',
+    borderTop: `1px solid ${tokens.colorNeutralStroke1}`,
+    flexShrink: 0,
+  },
   inputArea: {
     display: 'flex',
     gap: '8px',
@@ -67,19 +73,20 @@ const useStyles = makeStyles({
 interface ChatPanelProps {
   messages: ChatMessage[];
   isLoading: boolean;
+  pendingApproval: string | null;
   onSend: (text: string) => void;
   onApprove: (approved: boolean) => void;
   onOpenSettings: () => void;
 }
 
-export function ChatPanel({ messages, isLoading, onSend, onApprove, onOpenSettings }: ChatPanelProps) {
+export function ChatPanel({ messages, isLoading, pendingApproval, onSend, onApprove, onOpenSettings }: ChatPanelProps) {
   const styles = useStyles();
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, pendingApproval]);
 
   const handleSubmit = () => {
     if (!inputText.trim() || isLoading) return;
@@ -108,7 +115,7 @@ export function ChatPanel({ messages, isLoading, onSend, onApprove, onOpenSettin
       </div>
 
       <div className={styles.messageList}>
-        {messages.length === 0 ? (
+        {messages.length === 0 && !pendingApproval ? (
           <div className={styles.empty}>
             <Text size={400} weight="semibold">Welcome to AutoOffice</Text>
             <Text size={200}>
@@ -120,15 +127,22 @@ export function ChatPanel({ messages, isLoading, onSend, onApprove, onOpenSettin
           </div>
         ) : (
           messages.map((msg, i) => (
-            <MessageBubble
-              key={i}
-              message={msg}
-              onApprove={onApprove}
-            />
+            <MessageBubble key={i} message={msg} />
           ))
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {pendingApproval && (
+        <div className={styles.approvalArea}>
+          <CodeBlock
+            code={pendingApproval}
+            status="pending"
+            onApprove={() => onApprove(true)}
+            onReject={() => onApprove(false)}
+          />
+        </div>
+      )}
 
       <div className={styles.inputArea}>
         <Input

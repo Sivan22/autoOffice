@@ -36,16 +36,11 @@ const useStyles = makeStyles({
   },
 });
 
-interface MessageBubbleProps {
-  message: ChatMessage;
-  onApprove?: (approved: boolean) => void;
-}
-
-export function MessageBubble({ message, onApprove }: MessageBubbleProps) {
+export function MessageBubble({ message }: { message: ChatMessage }) {
   const styles = useStyles();
 
   if (message.toolActivity) {
-    return <ToolActivity activity={message.toolActivity} />;
+    return <ToolActivity toolName={message.toolActivity.toolName} />;
   }
 
   if (message.codeBlock) {
@@ -55,9 +50,6 @@ export function MessageBubble({ message, onApprove }: MessageBubbleProps) {
           code={message.codeBlock.code}
           status={message.codeBlock.status}
           error={message.codeBlock.error}
-          attempt={message.codeBlock.attempt}
-          onApprove={() => onApprove?.(true)}
-          onReject={() => onApprove?.(false)}
         />
       </div>
     );

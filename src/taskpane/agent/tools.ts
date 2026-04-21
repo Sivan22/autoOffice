@@ -13,32 +13,3 @@ export const lookupSkillTool = tool({
   }),
   execute: async ({ name }) => lookupSkill(name as typeof SKILL_NAMES[number]),
 });
-
-export const executeCodeTool = tool({
-  description:
-    'Submit generated office.js code for execution in the sandbox. ' +
-    'The code can be either a complete Word.run(async (context) => { ... }) block, ' +
-    'or just the inner body (the executor wraps it automatically). ' +
-    'Always use proper load() and context.sync() patterns.',
-  inputSchema: jsonSchema<{ code: string }>({
-    type: 'object',
-    properties: {
-      code: { type: 'string', description: 'The office.js code to execute' },
-    },
-    required: ['code'],
-    additionalProperties: false,
-  }),
-  // execute is handled by the orchestrator (needs postMessage bridge)
-});
-
-export const readDocumentStateTool = tool({
-  description:
-    'Get the current document context: selected text, headings outline, and cursor position. ' +
-    'Call this to understand what the user is working with before generating code.',
-  inputSchema: jsonSchema<Record<string, never>>({
-    type: 'object',
-    properties: {},
-    additionalProperties: false,
-  }),
-  // execute is handled by the orchestrator (needs Office.js context)
-});

@@ -1,9 +1,9 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
-import type { LanguageModelV1 } from 'ai';
+import type { LanguageModel } from 'ai';
 import type { AppSettings } from '../store/settings.ts';
 
-export function createModel(settings: AppSettings): LanguageModelV1 {
+export function createModel(settings: AppSettings): LanguageModel {
   const provider = settings.providers.find(p => p.id === settings.selectedProviderId);
   if (!provider) {
     throw new Error('No AI provider selected. Please configure a provider in settings.');
@@ -26,7 +26,6 @@ export function createModel(settings: AppSettings): LanguageModelV1 {
     case 'openai': {
       const openai = createOpenAI({
         apiKey: provider.apiKey,
-        dangerouslyAllowBrowser: true,
       });
       return openai(settings.selectedModel);
     }

@@ -4,12 +4,26 @@
 - `Word.Style` — nameLocal, type, font, paragraphFormat
 - `Word.Paragraph.style` — string property matching the style name
 
-## Apply a Built-in Style
+## Apply a Built-in Style (locale-independent — prefer this)
 
 ```javascript
 await Word.run(async (context) => {
   const para = context.document.body.paragraphs.getFirst();
-  para.style = "Heading 1";
+  // styleBuiltIn uses the enum — works regardless of document language
+  para.styleBuiltIn = Word.BuiltInStyleName.heading1;
+  await context.sync();
+});
+```
+
+Common `Word.BuiltInStyleName` values: `heading1`–`heading9`, `normal`, `strong`, `emphasis`,
+`title`, `subtitle`, `quote`, `intensiveQuote`, `listParagraph`, `noSpacing`.
+
+## Apply a Built-in Style (by name string)
+
+```javascript
+await Word.run(async (context) => {
+  const para = context.document.body.paragraphs.getFirst();
+  para.style = "Heading 1";  // locale-dependent string — may fail in non-English documents
   await context.sync();
 });
 ```
