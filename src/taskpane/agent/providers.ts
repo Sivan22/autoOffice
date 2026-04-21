@@ -19,14 +19,14 @@ export function createModel(settings: AppSettings): LanguageModelV1 {
     case 'anthropic': {
       const anthropic = createAnthropic({
         apiKey: provider.apiKey,
-        baseURL: `${window.location.origin}/api/anthropic/v1`,
+        headers: { 'anthropic-dangerous-direct-browser-access': 'true' },
       });
       return anthropic(settings.selectedModel);
     }
     case 'openai': {
       const openai = createOpenAI({
         apiKey: provider.apiKey,
-        baseURL: `${window.location.origin}/api/openai/v1`,
+        dangerouslyAllowBrowser: true,
       });
       return openai(settings.selectedModel);
     }
