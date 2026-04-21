@@ -26,6 +26,6 @@ export const readDocumentStateTool = tool({
   description:
     'Get the current document context: selected text, headings outline, and cursor position. ' +
     'Call this to understand what the user is working with before generating code.',
-  parameters: z.object({}),
+  parameters: z.object({ _: z.string().optional() }),
   // execute is handled by the orchestrator (needs Office.js context)
 });

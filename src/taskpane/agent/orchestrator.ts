@@ -99,9 +99,15 @@ export async function runAgent(
     });
 
     // Stream text tokens
-    for await (const chunk of result.textStream) {
-      assistantText += chunk;
-      callbacks.onStreamToken(chunk);
+    try {
+      for await (const chunk of result.textStream) {
+        assistantText += chunk;
+        callbacks.onStreamToken(chunk);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      callbacks.onMessage({ role: 'assistant', content: `Error: ${msg}` });
+      return messages;
     }
 
     const response = await result;
@@ -110,7 +116,7 @@ export async function runAgent(
     const toolCalls: ToolCallPart[] = [];
     const toolResults: ToolResultPart[] = [];
 
-    for (const step of response.steps) {
+    for (const step of (response.steps ?? [])) {
       for (const tc of step.toolCalls) {
         if (tc.toolName === 'execute_code') {
           const code = (tc.args as { code: string }).code;
@@ -223,7 +229,7 @@ export async function runAgent(
     }
 
     // If no execute_code tool calls were made (just text response), we're done
-    const hasExecuteCall = response.steps.some(s =>
+    const hasExecuteCall = (response.steps ?? []).some(s =>
       s.toolCalls.some(tc => tc.toolName === 'execute_code')
     );
     if (!hasExecuteCall) {
