@@ -1,0 +1,151 @@
+import React, { useState, useRef, useEffect } from 'react';
+import {
+  makeStyles,
+  tokens,
+  Input,
+  Button,
+  Text,
+  Tooltip,
+} from '@fluentui/react-components';
+import {
+  Send24Regular,
+  Settings24Regular,
+} from '@fluentui/react-icons';
+import type { ChatMessage } from '../agent/orchestrator.ts';
+import { MessageBubble } from './MessageBubble.tsx';
+
+const useStyles = makeStyles({
+  container: {
+    display: 'flex',
+    flexDirection: 'column',
+    height: '100%',
+    overflow: 'hidden',
+  },
+  header: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '8px 12px',
+    borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
+    flexShrink: 0,
+  },
+  title: {
+    fontWeight: 600,
+    fontSize: '16px',
+  },
+  messageList: {
+    flex: 1,
+    overflowY: 'auto',
+    padding: '8px 0',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '4px',
+  },
+  empty: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    gap: '8px',
+    color: tokens.colorNeutralForeground3,
+    padding: '24px',
+    textAlign: 'center',
+  },
+  inputArea: {
+    display: 'flex',
+    gap: '8px',
+    padding: '8px 12px',
+    borderTop: `1px solid ${tokens.colorNeutralStroke1}`,
+    flexShrink: 0,
+  },
+  input: {
+    flex: 1,
+  },
+});
+
+interface ChatPanelProps {
+  messages: ChatMessage[];
+  isLoading: boolean;
+  onSend: (text: string) => void;
+  onApprove: (approved: boolean) => void;
+  onOpenSettings: () => void;
+}
+
+export function ChatPanel({ messages, isLoading, onSend, onApprove, onOpenSettings }: ChatPanelProps) {
+  const styles = useStyles();
+  const [inputText, setInputText] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  const handleSubmit = () => {
+    if (!inputText.trim() || isLoading) return;
+    onSend(inputText);
+    setInputText('');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  return (
+    <div className={styles.container}>
+      <div className={styles.header}>
+        <Text className={styles.title}>AutoOffice</Text>
+        <Tooltip content="Settings" relationship="label">
+          <Button
+            appearance="subtle"
+            icon={<Settings24Regular />}
+            onClick={onOpenSettings}
+          />
+        </Tooltip>
+      </div>
+
+      <div className={styles.messageList}>
+        {messages.length === 0 ? (
+          <div className={styles.empty}>
+            <Text size={400} weight="semibold">Welcome to AutoOffice</Text>
+            <Text size={200}>
+              Ask me to do anything with your Word document. I'll write and run office.js code to make it happen.
+            </Text>
+            <Text size={200}>
+              Try: "Make all headings blue" or "Insert a 3-column table"
+            </Text>
+          </div>
+        ) : (
+          messages.map((msg, i) => (
+            <MessageBubble
+              key={i}
+              message={msg}
+              onApprove={onApprove}
+            />
+          ))
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+
+      <div className={styles.inputArea}>
+        <Input
+          className={styles.input}
+          placeholder="Ask me to modify the document..."
+          value={inputText}
+          onChange={(_, data) => setInputText(data.value)}
+          onKeyDown={handleKeyDown}
+          disabled={isLoading}
+        />
+        <Button
+          appearance="primary"
+          icon={<Send24Regular />}
+          onClick={handleSubmit}
+          disabled={!inputText.trim() || isLoading}
+        />
+      </div>
+    </div>
+  );
+}
