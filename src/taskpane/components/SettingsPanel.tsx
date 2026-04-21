@@ -73,7 +73,12 @@ interface SettingsPanelProps {
 }
 
 const PROVIDER_MODELS: Record<string, string[]> = {
-  anthropic: ['claude-sonnet-4-20250514', 'claude-opus-4-20250514', 'claude-haiku-4-20250506'],
+  anthropic: [
+    'claude-opus-4-7',
+    'claude-sonnet-4-6',
+    'claude-haiku-4-5-20251001',
+    'claude-opus-4-6',
+  ],
   openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o1', 'o1-mini'],
   'openai-compatible': [],
 };
