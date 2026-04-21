@@ -116,6 +116,11 @@ export async function runAgent(
 
     for (const step of (steps ?? [])) {
       for (const tc of step.toolCalls) {
+        const assistantContent: CoreMessage['content'] = [
+          ...(step.text ? [{ type: 'text' as const, text: step.text }] : []),
+          { type: 'tool-call' as const, toolCallId: tc.toolCallId, toolName: tc.toolName, input: tc.input as Record<string, unknown> },
+        ];
+
         if (tc.toolName === 'execute_code') {
           const code = (tc.input as { code: string }).code;
 
@@ -135,10 +140,10 @@ export async function runAgent(
 
             // Tell the LLM the user rejected the code
             messages.push(
-              { role: 'assistant', content: assistantText },
+              { role: 'assistant', content: assistantContent },
               {
                 role: 'tool' as CoreMessage['role'],
-                content: [{ type: 'tool-result', toolCallId: tc.toolCallId, result: 'User rejected the code. Ask what they would like changed.' }],
+                content: [{ type: 'tool-result', toolCallId: tc.toolCallId, toolName: tc.toolName, output: { type: 'text' as const, value: 'User rejected the code. Ask what they would like changed.' } }],
               } as CoreMessage,
             );
             break;
@@ -157,10 +162,10 @@ export async function runAgent(
             });
 
             messages.push(
-              { role: 'assistant', content: assistantText },
+              { role: 'assistant', content: assistantContent },
               {
                 role: 'tool' as CoreMessage['role'],
-                content: [{ type: 'tool-result', toolCallId: tc.toolCallId, result: `Code executed successfully. Output: ${JSON.stringify(execResult.output)}` }],
+                content: [{ type: 'tool-result', toolCallId: tc.toolCallId, toolName: tc.toolName, output: { type: 'text' as const, value: `Code executed successfully. Output: ${JSON.stringify(execResult.output)}` } }],
               } as CoreMessage,
             );
             retryCount = 0;
@@ -189,13 +194,14 @@ export async function runAgent(
           });
 
           messages.push(
-            { role: 'assistant', content: assistantText },
+            { role: 'assistant', content: assistantContent },
             {
               role: 'tool' as CoreMessage['role'],
               content: [{
                 type: 'tool-result',
                 toolCallId: tc.toolCallId,
-                result: `Execution failed: ${execResult.error}\n${execResult.stack || ''}\nPlease fix and try again.`,
+                toolName: tc.toolName,
+                output: { type: 'text' as const, value: `Execution failed: ${execResult.error}\n${execResult.stack || ''}\nPlease fix and try again.` },
               }],
             } as CoreMessage,
           );
@@ -216,10 +222,10 @@ export async function runAgent(
           });
 
           messages.push(
-            { role: 'assistant', content: assistantText },
+            { role: 'assistant', content: assistantContent },
             {
               role: 'tool' as CoreMessage['role'],
-              content: [{ type: 'tool-result', toolCallId: tc.toolCallId, result: state }],
+              content: [{ type: 'tool-result', toolCallId: tc.toolCallId, toolName: tc.toolName, output: { type: 'text' as const, value: state } }],
             } as CoreMessage,
           );
         }
