@@ -16,7 +16,7 @@
   </Hosts>
 
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://localhost:3000/" />
+    <SourceLocation DefaultValue="https://localhost:3721/" />
   </DefaultSettings>
 
   <Permissions>ReadWriteDocument</Permissions>
@@ -59,12 +59,12 @@
 
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16x16" DefaultValue="https://localhost:3000/assets/icon-16.png" />
-        <bt:Image id="Icon.32x32" DefaultValue="https://localhost:3000/assets/icon-32.png" />
-        <bt:Image id="Icon.80x80" DefaultValue="https://localhost:3000/assets/icon-80.png" />
+        <bt:Image id="Icon.16x16" DefaultValue="https://localhost:3721/assets/icon-16.png" />
+        <bt:Image id="Icon.32x32" DefaultValue="https://localhost:3721/assets/icon-32.png" />
+        <bt:Image id="Icon.80x80" DefaultValue="https://localhost:3721/assets/icon-80.png" />
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3000/" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:3721/" />
         <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://github.com/user/autooffice" />
       </bt:Urls>
       <bt:ShortStrings>

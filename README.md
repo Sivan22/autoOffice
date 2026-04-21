@@ -60,18 +60,35 @@ npm run certs
 
 This installs a self-signed localhost certificate so Word will trust the add-in URL.
 
-### Run
+### Run + sideload (recommended)
+
+```bash
+npm run start
+```
+
+This starts the dev server **and** automatically sideloads the add-in into Word. The server runs at **https://localhost:3721**.
+
+### Run dev server only
 
 ```bash
 npm run dev
 ```
 
-The server starts at **https://localhost:3000**.
+### Sideload manually
 
-### Sideload into Word
+If Word is already open and the dev server is running:
 
-1. In Word on the web: **Insert → Add-ins → Upload My Add-in** → pick `manifest.xml`
-2. In Word Desktop: follow the [Microsoft sideloading guide](https://learn.microsoft.com/en-us/office/dev/add-ins/testing/sideload-office-add-ins-for-testing)
+```bash
+npm run sideload
+```
+
+Or manually: **Insert → Add-ins → Upload My Add-in** → pick `manifest.xml`.
+
+### Stop
+
+```bash
+npm run stop
+```
 
 ### Configure
 
