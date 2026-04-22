@@ -179,6 +179,19 @@ Output goes to `dist/`. Deploy the `dist/` folder to any HTTPS host and update t
 - **CORS:** Direct browser-to-API calls work with Anthropic and OpenAI. If you hit CORS issues with a provider, you'll need a lightweight proxy.
 - **iframe context:** The sandbox iframe loads its own `office.js` instance. This follows the same pattern as Microsoft's Script Lab.
 
+## Comparison: Word AI Add-ins
+
+| | **AutoOffice** | **Microsoft Copilot** | **Claude for Word** | **Word GPT Plus** |
+|---|:---:|:---:|:---:|:---:|
+| **Source** | Open (MIT) | Closed | Closed | Open (MIT) |
+| **Pricing** | Free (BYO key) | M365 Copilot license | Claude paid plan | Free (BYO key) |
+| **AI providers** | Anthropic, OpenAI, any OpenAI-compatible, Ollama | Microsoft-hosted only | Claude only | OpenAI, Azure, Gemini, Ollama |
+| **MCP support** | ✅ | ✅ via Copilot Studio | ❌ | ❌ |
+| **Executes real `office.js`** | ✅ | ❌ | ❌ | ⚠️ partial |
+| **Code preview & self-healing** | ✅ | ❌ | ❌ | ❌ |
+| **Native tracked changes** | ❌ | ❌ | ✅ | ❌ |
+| **Multi-doc context** | ❌ | ✅ all M365 apps | ✅ Word + Excel + PowerPoint | ❌ |
+
 ## Roadmap
 
 ### Chat History
