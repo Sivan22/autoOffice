@@ -14,19 +14,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install NSIS
+      - name: Install Inno Setup
         shell: pwsh
-        run: choco install nsis --no-progress -y
-
-      - name: Copy manifest for installer
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force -Path installer\files | Out-Null
-          Copy-Item manifest.production.xml installer\files\manifest.xml
+        run: choco install innosetup --no-progress -y
 
       - name: Build installer
         shell: pwsh
-        run: '& "C:\Program Files (x86)\NSIS\makensis.exe" installer\autooffice.nsi'
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\setup.iss'
 
       - name: Delete existing latest release
         shell: bash
@@ -50,6 +44,6 @@ jobs:
             4. Select **AutoOffice** and click **Add**.
 
             The add-in is served from GitHub Pages — no local server needed.
-          files: installer/AutoOffice-Setup.exe
+          files: installer/output/AutoOffice-Setup.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
