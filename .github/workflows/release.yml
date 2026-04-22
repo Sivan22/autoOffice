@@ -6,8 +6,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 jobs:
   build-and-release:
@@ -15,45 +13,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Compute production URL
-        id: url
-        shell: pwsh
-        run: |
-          $owner = "${{ github.repository_owner }}"
-          $repo  = "${{ github.event.repository.name }}"
-          $base  = "/$repo/"
-          $url   = "https://$owner.github.io$base"
-          "base=$base"  >> $env:GITHUB_OUTPUT
-          "url=$url"    >> $env:GITHUB_OUTPUT
-
-      - name: Build
-        run: npm run build
-        env:
-          VITE_BASE: ${{ steps.url.outputs.base }}
-
-      - name: Deploy to GitHub Pages
-        uses: JamesIves/github-pages-deploy-action@v4
-        with:
-          folder: dist
-          branch: gh-pages
-          clean: true
-
-      - name: Update manifest URLs for production
-        shell: pwsh
-        run: |
-          $m = Get-Content manifest.xml -Raw
-          $m = $m -replace 'https://localhost:3721/', '${{ steps.url.outputs.url }}'
-          $m = $m -replace 'https://github.com/user/autooffice', 'https://github.com/${{ github.repository }}'
-          Set-Content manifest.xml $m -Encoding UTF8
 
       - name: Install NSIS
         shell: pwsh
@@ -63,7 +22,7 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path installer\files | Out-Null
-          Copy-Item manifest.xml installer\files\manifest.xml
+          Copy-Item manifest.production.xml installer\files\manifest.xml
 
       - name: Build installer
         shell: pwsh
