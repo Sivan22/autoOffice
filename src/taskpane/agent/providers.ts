@@ -1,5 +1,6 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
+import { createGoogleGenerativeAI } from '@ai-sdk/google';
 import type { LanguageModel } from 'ai';
 import type { AppSettings } from '../store/settings.ts';
 
@@ -28,6 +29,12 @@ export function createModel(settings: AppSettings): LanguageModel {
         apiKey: provider.apiKey,
       });
       return openai(settings.selectedModel);
+    }
+    case 'google': {
+      const google = createGoogleGenerativeAI({
+        apiKey: provider.apiKey,
+      });
+      return google(settings.selectedModel);
     }
     case 'openai-compatible': {
       const openai = createOpenAI({

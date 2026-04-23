@@ -28,6 +28,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   providers: [
     { id: 'anthropic', name: 'Anthropic', apiKey: '' },
     { id: 'openai', name: 'OpenAI', apiKey: '' },
+    { id: 'google', name: 'Google', apiKey: '' },
     { id: 'openai-compatible', name: 'OpenAI-Compatible', apiKey: '', baseUrl: '' },
   ],
   autoApprove: false,
@@ -42,14 +43,24 @@ function isOfficeEnvironment(): boolean {
   return typeof Office !== 'undefined' && !!Office.context?.roamingSettings;
 }
 
+function mergeSettings(saved: Partial<AppSettings>): AppSettings {
+  const merged: AppSettings = { ...DEFAULT_SETTINGS, ...saved };
+  const savedProviders = saved.providers ?? [];
+  merged.providers = DEFAULT_SETTINGS.providers.map(def => {
+    const existing = savedProviders.find(p => p.id === def.id);
+    return existing ? { ...def, ...existing } : def;
+  });
+  return merged;
+}
+
 export function loadSettings(): AppSettings {
   try {
     if (isOfficeEnvironment()) {
       const raw = Office.context.roamingSettings.get(STORAGE_KEY);
-      if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+      if (raw) return mergeSettings(JSON.parse(raw));
     } else {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+      if (raw) return mergeSettings(JSON.parse(raw));
     }
   } catch {
     // Fall through to defaults

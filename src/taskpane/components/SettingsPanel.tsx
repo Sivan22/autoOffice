@@ -80,6 +80,14 @@ const PROVIDER_MODELS: Record<string, string[]> = {
     'claude-opus-4-6',
   ],
   openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o1', 'o1-mini'],
+  google: [
+    'gemini-3.1-pro-preview',
+    'gemini-3-flash-preview',
+    'gemini-3.1-flash-lite-preview',
+    'gemini-2.5-pro',
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-lite',
+  ],
   'openai-compatible': [],
 };
 
