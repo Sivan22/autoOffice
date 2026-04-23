@@ -11,7 +11,7 @@ export interface ChatMessage {
   codeBlock?: {
     code: string;
     status: 'pending' | 'rejected' | 'running' | 'success' | 'error';
-    error?: string;
+    result?: string;
   };
   toolActivity?: {
     toolName: string;
@@ -80,13 +80,46 @@ export async function runAgent(
     }),
     execute: async ({ code }) => {
       const approved = settings.autoApprove || await callbacks.requestApproval(code);
-      if (!approved) return 'User rejected the code. Ask what they would like changed.';
+      if (!approved) {
+        callbacks.onMessage({
+          role: 'assistant',
+          content: '',
+          codeBlock: { code, status: 'rejected' },
+        });
+        return 'User rejected the code. Ask what they would like changed.';
+      }
 
       const result = await sandbox.execute(code, settings.executionTimeout);
       const logsStr = result.logs && result.logs.length ? `\nLogs:\n${result.logs.join('\n')}` : '';
+
       if (result.success) {
+        const outputText = result.output === undefined
+          ? 'undefined'
+          : typeof result.output === 'string'
+            ? result.output
+            : JSON.stringify(result.output, null, 2);
+        const uiResult = [
+          `Output:\n${outputText}`,
+          result.logs && result.logs.length ? `Logs:\n${result.logs.join('\n')}` : '',
+        ].filter(Boolean).join('\n\n');
+        callbacks.onMessage({
+          role: 'assistant',
+          content: '',
+          codeBlock: { code, status: 'success', result: uiResult },
+        });
         return `Code executed successfully. Output: ${JSON.stringify(result.output)}${logsStr}`;
       }
+
+      const uiResult = [
+        `Error: ${result.error}`,
+        result.stack || '',
+        result.logs && result.logs.length ? `Logs:\n${result.logs.join('\n')}` : '',
+      ].filter(Boolean).join('\n\n');
+      callbacks.onMessage({
+        role: 'assistant',
+        content: '',
+        codeBlock: { code, status: 'error', result: uiResult },
+      });
 
       retryCount++;
       if (retryCount >= settings.maxRetries) {
@@ -106,22 +139,9 @@ export async function runAgent(
       ...mcpTools,
     },
     stopWhen: stepCountIs(settings.maxRetries + 5),
-    onStepFinish: ({ toolCalls, toolResults }) => {
-      for (let i = 0; i < toolCalls.length; i++) {
-        const tc = toolCalls[i];
-        const output = String((toolResults[i] as { output?: unknown })?.output ?? '');
-
-        if (tc.toolName === 'execute_code') {
-          const code = (tc.input as { code: string }).code;
-          const status = output.startsWith('User rejected') ? 'rejected'
-            : output.startsWith('Code executed successfully') ? 'success'
-            : 'error';
-          callbacks.onMessage({
-            role: 'assistant',
-            content: '',
-            codeBlock: { code, status, error: status === 'error' ? output : undefined },
-          });
-        } else if (tc.toolName === 'lookup_skill') {
+    onStepFinish: ({ toolCalls }) => {
+      for (const tc of toolCalls) {
+        if (tc.toolName === 'lookup_skill') {
           callbacks.onMessage({
             role: 'assistant',
             content: '',

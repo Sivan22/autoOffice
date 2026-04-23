@@ -49,7 +49,7 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
         <CodeBlock
           code={message.codeBlock.code}
           status={message.codeBlock.status}
-          error={message.codeBlock.error}
+          result={message.codeBlock.result}
         />
       </div>
     );

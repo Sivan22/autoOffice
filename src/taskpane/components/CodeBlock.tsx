@@ -41,14 +41,41 @@ const useStyles = makeStyles({
     padding: '8px 12px',
     borderTop: `1px solid ${tokens.colorNeutralStroke1}`,
   },
-  error: {
-    padding: '8px 12px',
+  details: {
+    borderTop: `1px solid ${tokens.colorNeutralStroke1}`,
+  },
+  detailsError: {
     backgroundColor: tokens.colorPaletteRedBackground1,
+  },
+  summary: {
+    padding: '6px 12px',
+    cursor: 'pointer',
+    fontSize: '12px',
+    fontWeight: 600,
+    color: tokens.colorNeutralForeground2,
+    userSelect: 'none',
+    '&:hover': {
+      backgroundColor: tokens.colorNeutralBackground4Hover,
+    },
+  },
+  summaryError: {
     color: tokens.colorPaletteRedForeground1,
+    '&:hover': {
+      backgroundColor: tokens.colorPaletteRedBackground2,
+    },
+  },
+  resultBody: {
+    padding: '8px 12px 12px 12px',
     fontSize: '12px',
     fontFamily: 'Consolas, "Courier New", monospace',
     whiteSpace: 'pre-wrap',
-    borderTop: `1px solid ${tokens.colorNeutralStroke1}`,
+    wordBreak: 'break-word',
+    maxHeight: '300px',
+    overflow: 'auto',
+    color: tokens.colorNeutralForeground1,
+  },
+  resultBodyError: {
+    color: tokens.colorPaletteRedForeground1,
   },
 });
 
@@ -73,13 +100,15 @@ const STATUS_COLORS: Record<CodeStatus, 'informative' | 'success' | 'danger' | '
 interface CodeBlockProps {
   code: string;
   status: CodeStatus;
-  error?: string;
+  result?: string;
   onApprove?: () => void;
   onReject?: () => void;
 }
 
-export function CodeBlock({ code, status, error, onApprove, onReject }: CodeBlockProps) {
+export function CodeBlock({ code, status, result, onApprove, onReject }: CodeBlockProps) {
   const styles = useStyles();
+  const isError = status === 'error';
+  const showResult = (status === 'success' || status === 'error') && !!result;
 
   return (
     <div className={styles.container}>
@@ -105,8 +134,15 @@ export function CodeBlock({ code, status, error, onApprove, onReject }: CodeBloc
         </div>
       )}
 
-      {status === 'error' && error && (
-        <div className={styles.error}>{error}</div>
+      {showResult && (
+        <details className={`${styles.details} ${isError ? styles.detailsError : ''}`} open={isError}>
+          <summary className={`${styles.summary} ${isError ? styles.summaryError : ''}`}>
+            {isError ? 'Error details' : 'Result'}
+          </summary>
+          <div className={`${styles.resultBody} ${isError ? styles.resultBodyError : ''}`}>
+            {result}
+          </div>
+        </details>
       )}
     </div>
   );
