@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import {
   makeStyles,
   tokens,
-  Input,
+  Textarea,
   Button,
   Text,
   Tooltip,
@@ -60,6 +60,7 @@ const useStyles = makeStyles({
   },
   inputArea: {
     display: 'flex',
+    alignItems: 'flex-end',
     gap: '8px',
     padding: '8px 12px',
     borderTop: `1px solid ${tokens.colorNeutralStroke1}`,
@@ -67,6 +68,13 @@ const useStyles = makeStyles({
   },
   input: {
     flex: 1,
+  },
+  textarea: {
+    width: '100%',
+    minHeight: '32px',
+    maxHeight: '200px',
+    resize: 'none',
+    overflowY: 'auto',
   },
 });
 
@@ -83,10 +91,18 @@ export function ChatPanel({ messages, isLoading, pendingApproval, onSend, onAppr
   const styles = useStyles();
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, pendingApproval]);
+
+  useLayoutEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`;
+  }, [inputText]);
 
   const handleSubmit = () => {
     if (!inputText.trim() || isLoading) return;
@@ -145,13 +161,15 @@ export function ChatPanel({ messages, isLoading, pendingApproval, onSend, onAppr
       )}
 
       <div className={styles.inputArea}>
-        <Input
+        <Textarea
           className={styles.input}
+          textarea={{ ref: textareaRef, className: styles.textarea }}
           placeholder="Ask me to modify the document..."
           value={inputText}
           onChange={(_, data) => setInputText(data.value)}
           onKeyDown={handleKeyDown}
           disabled={isLoading}
+          rows={1}
         />
         <Button
           appearance="primary"
