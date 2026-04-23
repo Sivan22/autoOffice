@@ -1,6 +1,10 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { createGroq } from '@ai-sdk/groq';
+import { createXai } from '@ai-sdk/xai';
+import { createDeepSeek } from '@ai-sdk/deepseek';
+import { createGateway } from '@ai-sdk/gateway';
 import type { LanguageModel } from 'ai';
 import type { AppSettings } from '../store/settings.ts';
 
@@ -35,6 +39,30 @@ export function createModel(settings: AppSettings): LanguageModel {
         apiKey: provider.apiKey,
       });
       return google(settings.selectedModel);
+    }
+    case 'groq': {
+      const groq = createGroq({
+        apiKey: provider.apiKey,
+      });
+      return groq(settings.selectedModel);
+    }
+    case 'xai': {
+      const xai = createXai({
+        apiKey: provider.apiKey,
+      });
+      return xai(settings.selectedModel);
+    }
+    case 'deepseek': {
+      const deepseek = createDeepSeek({
+        apiKey: provider.apiKey,
+      });
+      return deepseek(settings.selectedModel);
+    }
+    case 'gateway': {
+      const gateway = createGateway({
+        apiKey: provider.apiKey,
+      });
+      return gateway(settings.selectedModel);
     }
     case 'openai-compatible': {
       const openai = createOpenAI({

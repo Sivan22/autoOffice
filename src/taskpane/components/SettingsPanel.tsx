@@ -98,6 +98,27 @@ const PROVIDER_MODELS: Record<string, string[]> = {
     'gemini-2.5-flash',
     'gemini-2.5-flash-lite',
   ],
+  groq: [
+    'moonshotai/kimi-k2-instruct-0905',
+    'meta-llama/llama-4-scout-17b-16e-instruct',
+    'llama-3.3-70b-versatile',
+    'llama-3.1-8b-instant',
+    'qwen/qwen3-32b',
+    'openai/gpt-oss-120b',
+    'openai/gpt-oss-20b',
+  ],
+  xai: [
+    'grok-4',
+    'grok-4-fast',
+    'grok-code-fast-1',
+    'grok-3',
+    'grok-3-mini',
+  ],
+  deepseek: [
+    'deepseek-chat',
+    'deepseek-reasoner',
+  ],
+  gateway: [],
   'openai-compatible': [],
 };
 
