@@ -97,7 +97,6 @@ begin
   if CurStep = ssPostInstall then
   begin
     CloseWordIfRunning;
-    DelTree(ExpandConstant('{localappdata}\Microsoft\Office\16.0\Wef'), True, True, True);
     if not DirExists(SharePath) then
       CreateDir(SharePath);
     if not CreateNetworkShare('{#ShareName}', SharePath) then
