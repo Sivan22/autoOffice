@@ -5,6 +5,7 @@ import { createGroq } from '@ai-sdk/groq';
 import { createXai } from '@ai-sdk/xai';
 import { createDeepSeek } from '@ai-sdk/deepseek';
 import { createGateway } from '@ai-sdk/gateway';
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { LanguageModel } from 'ai';
 import type { AppSettings } from '../store/settings.ts';
 
@@ -65,11 +66,15 @@ export function createModel(settings: AppSettings): LanguageModel {
       return gateway(settings.selectedModel);
     }
     case 'openai-compatible': {
-      const openai = createOpenAI({
+      if (!provider.baseUrl) {
+        throw new Error('Base URL is required for OpenAI-Compatible providers.');
+      }
+      const compat = createOpenAICompatible({
+        name: 'openai-compatible',
         apiKey: provider.apiKey,
-        baseURL: provider.baseUrl || undefined,
+        baseURL: provider.baseUrl,
       });
-      return openai(settings.selectedModel);
+      return compat(settings.selectedModel);
     }
     default:
       throw new Error(`Unknown provider: ${provider.id}`);
