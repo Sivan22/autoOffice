@@ -79,7 +79,17 @@ const PROVIDER_MODELS: Record<string, string[]> = {
     'claude-haiku-4-5-20251001',
     'claude-opus-4-6',
   ],
-  openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'o1', 'o1-mini'],
+  openai: [
+    'gpt-5.4',
+    'gpt-5.4-pro',
+    'gpt-5.4-mini',
+    'gpt-5.4-nano',
+    'gpt-5.3-chat-latest',
+    'gpt-5.3-codex',
+    'gpt-5',
+    'gpt-4o',
+    'gpt-4o-mini',
+  ],
   google: [
     'gemini-3.1-pro-preview',
     'gemini-3-flash-preview',
