@@ -83,15 +83,16 @@ export async function runAgent(
       if (!approved) return 'User rejected the code. Ask what they would like changed.';
 
       const result = await sandbox.execute(code, settings.executionTimeout);
+      const logsStr = result.logs && result.logs.length ? `\nLogs:\n${result.logs.join('\n')}` : '';
       if (result.success) {
-        return `Code executed successfully. Output: ${JSON.stringify(result.output)}`;
+        return `Code executed successfully. Output: ${JSON.stringify(result.output)}${logsStr}`;
       }
 
       retryCount++;
       if (retryCount >= settings.maxRetries) {
-        return `Failed after ${retryCount} attempts. Last error: ${result.error}`;
+        return `Failed after ${retryCount} attempts. Last error: ${result.error}${logsStr}`;
       }
-      return `Execution failed: ${result.error}\n${result.stack || ''}\nPlease fix and try again.`;
+      return `Execution failed: ${result.error}\n${result.stack || ''}${logsStr}\nPlease fix and try again.`;
     },
   });
 

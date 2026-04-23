@@ -13,26 +13,46 @@
     var id = data.id;
     var code = data.code;
 
-    var isWrapped = code.trim().startsWith('Word.run');
+    var trimmed = code.trim();
+    var isWrapped = trimmed.startsWith('Word.run');
     var execCode = isWrapped
-      ? code
+      ? 'return (' + trimmed.replace(/;+\s*$/, '') + ');'
       : 'return Word.run(async function(context) {\n' + code + '\n});';
 
+    var logs = [];
+    function formatArg(a) {
+      if (typeof a === 'string') return a;
+      if (a instanceof Error) return a.stack || a.message;
+      try { return JSON.stringify(a); } catch (e) { return String(a); }
+    }
+    function pushLog(prefix, args) {
+      var parts = [];
+      for (var i = 0; i < args.length; i++) parts.push(formatArg(args[i]));
+      logs.push((prefix ? '[' + prefix + '] ' : '') + parts.join(' '));
+    }
+    var capturingConsole = {
+      log:   function () { pushLog('', arguments); },
+      info:  function () { pushLog('info', arguments); },
+      warn:  function () { pushLog('warn', arguments); },
+      error: function () { pushLog('error', arguments); },
+      debug: function () { pushLog('debug', arguments); }
+    };
+
     try {
-      var fn = new Function(execCode);
-      var result = fn();
+      var fn = new Function('console', execCode);
+      var result = fn(capturingConsole);
 
       if (result && typeof result.then === 'function') {
         result.then(function (output) {
-          parent.postMessage({ type: 'result', id: id, success: true, output: output }, '*');
+          parent.postMessage({ type: 'result', id: id, success: true, output: output, logs: logs }, '*');
         }).catch(function (err) {
-          parent.postMessage({ type: 'error', id: id, success: false, error: err.message || String(err), stack: err.stack || '' }, '*');
+          parent.postMessage({ type: 'error', id: id, success: false, error: err.message || String(err), stack: err.stack || '', logs: logs }, '*');
         });
       } else {
-        parent.postMessage({ type: 'result', id: id, success: true, output: result }, '*');
+        parent.postMessage({ type: 'result', id: id, success: true, output: result, logs: logs }, '*');
       }
     } catch (err) {
-      parent.postMessage({ type: 'error', id: id, success: false, error: err.message || String(err), stack: err.stack || '' }, '*');
+      parent.postMessage({ type: 'error', id: id, success: false, error: err.message || String(err), stack: err.stack || '', logs: logs }, '*');
     }
   });
 
