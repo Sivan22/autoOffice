@@ -6,7 +6,7 @@
   xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
   xsi:type="TaskPaneApp">
 
-  <Id>a1b2c3d4-e5f6-7890-abcd-ef1234567890</Id>
+  <Id>ad7b1a94-0e6d-4263-acf1-8272d208af31</Id>
   <Version>1.0.0.0</Version>
   <ProviderName>AutoOffice</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
