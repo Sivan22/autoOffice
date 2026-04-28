@@ -1,6 +1,10 @@
-# AutoOffice
+<p align="center">
+  <img src="public/assets/icon-256.png" alt="AutoOffice logo" width="128" height="128" />
+</p>
 
-AI-powered Microsoft Word add-in that writes and executes real `office.js` code on demand.
+<h1 align="center">AutoOffice</h1>
+
+<p align="center">AI-powered Microsoft Word add-in that writes and executes real <code>office.js</code> code on demand.</p>
 
 ## What It Does
 
