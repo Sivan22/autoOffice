@@ -94,13 +94,21 @@ end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 begin
-  if CurStep = ssPostInstall then
+  // Close Word, clear the WEF cache, and create the network share BEFORE the
+  // [Registry] section runs, so the trusted-catalog entry is never seen by a
+  // running Word pointing at a not-yet-existent share — Word treats that as
+  // corruption and resets all trusted catalogs (taking other add-ins down too).
+  if CurStep = ssInstall then
   begin
     CloseWordIfRunning;
+    DelTree(ExpandConstant('{localappdata}\Microsoft\Office\16.0\Wef'), True, True, True);
     if not DirExists(SharePath) then
       CreateDir(SharePath);
     if not CreateNetworkShare('{#ShareName}', SharePath) then
       MsgBox('Warning: Could not create network share. You may need to share the folder manually.', mbInformation, MB_OK);
+  end;
+  if CurStep = ssPostInstall then
+  begin
     if not CopyManifestToShare then
       MsgBox('Warning: Could not copy manifest to share folder.', mbInformation, MB_OK);
   end;
