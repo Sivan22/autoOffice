@@ -30,6 +30,16 @@ const useStyles = makeStyles({
     borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
     flexShrink: 0,
   },
+  brand: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  logo: {
+    width: '24px',
+    height: '24px',
+    flexShrink: 0,
+  },
   title: {
     fontWeight: 600,
     fontSize: '16px',
@@ -120,7 +130,14 @@ export function ChatPanel({ messages, isLoading, pendingApproval, onSend, onAppr
   return (
     <div className={styles.container}>
       <div className={styles.header}>
-        <Text className={styles.title}>AutoOffice</Text>
+        <div className={styles.brand}>
+          <img
+            src={`${import.meta.env.BASE_URL}assets/icon-64.png`}
+            alt=""
+            className={styles.logo}
+          />
+          <Text className={styles.title}>AutoOffice</Text>
+        </div>
         <Tooltip content="Settings" relationship="label">
           <Button
             appearance="subtle"

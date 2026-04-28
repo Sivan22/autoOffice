@@ -13,7 +13,7 @@
   <DisplayName DefaultValue="AutoOffice" />
   <Description DefaultValue="AI-powered dynamic code execution add-in for Microsoft Word" />
   <IconUrl DefaultValue="https://sivan22.github.io/autoOffice/assets/icon-32.png" />
-  <HighResolutionIconUrl DefaultValue="https://sivan22.github.io/autoOffice/assets/icon-80.png" />
+  <HighResolutionIconUrl DefaultValue="https://sivan22.github.io/autoOffice/assets/icon-64.png" />
   <SupportUrl DefaultValue="https://github.com/Sivan22/autoOffice" />
 
   <Hosts>

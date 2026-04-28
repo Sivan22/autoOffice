@@ -13,7 +13,7 @@
   <DisplayName DefaultValue="AutoOffice" />
   <Description DefaultValue="AI-powered dynamic code execution add-in for Microsoft Word" />
   <IconUrl DefaultValue="https://localhost:3721/assets/icon-32.png" />
-  <HighResolutionIconUrl DefaultValue="https://localhost:3721/assets/icon-80.png" />
+  <HighResolutionIconUrl DefaultValue="https://localhost:3721/assets/icon-64.png" />
   <SupportUrl DefaultValue="https://localhost:3721" />
 
   <Hosts>
