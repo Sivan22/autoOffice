@@ -7,6 +7,7 @@
 #define MyAppPublisher "AutoOffice"
 #define MyAppURL "https://sivan22.github.io/autoOffice/"
 #define ShareName "AutoOfficeAddin"
+#define OwnSharePath "C:\AutoOfficeAddin"
 
 [Setup]
 AppId={{B2C3D4E5-F6A7-8901-BCDE-F12345678902}
@@ -34,14 +35,20 @@ Name: "hebrew"; MessagesFile: "compiler:Languages\Hebrew.isl"
 Source: "..\manifest.production.xml"; DestDir: "{app}"; DestName: "manifest.xml"; Flags: ignoreversion
 
 [Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Office\16.0\WEF\TrustedCatalogs\{{B2C3D4E5-F6A7-8901-BCDE-F12345678903}"; ValueType: string; ValueName: "Id"; ValueData: "{{B2C3D4E5-F6A7-8901-BCDE-F12345678903}"; Flags: uninsdeletekey
-Root: HKCU; Subkey: "Software\Microsoft\Office\16.0\WEF\TrustedCatalogs\{{B2C3D4E5-F6A7-8901-BCDE-F12345678903}"; ValueType: string; ValueName: "Url"; ValueData: "{code:GetNetworkPath}"
-Root: HKCU; Subkey: "Software\Microsoft\Office\16.0\WEF\TrustedCatalogs\{{B2C3D4E5-F6A7-8901-BCDE-F12345678903}"; ValueType: dword; ValueName: "Flags"; ValueData: "1"
+; Only register our own trusted catalog when none already exists. Office's
+; per-user TrustedCatalogs parser breaks with 2+ GUID-named subkeys: it shows
+; "we had a problem reading your settings" and wipes ALL entries on Word
+; startup. When a catalog already exists we drop our manifest into its folder
+; instead, leaving the host catalog as the single registered entry.
+Root: HKCU; Subkey: "Software\Microsoft\Office\16.0\WEF\TrustedCatalogs\{{B2C3D4E5-F6A7-8901-BCDE-F12345678903}"; ValueType: string; ValueName: "Id"; ValueData: "{{B2C3D4E5-F6A7-8901-BCDE-F12345678903}"; Flags: uninsdeletekey; Check: ShouldCreateOwnCatalog
+Root: HKCU; Subkey: "Software\Microsoft\Office\16.0\WEF\TrustedCatalogs\{{B2C3D4E5-F6A7-8901-BCDE-F12345678903}"; ValueType: string; ValueName: "Url"; ValueData: "{code:GetNetworkPath}"; Check: ShouldCreateOwnCatalog
+Root: HKCU; Subkey: "Software\Microsoft\Office\16.0\WEF\TrustedCatalogs\{{B2C3D4E5-F6A7-8901-BCDE-F12345678903}"; ValueType: dword; ValueName: "Flags"; ValueData: "1"; Check: ShouldCreateOwnCatalog
 
 [Code]
 var
-  SharePath: string;
   NetworkPath: string;
+  HostCatalogUrl: string;
+  UseHostCatalog: Boolean;
 
 function GetNetworkPath(Param: string): string;
 begin
@@ -72,57 +79,98 @@ begin
   Result := Exec('net', Command, '', SW_HIDE, ewWaitUntilTerminated, ResultCode) and (ResultCode = 0);
 end;
 
-function CopyManifestToShare: Boolean;
+// Return the Url of the first existing UNC-path trusted catalog, or '' if none.
+function FindHostCatalogUrl: string;
 var
-  SourceFile, DestFile: string;
+  KeyPath: string;
+  Subkeys: TArrayOfString;
+  i: Integer;
+  Url: string;
 begin
-  SourceFile := ExpandConstant('{app}\manifest.xml');
-  DestFile := SharePath + '\manifest.xml';
-  Result := FileCopy(SourceFile, DestFile, False);
+  Result := '';
+  KeyPath := 'Software\Microsoft\Office\16.0\WEF\TrustedCatalogs';
+  if not RegGetSubKeyNames(HKCU, KeyPath, Subkeys) then
+    Exit;
+  for i := 0 to GetArrayLength(Subkeys) - 1 do
+  begin
+    if RegQueryStringValue(HKCU, KeyPath + '\' + Subkeys[i], 'Url', Url) then
+    begin
+      if (Length(Url) > 2) and (Url[1] = '\') and (Url[2] = '\') then
+      begin
+        Result := Url;
+        Exit;
+      end;
+    end;
+  end;
 end;
 
 procedure InitializeWizard;
 begin
-  SharePath := 'C:\AutoOfficeAddin';
   NetworkPath := '\\' + GetComputerNetName + '\{#ShareName}';
+  HostCatalogUrl := FindHostCatalogUrl;
+  UseHostCatalog := HostCatalogUrl <> '';
 end;
 
-function InitializeSetup: Boolean;
+function ShouldCreateOwnCatalog: Boolean;
 begin
-  Result := True;
+  Result := not UseHostCatalog;
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
+var
+  TargetFile: string;
 begin
-  // Close Word, clear the WEF cache, and create the network share BEFORE the
-  // [Registry] section runs, so the trusted-catalog entry is never seen by a
-  // running Word pointing at a not-yet-existent share — Word treats that as
-  // corruption and resets all trusted catalogs (taking other add-ins down too).
+  // Close Word, and (only when registering our own catalog) clear the stale
+  // WEF cache and create the share BEFORE [Registry] runs, so Word never
+  // sees a registry entry pointing at a not-yet-existent share.
   if CurStep = ssInstall then
   begin
     CloseWordIfRunning;
-    DelTree(ExpandConstant('{localappdata}\Microsoft\Office\16.0\Wef'), True, True, True);
-    if not DirExists(SharePath) then
-      CreateDir(SharePath);
-    if not CreateNetworkShare('{#ShareName}', SharePath) then
-      MsgBox('Warning: Could not create network share. You may need to share the folder manually.', mbInformation, MB_OK);
+    if not UseHostCatalog then
+    begin
+      DelTree(ExpandConstant('{localappdata}\Microsoft\Office\16.0\Wef'), True, True, True);
+      if not DirExists('{#OwnSharePath}') then
+        CreateDir('{#OwnSharePath}');
+      if not CreateNetworkShare('{#ShareName}', '{#OwnSharePath}') then
+        MsgBox('Warning: Could not create network share. You may need to share the folder manually.', mbInformation, MB_OK);
+    end;
   end;
   if CurStep = ssPostInstall then
   begin
-    if not CopyManifestToShare then
-      MsgBox('Warning: Could not copy manifest to share folder.', mbInformation, MB_OK);
+    if UseHostCatalog then
+      // Distinct filename so we never overwrite the host catalog's own manifest.
+      TargetFile := HostCatalogUrl + '\autooffice.xml'
+    else
+      TargetFile := '{#OwnSharePath}\manifest.xml';
+    if not FileCopy(ExpandConstant('{app}\manifest.xml'), TargetFile, False) then
+      MsgBox('Warning: Could not copy manifest to share folder: ' + TargetFile, mbInformation, MB_OK);
+    // Record where we placed the manifest so the uninstaller can remove it.
+    RegWriteStringValue(HKCU, 'Software\AutoOffice\Installer', 'ManifestPath', TargetFile);
   end;
 end;
 
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   ResultCode: Integer;
+  ManifestPath: string;
 begin
   if CurUninstallStep = usPostUninstall then
   begin
-    Exec('net', 'share {#ShareName} /delete /y', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
-    if MsgBox('Remove the shared folder (C:\AutoOfficeAddin)?', mbConfirmation, MB_YESNO) = IDYES then
-      DelTree('C:\AutoOfficeAddin', True, True, True);
+    // Remove only the manifest we placed; never touch a catalog/share we
+    // didn't create.
+    if RegQueryStringValue(HKCU, 'Software\AutoOffice\Installer', 'ManifestPath', ManifestPath) then
+    begin
+      if FileExists(ManifestPath) then
+        DeleteFile(ManifestPath);
+      RegDeleteKeyIncludingSubkeys(HKCU, 'Software\AutoOffice');
+    end;
+    // If the standalone share/folder exists, it was created by us.
+    if DirExists('{#OwnSharePath}') then
+    begin
+      Exec('net', 'share {#ShareName} /delete /y', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+      if MsgBox('Remove the shared folder ({#OwnSharePath})?', mbConfirmation, MB_YESNO) = IDYES then
+        DelTree('{#OwnSharePath}', True, True, True);
+    end;
   end;
 end;
 
