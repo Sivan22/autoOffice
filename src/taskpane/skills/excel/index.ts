@@ -5,6 +5,9 @@ import worksheets from './worksheets.md?raw';
 import ranges from './ranges.md?raw';
 import formulas from './formulas.md?raw';
 import numberFormats from './number-formats.md?raw';
+import formatting from './formatting.md?raw';
+import styles from './styles.md?raw';
+import tables from './tables.md?raw';
 
 export const EXCEL_SKILL_NAMES = [
   'context-sync',
@@ -13,6 +16,9 @@ export const EXCEL_SKILL_NAMES = [
   'ranges',
   'formulas',
   'number-formats',
+  'formatting',
+  'styles',
+  'tables',
 ] as const;
 export type ExcelSkillName = (typeof EXCEL_SKILL_NAMES)[number];
 
@@ -23,4 +29,7 @@ export const EXCEL_SKILLS: Record<string, string> = {
   'ranges': ranges,
   'formulas': formulas,
   'number-formats': numberFormats,
+  'formatting': formatting,
+  'styles': styles,
+  'tables': tables,
 };
