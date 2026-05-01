@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { makeStyles, tokens } from '@fluentui/react-components';
 import type { ModelMessage } from 'ai';
+import type { HostContext } from './host/context.ts';
 import { ChatPanel } from './components/ChatPanel.tsx';
 import { SettingsPanel } from './components/SettingsPanel.tsx';
 import { runAgent, type ChatMessage, type OrchestratorCallbacks } from './agent/orchestrator.ts';
@@ -17,7 +18,13 @@ const useStyles = makeStyles({
   },
 });
 
-export function App() {
+interface AppProps {
+  host: HostContext;
+}
+
+export function App({ host }: AppProps) {
+  // host is consumed in later tasks (Sandbox, orchestrator, header badge)
+  void host;
   const styles = useStyles();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
