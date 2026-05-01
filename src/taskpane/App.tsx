@@ -35,11 +35,11 @@ export function App({ host }: AppProps) {
   const approvalResolveRef = useRef<((approved: boolean) => void) | null>(null);
 
   useEffect(() => {
-    const sandbox = new Sandbox();
+    const sandbox = new Sandbox(host.kind);
     sandbox.init();
     sandboxRef.current = sandbox;
     return () => sandbox.destroy();
-  }, []);
+  }, [host.kind]);
 
   const handleSettingsChange = useCallback((newSettings: AppSettings) => {
     setSettings(newSettings);
