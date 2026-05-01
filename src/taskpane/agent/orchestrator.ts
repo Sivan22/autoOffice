@@ -1,6 +1,8 @@
 import { streamText, tool, jsonSchema, stepCountIs, type ModelMessage } from 'ai';
 import { createModel } from './providers.ts';
 import { makeLookupSkillTool } from './tools.ts';
+import { buildSystemPrompt } from './system-prompt.ts';
+import { listSkills } from '../skills/index.ts';
 import type { HostKind } from '../host/context.ts';
 import type { AppSettings } from '../store/settings.ts';
 import type { Sandbox } from '../executor/sandbox.ts';
@@ -18,27 +20,6 @@ export interface ChatMessage {
     toolName: string;
   };
 }
-
-const SYSTEM_PROMPT = `You are AutoOffice, an AI assistant that controls Microsoft Word by writing and executing office.js code.
-
-You have tools to look up API documentation and execute code.
-
-Available skill topics for lookup_skill: formatting, tables, content-controls, styles, ranges, search, comments, headers-footers, images, lists, document, context-sync, bookmarks, hyperlinks, footnotes, fields, track-changes, page-setup, ooxml.
-
-CRITICAL RULES for office.js code:
-- You MUST load() properties before reading them
-- You MUST await context.sync() after load() and before accessing values
-- You MUST use Word.InsertLocation enum for insertion positions
-- NEVER use DOM manipulation — only the office.js API
-- Code runs in a sandboxed iframe with access to the Word object model
-
-When the user asks you to do something with the document:
-1. ALWAYS call lookup_skill before writing code — it provides the correct API patterns, types, and examples for the relevant topic
-2. To read document state, write execute_code that loads and returns the needed properties
-3. Generate the code and call execute_code
-4. If execution fails, analyze the error and try again (up to 3 attempts)
-
-Your code can be either a full Word.run() block or just the inner body — the executor handles both.`;
 
 export interface OrchestratorCallbacks {
   onMessage: (message: ChatMessage) => void;
@@ -133,7 +114,7 @@ export async function runAgent(
 
   const result = streamText({
     model,
-    system: SYSTEM_PROMPT,
+    system: buildSystemPrompt(host, listSkills(host)),
     messages,
     tools: {
       lookup_skill: makeLookupSkillTool(host),
