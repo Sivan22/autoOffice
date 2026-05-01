@@ -114,6 +114,7 @@ export function App({ host }: AppProps) {
   return (
     <div className={styles.root}>
       <ChatPanel
+        host={host}
         messages={messages}
         isLoading={isLoading}
         pendingApproval={pendingApproval}
