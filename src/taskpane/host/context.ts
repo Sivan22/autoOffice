@@ -1,0 +1,29 @@
+export type HostKind = 'word' | 'excel';
+
+export interface HostContext {
+  kind: HostKind;
+  displayName: string;
+}
+
+export class UnsupportedHostError extends Error {
+  constructor(actual: string) {
+    super(`AutoOffice does not support this Office host: ${actual}`);
+    this.name = 'UnsupportedHostError';
+  }
+}
+
+export function detectHost(): HostContext {
+  if (typeof Office === 'undefined' || !Office.context) {
+    // Dev mode (vite preview, no Office). Default to Word so the existing
+    // Word-only dev experience keeps working when you visit the URL directly.
+    return { kind: 'word', displayName: 'Word' };
+  }
+  switch (Office.context.host) {
+    case Office.HostType.Word:
+      return { kind: 'word', displayName: 'Word' };
+    case Office.HostType.Excel:
+      return { kind: 'excel', displayName: 'Excel' };
+    default:
+      throw new UnsupportedHostError(String(Office.context.host));
+  }
+}
