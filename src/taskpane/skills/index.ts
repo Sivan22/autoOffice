@@ -1,45 +1,44 @@
-const SKILLS: Record<string, string> = {};
+import contextSync       from './word/context-sync.md?raw';
+import formatting        from './word/formatting.md?raw';
+import tables            from './word/tables.md?raw';
+import contentControls   from './word/content-controls.md?raw';
+import styles            from './word/styles.md?raw';
+import ranges            from './word/ranges.md?raw';
+import search            from './word/search.md?raw';
+import comments          from './word/comments.md?raw';
+import headersFooters    from './word/headers-footers.md?raw';
+import images            from './word/images.md?raw';
+import lists             from './word/lists.md?raw';
+import documentSkill     from './word/document.md?raw';
+import bookmarks         from './word/bookmarks.md?raw';
+import hyperlinks        from './word/hyperlinks.md?raw';
+import footnotes         from './word/footnotes.md?raw';
+import fields            from './word/fields.md?raw';
+import trackChanges      from './word/track-changes.md?raw';
+import pageSetup         from './word/page-setup.md?raw';
+import ooxml             from './word/ooxml.md?raw';
 
-// Import skill files as raw text
-import contextSync from './context-sync.md?raw';
-import formatting from './formatting.md?raw';
-import tables from './tables.md?raw';
-import contentControls from './content-controls.md?raw';
-import styles from './styles.md?raw';
-import ranges from './ranges.md?raw';
-import search from './search.md?raw';
-import comments from './comments.md?raw';
-import headersFooters from './headers-footers.md?raw';
-import images from './images.md?raw';
-import lists from './lists.md?raw';
-import documentSkill from './document.md?raw';
-import bookmarks from './bookmarks.md?raw';
-import hyperlinks from './hyperlinks.md?raw';
-import footnotes from './footnotes.md?raw';
-import fields from './fields.md?raw';
-import trackChanges from './track-changes.md?raw';
-import pageSetup from './page-setup.md?raw';
-import ooxml from './ooxml.md?raw';
-
-SKILLS['context-sync'] = contextSync;
-SKILLS['formatting'] = formatting;
-SKILLS['tables'] = tables;
-SKILLS['content-controls'] = contentControls;
-SKILLS['styles'] = styles;
-SKILLS['ranges'] = ranges;
-SKILLS['search'] = search;
-SKILLS['comments'] = comments;
-SKILLS['headers-footers'] = headersFooters;
-SKILLS['images'] = images;
-SKILLS['lists'] = lists;
-SKILLS['document'] = documentSkill;
-SKILLS['bookmarks'] = bookmarks;
-SKILLS['hyperlinks'] = hyperlinks;
-SKILLS['footnotes'] = footnotes;
-SKILLS['fields'] = fields;
-SKILLS['track-changes'] = trackChanges;
-SKILLS['page-setup'] = pageSetup;
-SKILLS['ooxml'] = ooxml;
+const SKILLS: Record<string, string> = {
+  'context-sync': contextSync,
+  'formatting': formatting,
+  'tables': tables,
+  'content-controls': contentControls,
+  'styles': styles,
+  'ranges': ranges,
+  'search': search,
+  'comments': comments,
+  'headers-footers': headersFooters,
+  'images': images,
+  'lists': lists,
+  'document': documentSkill,
+  'bookmarks': bookmarks,
+  'hyperlinks': hyperlinks,
+  'footnotes': footnotes,
+  'fields': fields,
+  'track-changes': trackChanges,
+  'page-setup': pageSetup,
+  'ooxml': ooxml,
+};
 
 export const SKILL_NAMES = [
   'formatting', 'tables', 'content-controls', 'styles',
