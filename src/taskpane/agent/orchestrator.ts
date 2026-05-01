@@ -1,6 +1,7 @@
 import { streamText, tool, jsonSchema, stepCountIs, type ModelMessage } from 'ai';
 import { createModel } from './providers.ts';
-import { lookupSkillTool } from './tools.ts';
+import { makeLookupSkillTool } from './tools.ts';
+import type { HostKind } from '../host/context.ts';
 import type { AppSettings } from '../store/settings.ts';
 import type { Sandbox } from '../executor/sandbox.ts';
 import { getMcpTools } from '../mcp/client.ts';
@@ -50,6 +51,7 @@ export async function runAgent(
   conversationHistory: ModelMessage[],
   settings: AppSettings,
   sandbox: Sandbox,
+  host: HostKind,
   callbacks: OrchestratorCallbacks,
 ): Promise<ModelMessage[]> {
   const model = createModel(settings);
@@ -134,7 +136,7 @@ export async function runAgent(
     system: SYSTEM_PROMPT,
     messages,
     tools: {
-      lookup_skill: lookupSkillTool,
+      lookup_skill: makeLookupSkillTool(host),
       execute_code: executeCode,
       ...mcpTools,
     },

@@ -1,15 +1,23 @@
+// src/taskpane/agent/tools.ts
 import { tool, jsonSchema } from 'ai';
-import { lookupSkill, SKILL_NAMES } from '../skills/index.ts';
+import { lookupSkill, listSkills } from '../skills/index.ts';
+import type { HostKind } from '../host/context.ts';
 
-export const lookupSkillTool = tool({
-  description: 'Fetch office.js API documentation for a specific domain. Call this before writing code to get the correct API patterns, types, and examples.',
-  inputSchema: jsonSchema<{ name: string }>({
-    type: 'object',
-    properties: {
-      name: { type: 'string', enum: SKILL_NAMES as unknown as string[] },
-    },
-    required: ['name'],
-    additionalProperties: false,
-  }),
-  execute: async ({ name }) => lookupSkill(name as typeof SKILL_NAMES[number]),
-});
+export function makeLookupSkillTool(host: HostKind) {
+  const skills = listSkills(host);
+  return tool({
+    description:
+      `Fetch office.js API documentation for a specific domain in ${host === 'word' ? 'Microsoft Word' : 'Microsoft Excel'}. ` +
+      `Call this before writing code to get the correct API patterns, types, and examples. ` +
+      `Available domains: ${skills.join(', ')}.`,
+    inputSchema: jsonSchema<{ name: string }>({
+      type: 'object',
+      properties: {
+        name: { type: 'string', enum: skills as unknown as string[] },
+      },
+      required: ['name'],
+      additionalProperties: false,
+    }),
+    execute: async ({ name }) => lookupSkill(host, name),
+  });
+}

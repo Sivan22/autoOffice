@@ -23,8 +23,6 @@ interface AppProps {
 }
 
 export function App({ host }: AppProps) {
-  // host is consumed in later tasks (Sandbox, orchestrator, header badge)
-  void host;
   const styles = useStyles();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -88,6 +86,7 @@ export function App({ host }: AppProps) {
         conversationHistory.current,
         settings,
         sandboxRef.current!,
+        host.kind,
         callbacks,
       );
       conversationHistory.current = history;
@@ -98,7 +97,7 @@ export function App({ host }: AppProps) {
       setIsLoading(false);
       setPendingApproval(null);
     }
-  }, [isLoading, settings]);
+  }, [isLoading, settings, host]);
 
   if (showSettings) {
     return (
