@@ -317,3 +317,26 @@ describe('history.ts — quota-exceeded retry', () => {
     expect(ids).toContain('incoming');
   });
 });
+
+describe('history.ts — schema versioning', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('readable: getConversation still returns blobs with unknown v', () => {
+    const future = { ...makeConv({ id: 'fut' }), v: 99 };
+    localStorage.setItem(blobKeyFor('fut'), JSON.stringify(future));
+    const read = getConversation('fut');
+    expect(read?.v).toBe(99);
+  });
+
+  it('writable: saveConversation refuses to overwrite a future-version blob', () => {
+    const future = { ...makeConv({ id: 'fut', title: 'future' }), v: 99 };
+    localStorage.setItem(blobKeyFor('fut'), JSON.stringify(future));
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    saveConversation(makeConv({ id: 'fut', title: 'overwritten' }));
+    warn.mockRestore();
+
+    // The blob on disk still has v: 99 and the original title.
+    expect(getConversation('fut')?.title).toBe('future');
+  });
+});

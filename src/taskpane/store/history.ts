@@ -169,6 +169,20 @@ export function saveConversation(c: Conversation): void {
   const toStore: Conversation = JSON.parse(JSON.stringify(c));
   truncateInPlace(toStore, HISTORY_LIMITS.PER_CONVERSATION_BYTES);
 
+  // Refuse to overwrite a blob written by a newer schema version.
+  const existingRaw = localStorage.getItem(blobKeyFor(toStore.id));
+  if (existingRaw) {
+    try {
+      const existing = JSON.parse(existingRaw) as Partial<Conversation>;
+      if (typeof existing.v === 'number' && existing.v > CURRENT_VERSION) {
+        console.warn(`[history] refusing to overwrite v${existing.v} blob with v${CURRENT_VERSION}; conversation ${toStore.id} not persisted`);
+        return;
+      }
+    } catch {
+      // Corrupt JSON — let normal save path proceed (we'll overwrite garbage).
+    }
+  }
+
   setItemWithQuotaRetry(blobKeyFor(toStore.id), JSON.stringify(toStore), toStore.id);
   const index = readIndex().filter(s => s.id !== toStore.id);
   index.push(summarize(toStore));
