@@ -5,7 +5,7 @@
 #define MyAppName "AutoOffice for Word & Excel"
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "AutoOffice"
-#define MyAppURL "https://sivan22.github.io/autoOffice/"
+#define MyAppURL "https://YOSEFTT.github.io/autoOffice/"
 #define ShareName "AutoOfficeAddin"
 #define OwnSharePath "C:\AutoOfficeAddin"
 

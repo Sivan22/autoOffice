@@ -12,9 +12,9 @@
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="AutoOffice" />
   <Description DefaultValue="AI-powered dynamic code execution add-in for Microsoft Word and Excel" />
-  <IconUrl DefaultValue="https://sivan22.github.io/autoOffice/assets/icon-32.png" />
-  <HighResolutionIconUrl DefaultValue="https://sivan22.github.io/autoOffice/assets/icon-64.png" />
-  <SupportUrl DefaultValue="https://github.com/Sivan22/autoOffice" />
+  <IconUrl DefaultValue="https://YOSEFTT.github.io/autoOffice/assets/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://YOSEFTT.github.io/autoOffice/assets/icon-64.png" />
+  <SupportUrl DefaultValue="https://github.com/YOSEFTT/autoOffice" />
 
   <Hosts>
     <Host Name="Document" />
@@ -22,7 +22,7 @@
   </Hosts>
 
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://sivan22.github.io/autoOffice/" />
+    <SourceLocation DefaultValue="https://YOSEFTT.github.io/autoOffice/" />
   </DefaultSettings>
 
   <Permissions>ReadWriteDocument</Permissions>
@@ -107,13 +107,13 @@
 
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16x16" DefaultValue="https://sivan22.github.io/autoOffice/assets/icon-16.png" />
-        <bt:Image id="Icon.32x32" DefaultValue="https://sivan22.github.io/autoOffice/assets/icon-32.png" />
-        <bt:Image id="Icon.80x80" DefaultValue="https://sivan22.github.io/autoOffice/assets/icon-80.png" />
+        <bt:Image id="Icon.16x16" DefaultValue="https://YOSEFTT.github.io/autoOffice/assets/icon-16.png" />
+        <bt:Image id="Icon.32x32" DefaultValue="https://YOSEFTT.github.io/autoOffice/assets/icon-32.png" />
+        <bt:Image id="Icon.80x80" DefaultValue="https://YOSEFTT.github.io/autoOffice/assets/icon-80.png" />
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="Taskpane.Url" DefaultValue="https://sivan22.github.io/autoOffice/" />
-        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://github.com/Sivan22/autoOffice" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://YOSEFTT.github.io/autoOffice/" />
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://github.com/YOSEFTT/autoOffice" />
       </bt:Urls>
       <bt:ShortStrings>
         <bt:String id="GetStarted.Title" DefaultValue="AutoOffice is ready" />
