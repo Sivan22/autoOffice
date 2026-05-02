@@ -187,7 +187,7 @@ export function ChatPanel({ host, messages, isLoading, pendingApproval, onSend, 
         <Textarea
           className={styles.input}
           textarea={{ ref: textareaRef, className: styles.textarea }}
-          placeholder="Ask me to modify the document..."
+          placeholder={`Ask me to modify the ${host.kind === 'excel' ? 'workbook' : 'document'}...`}
           value={inputText}
           onChange={(_, data) => setInputText(data.value)}
           onKeyDown={handleKeyDown}
