@@ -11,9 +11,13 @@ import {
 import {
   Send24Regular,
   Settings24Regular,
+  History24Regular,
+  Add24Regular,
 } from '@fluentui/react-icons';
 import type { ChatMessage } from '../agent/orchestrator.ts';
 import type { HostContext } from '../host/context.ts';
+import { CrossHostBanner } from './CrossHostBanner.tsx';
+import type { HostKind } from '../host/context.ts';
 import { MessageBubble } from './MessageBubble.tsx';
 import { CodeBlock } from './CodeBlock.tsx';
 
@@ -95,12 +99,19 @@ interface ChatPanelProps {
   messages: ChatMessage[];
   isLoading: boolean;
   pendingApproval: string | null;
+  /** Host of the currently-loaded conversation; null = no active conversation. */
+  activeChatHost: HostKind | null;
   onSend: (text: string) => void;
   onApprove: (approved: boolean) => void;
   onOpenSettings: () => void;
+  onOpenHistory: () => void;
+  onNewChat: () => void;
 }
 
-export function ChatPanel({ host, messages, isLoading, pendingApproval, onSend, onApprove, onOpenSettings }: ChatPanelProps) {
+export function ChatPanel({
+  host, messages, isLoading, pendingApproval, activeChatHost,
+  onSend, onApprove, onOpenSettings, onOpenHistory, onNewChat,
+}: ChatPanelProps) {
   const styles = useStyles();
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -142,14 +153,22 @@ export function ChatPanel({ host, messages, isLoading, pendingApproval, onSend, 
           <Text className={styles.title}>AutoOffice</Text>
           <Badge appearance="outline" size="small">{host.displayName}</Badge>
         </div>
-        <Tooltip content="Settings" relationship="label">
-          <Button
-            appearance="subtle"
-            icon={<Settings24Regular />}
-            onClick={onOpenSettings}
-          />
-        </Tooltip>
+        <div style={{ display: 'flex', gap: '4px' }}>
+          <Tooltip content="History" relationship="label">
+            <Button appearance="subtle" icon={<History24Regular />} onClick={onOpenHistory} disabled={isLoading} />
+          </Tooltip>
+          <Tooltip content="New chat" relationship="label">
+            <Button appearance="subtle" icon={<Add24Regular />} onClick={onNewChat} disabled={isLoading} />
+          </Tooltip>
+          <Tooltip content="Settings" relationship="label">
+            <Button appearance="subtle" icon={<Settings24Regular />} onClick={onOpenSettings} />
+          </Tooltip>
+        </div>
       </div>
+
+      {activeChatHost && activeChatHost !== host.kind && (
+        <CrossHostBanner chatHost={activeChatHost} currentHost={host.kind} />
+      )}
 
       <div className={styles.messageList}>
         {messages.length === 0 && !pendingApproval ? (
