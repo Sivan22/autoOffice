@@ -1,12 +1,24 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { makeStyles, tokens } from '@fluentui/react-components';
 import type { ModelMessage } from 'ai';
-import type { HostContext } from './host/context.ts';
+import type { HostContext, HostKind } from './host/context.ts';
 import { ChatPanel } from './components/ChatPanel.tsx';
 import { SettingsPanel } from './components/SettingsPanel.tsx';
+import { HistoryPanel } from './components/HistoryPanel.tsx';
 import { runAgent, type ChatMessage, type OrchestratorCallbacks } from './agent/orchestrator.ts';
+import { generateTitle } from './agent/title.ts';
 import { Sandbox } from './executor/sandbox.ts';
 import { loadSettings, saveSettings, type AppSettings } from './store/settings.ts';
+import {
+  saveConversation,
+  getConversation,
+  listConversations,
+  renameConversation,
+  deleteConversation,
+  mostRecentForHost,
+  type Conversation,
+  type ConversationSummary,
+} from './store/history.ts';
 
 const useStyles = makeStyles({
   root: {
@@ -18,6 +30,15 @@ const useStyles = makeStyles({
   },
 });
 
+const SAVE_DEBOUNCE_MS = 300;
+const PLACEHOLDER_LEN = 40;
+
+function placeholderTitle(firstUserMessage: string): string {
+  const oneLine = firstUserMessage.replace(/\s+/g, ' ').trim();
+  if (!oneLine) return 'New chat';
+  return oneLine.length <= PLACEHOLDER_LEN ? oneLine : oneLine.slice(0, PLACEHOLDER_LEN);
+}
+
 interface AppProps {
   host: HostContext;
 }
@@ -27,12 +48,29 @@ export function App({ host }: AppProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [settings, setSettings] = useState<AppSettings>(loadSettings);
   const [pendingApproval, setPendingApproval] = useState<string | null>(null);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [activeChatHost, setActiveChatHost] = useState<HostKind | null>(null);
+  const [historySummaries, setHistorySummaries] = useState<ConversationSummary[]>(() => listConversations());
 
   const conversationHistory = useRef<ModelMessage[]>([]);
   const sandboxRef = useRef<Sandbox | null>(null);
   const approvalResolveRef = useRef<((approved: boolean) => void) | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Hydrate the most recent conversation for this host on mount.
+  useEffect(() => {
+    const recent = mostRecentForHost(host.kind);
+    if (!recent) return;
+    const conv = getConversation(recent.id);
+    if (!conv) return;
+    setMessages(conv.uiMessages);
+    conversationHistory.current = conv.modelMessages;
+    setActiveConversationId(conv.id);
+    setActiveChatHost(conv.host);
+  }, [host.kind]);
 
   useEffect(() => {
     const sandbox = new Sandbox(host.kind);
@@ -40,6 +78,27 @@ export function App({ host }: AppProps) {
     sandboxRef.current = sandbox;
     return () => sandbox.destroy();
   }, [host.kind]);
+
+  const refreshSummaries = useCallback(() => {
+    setHistorySummaries(listConversations());
+  }, []);
+
+  const persistDebounced = useCallback((conv: Conversation) => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveConversation(conv);
+      refreshSummaries();
+    }, SAVE_DEBOUNCE_MS);
+  }, [refreshSummaries]);
+
+  const persistImmediate = useCallback((conv: Conversation) => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    saveConversation(conv);
+    refreshSummaries();
+  }, [refreshSummaries]);
 
   const handleSettingsChange = useCallback((newSettings: AppSettings) => {
     setSettings(newSettings);
@@ -54,8 +113,57 @@ export function App({ host }: AppProps) {
     }
   }, []);
 
+  const handleNewChat = useCallback(() => {
+    if (isLoading) return;
+    setMessages([]);
+    conversationHistory.current = [];
+    setActiveConversationId(null);
+    setActiveChatHost(null);
+  }, [isLoading]);
+
+  const handleLoadConversation = useCallback((id: string) => {
+    if (isLoading) return;
+    const conv = getConversation(id);
+    if (!conv) return;
+    setMessages(conv.uiMessages);
+    conversationHistory.current = conv.modelMessages;
+    setActiveConversationId(conv.id);
+    setActiveChatHost(conv.host);
+    setShowHistory(false);
+  }, [isLoading]);
+
+  const handleRename = useCallback((id: string, title: string) => {
+    renameConversation(id, title);
+    refreshSummaries();
+  }, [refreshSummaries]);
+
+  const handleDelete = useCallback((id: string) => {
+    deleteConversation(id);
+    if (id === activeConversationId) {
+      setMessages([]);
+      conversationHistory.current = [];
+      setActiveConversationId(null);
+      setActiveChatHost(null);
+    }
+    refreshSummaries();
+  }, [activeConversationId, refreshSummaries]);
+
   const handleSend = useCallback(async (text: string) => {
     if (!text.trim() || isLoading) return;
+
+    // Decide on (or create) the active conversation up front so we know its id
+    // before runAgent appends new turn messages. Use the latest UI messages
+    // captured *before* this user message, so first-turn detection is correct.
+    let convId = activeConversationId;
+    let convHost: HostKind = activeChatHost ?? host.kind;
+    let isFirstTurn = false;
+    if (convId === null) {
+      convId = crypto.randomUUID();
+      convHost = host.kind;
+      isFirstTurn = true;
+      setActiveConversationId(convId);
+      setActiveChatHost(convHost);
+    }
 
     setMessages(prev => [...prev, { role: 'user', content: text }]);
     setIsLoading(true);
@@ -80,6 +188,10 @@ export function App({ host }: AppProps) {
       },
     };
 
+    // Compute the placeholder title up front so the title-gen block below
+    // can rely on it without coordinating with the setMessages callback.
+    const placeholder = isFirstTurn ? (placeholderTitle(text) || 'New chat') : '';
+
     try {
       const history = await runAgent(
         text,
@@ -97,7 +209,42 @@ export function App({ host }: AppProps) {
       setIsLoading(false);
       setPendingApproval(null);
     }
-  }, [isLoading, settings, host]);
+
+    // Snapshot the latest in-memory state by reading back from setState.
+    // First-turn saves go through immediately so the blob exists by the
+    // time generateTitle resolves; later turns can debounce.
+    setMessages(currentMessages => {
+      const now = Date.now();
+      const existing = isFirstTurn ? null : getConversation(convId!);
+      const conv: Conversation = {
+        id: convId!,
+        v: 1,
+        title: isFirstTurn ? placeholder : (existing?.title ?? 'New chat'),
+        host: convHost,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+        messageCount: currentMessages.length,
+        uiMessages: currentMessages,
+        modelMessages: conversationHistory.current,
+      };
+      if (isFirstTurn) persistImmediate(conv);
+      else persistDebounced(conv);
+      return currentMessages;
+    });
+
+    // Fire-and-forget LLM title generation on first turn only.
+    if (isFirstTurn) {
+      void generateTitle(conversationHistory.current, settings).then((newTitle) => {
+        if (!newTitle) return;
+        const current = getConversation(convId!);
+        if (!current) return;
+        // Race-safe: only overwrite if the title is still the placeholder we set.
+        if (current.title !== placeholder) return;
+        renameConversation(convId!, newTitle);
+        refreshSummaries();
+      });
+    }
+  }, [isLoading, settings, host, activeConversationId, activeChatHost, persistDebounced, persistImmediate, refreshSummaries]);
 
   if (showSettings) {
     return (
@@ -111,6 +258,22 @@ export function App({ host }: AppProps) {
     );
   }
 
+  if (showHistory) {
+    return (
+      <div className={styles.root}>
+        <HistoryPanel
+          conversations={historySummaries}
+          currentHost={host.kind}
+          activeId={activeConversationId}
+          onSelect={handleLoadConversation}
+          onRename={handleRename}
+          onDelete={handleDelete}
+          onClose={() => setShowHistory(false)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className={styles.root}>
       <ChatPanel
@@ -118,9 +281,12 @@ export function App({ host }: AppProps) {
         messages={messages}
         isLoading={isLoading}
         pendingApproval={pendingApproval}
+        activeChatHost={activeChatHost}
         onSend={handleSend}
         onApprove={handleApprove}
         onOpenSettings={() => setShowSettings(true)}
+        onOpenHistory={() => setShowHistory(true)}
+        onNewChat={handleNewChat}
       />
     </div>
   );
