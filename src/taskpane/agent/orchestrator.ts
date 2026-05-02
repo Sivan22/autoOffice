@@ -49,7 +49,7 @@ export async function runAgent(
   const executeCode = tool({
     description:
       'Submit generated office.js code for execution in the sandbox. ' +
-      `The code can be either a complete ${host === 'word' ? 'Word' : 'Excel'}.run(async (context) => { ... }) block, ` +
+      `The code can be either a complete ${host === 'word' ? 'Word' : host === 'excel' ? 'Excel' : 'PowerPoint'}.run(async (context) => { ... }) block, ` +
       'or just the inner body (the executor wraps it automatically). ' +
       'Always use proper load() and context.sync() patterns. ' +
       'If you are unsure about the correct API, call lookup_skill first to get the right patterns and examples.',

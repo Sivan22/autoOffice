@@ -9,6 +9,12 @@ export interface ExecutionResult {
   logs?: string[];
 }
 
+const NS: Record<HostKind, 'Word' | 'Excel' | 'PowerPoint'> = {
+  word: 'Word',
+  excel: 'Excel',
+  powerpoint: 'PowerPoint',
+};
+
 const formatArg = (a: unknown): string => {
   if (typeof a === 'string') return a;
   if (a instanceof Error) return a.stack || a.message;
@@ -34,18 +40,20 @@ export class Sandbox {
   destroy(): void {}
 
   async execute(code: string, timeout: number = 30000): Promise<ExecutionResult> {
-    const ns = this.host === 'word' ? 'Word' : 'Excel';
-    const otherNs = this.host === 'word' ? 'Excel' : 'Word';
+    const ns = NS[this.host];
+    const otherNamespaces = Object.values(NS).filter((n) => n !== ns);
     const trimmed = code.trim();
 
     // Reject code targeting the wrong host before running it. Yields a clear
     // error the agent can self-heal on, instead of an opaque "X is not defined".
-    if (trimmed.startsWith(`${otherNs}.run`)) {
-      return {
-        success: false,
-        error: `Code uses ${otherNs}.run but the add-in is running in ${ns}. Rewrite using ${ns}.run.`,
-        logs: [],
-      };
+    for (const other of otherNamespaces) {
+      if (trimmed.startsWith(`${other}.run`)) {
+        return {
+          success: false,
+          error: `Code uses ${other}.run but the add-in is running in ${ns}. Rewrite using ${ns}.run.`,
+          logs: [],
+        };
+      }
     }
 
     const isWrapped = trimmed.startsWith(`${ns}.run`);
