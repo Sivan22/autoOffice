@@ -4,11 +4,11 @@
 
 <h1 align="center">AutoOffice</h1>
 
-<p align="center">AI-powered Microsoft Word add-in that writes and executes real <code>office.js</code> code on demand.</p>
+<p align="center">AI-powered Microsoft Word + Excel add-in that writes and executes real <code>office.js</code> code on demand.</p>
 
 ## What It Does
 
-AutoOffice is a task-pane add-in you chat with. Describe what you want ("make all headings blue", "insert a 3-column table", "replace every instance of 'foo' with 'bar'") and the agent:
+AutoOffice is a task-pane add-in you chat with. Describe what you want — for Word ("make all headings blue", "insert a 3-column table") or Excel ("put 1 through 10 in column A", "build a column chart from B2:D8") — and the agent:
 
 1. Looks up the relevant `office.js` API docs as needed
 2. Generates working code
@@ -29,7 +29,7 @@ AutoOffice is a task-pane add-in you chat with. Describe what you want ("make al
 | **Executes real `office.js`** | ✅ | ❌ | ❌ | ⚠️ partial |
 | **Code preview & self-healing** | ✅ | ❌ | ❌ | ❌ |
 | **Native tracked changes** | ❌ | ❌ | ✅ | ❌ |
-| **Multi-doc context** | ❌ | ✅ all M365 apps | ✅ Word + Excel + PowerPoint | ❌ |
+| **Multi-doc context** | ❌ (Word + Excel, single-doc) | ✅ all M365 apps | ✅ Word + Excel + PowerPoint | ❌ |
 
 ## Tech Stack
 
@@ -55,12 +55,14 @@ Task Pane (React)
             └── Sandboxed iframe ← executes generated code against live document
 ```
 
+The same task pane runs in Word and Excel; `HostContext` is resolved at startup and gates the skill registry, sandbox wrapping, and system prompt per host.
+
 ## Quick Start
 
 ### Prerequisites
 
 - Node.js 18+
-- Microsoft 365 (Word on Web or Desktop)
+- Microsoft 365 (Word or Excel — Web or Desktop)
 - An API key for Anthropic, OpenAI, or any OpenAI-compatible provider
 
 ### Install
@@ -92,6 +94,15 @@ npm run sideload
 ```
 
 Same as `start` but without attaching the debugger. Faster startup, targets desktop Word directly. Use this for day-to-day testing when you don't need breakpoints.
+
+### Run + sideload Excel
+
+Same scripts but targeting Excel:
+
+```bash
+npm run start:excel       # debugger
+npm run sideload:excel    # no debugger
+```
 
 ### Run dev server only
 
@@ -180,7 +191,7 @@ When code execution fails, the error is fed back to the LLM with the instruction
 | Execution timeout | 30 seconds |
 | MCP Servers | Empty |
 
-Settings are persisted via `Office.context.roamingSettings` when running inside Office, and `localStorage` during development.
+Settings are persisted via `Office.context.roamingSettings` when running inside Office, and `localStorage` during development. Provider, API key, MCP server, and other settings are shared between Word and Excel by design — there is one logical add-in per install.
 
 ## Build
 
