@@ -82,11 +82,10 @@ export function saveConversation(c: Conversation): void {
 export function renameConversation(id: string, title: string): void {
   const conv = getConversation(id);
   if (!conv) return;
-  const next: Conversation = { ...conv, title };
-  // Direct write — no updatedAt bump, since rename is metadata only.
-  localStorage.setItem(blobKeyFor(id), JSON.stringify(next));
-  const index = readIndex().map(s => s.id === id ? { ...s, title } : s);
-  writeIndex(index);
+  // Route through saveConversation so rename inherits any future
+  // size/quota/version enforcement. updatedAt is intentionally not bumped:
+  // rename is metadata-only and must not affect mostRecentForHost ordering.
+  saveConversation({ ...conv, title });
 }
 
 export function deleteConversation(id: string): void {

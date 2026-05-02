@@ -106,10 +106,13 @@ describe('history.ts — rename and delete', () => {
   beforeEach(() => localStorage.clear());
 
   it('renames the title in both blob and index', () => {
-    saveConversation(makeConv({ id: 'r1', title: 'before' }));
+    saveConversation(makeConv({ id: 'r1', title: 'before', updatedAt: 1234 }));
     renameConversation('r1', 'after');
     expect(getConversation('r1')?.title).toBe('after');
     expect(listConversations()[0].title).toBe('after');
+    // updatedAt must not move — mostRecentForHost relies on it for ordering.
+    expect(getConversation('r1')?.updatedAt).toBe(1234);
+    expect(listConversations()[0].updatedAt).toBe(1234);
   });
 
   it('renaming an unknown id is a no-op (no throw)', () => {
