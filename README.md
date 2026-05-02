@@ -26,14 +26,14 @@ The whole add-in is MIT-licensed and runs in your browser as a normal Office tas
 **2. Pure `office.js` + MCP — minimal in code, maximal in capability.**
 There is no curated wrapper API. The agent has exactly two built-in tools: look up the relevant `office.js` API docs, and run real code against the live document. That means anything Word or Excel can natively do is reachable on day one — formatting, tables, charts, ranges, comments, content controls, all of it — without us having to "support" each operation one at a time. Plug in MCP servers (Linear, Notion, internal APIs) and the same tiny surface area extends to anything outside Office too. Tiny core, unbounded reach.
 
-## Comparison: Word + Excel AI Add-ins
+## Comparison: Word + Excel + PowerPoint AI Add-ins
 
 | | **AutoOffice** | **Microsoft Copilot** | **Claude for Word** | **Word GPT Plus** |
 |---|:---:|:---:|:---:|:---:|
 | **— Privacy & openness —** | | | | |
 | Open source | ✅ MIT | ❌ | ❌ | ✅ MIT |
 | Self-hostable | ✅ | ❌ | ❌ | ✅ |
-| Local model support | ✅ Ollama, LM Studio | ❌ | ❌ | ✅ Ollama |
+| Local model support | ✅ Ollama, any OpenAI-compatible endpoint | ❌ | ❌ | ✅ Ollama |
 | BYO API key (key stays local) | ✅ | ❌ | ❌ | ✅ |
 | Cost | Free + your provider usage | M365 Copilot license | Claude paid plan | Free + your provider usage |
 | Provider choice | Anthropic, OpenAI, any OpenAI-compatible, Ollama | Microsoft-hosted only | Claude only | OpenAI, Azure, Gemini, Ollama |
