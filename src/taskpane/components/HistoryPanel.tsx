@@ -204,6 +204,7 @@ export function HistoryPanel({
                       if (e.key === 'Enter') commitRename();
                       if (e.key === 'Escape') cancelRename();
                     }}
+                    onBlur={commitRename}
                     autoFocus
                   />
                 ) : (

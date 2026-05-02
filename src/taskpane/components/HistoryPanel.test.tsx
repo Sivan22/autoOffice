@@ -66,4 +66,24 @@ describe('HistoryPanel', () => {
     renderPanel({ conversations: [] });
     expect(screen.getByText(/no conversations yet/i)).toBeInTheDocument();
   });
+
+  it('rename: typing then Enter calls onRename with trimmed title', async () => {
+    const props = renderPanel();
+    const renameButtons = screen.getAllByRole('button', { name: /rename/i });
+    await userEvent.click(renameButtons[0]); // first row in current-host filter is 'w1' / "Word chat"
+    const input = screen.getByDisplayValue('Word chat');
+    await userEvent.clear(input);
+    await userEvent.type(input, '  New title  {Enter}');
+    expect(props.onRename).toHaveBeenCalledWith('w1', 'New title');
+  });
+
+  it('rename: empty draft + Enter does not call onRename', async () => {
+    const props = renderPanel();
+    const renameButtons = screen.getAllByRole('button', { name: /rename/i });
+    await userEvent.click(renameButtons[0]);
+    const input = screen.getByDisplayValue('Word chat');
+    await userEvent.clear(input);
+    await userEvent.type(input, '   {Enter}'); // whitespace only
+    expect(props.onRename).not.toHaveBeenCalled();
+  });
 });
