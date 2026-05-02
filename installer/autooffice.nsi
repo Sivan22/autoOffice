@@ -5,7 +5,7 @@ Unicode True
 ; Stable GUID for the Word trusted-catalog entry (distinct from the add-in manifest Id)
 !define CATALOG_GUID "b2c3d4e5-f6a7-8901-bcde-f12345678901"
 
-Name "${APPNAME} Add-in for Word"
+Name "${APPNAME} Add-in for Word & Excel"
 OutFile "AutoOffice-Setup.exe"
 InstallDir "$LOCALAPPDATA\${APPNAME}"
 RequestExecutionLevel user
@@ -35,7 +35,7 @@ Section "Install"
   WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoModify" 1
   WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\${APPNAME}" "NoRepair"  1
 
-  MessageBox MB_OK "AutoOffice installed!$\n$\nNext steps:$\n1. Restart Microsoft Word$\n2. Go to Insert $\"Add-ins$\" $\" My Add-ins$\n3. Open the Shared Folder tab$\n4. Select AutoOffice and click Add"
+  MessageBox MB_OK "AutoOffice installed!$\n$\nNext steps:$\n1. Restart Microsoft Word or Excel$\n2. Go to Insert $\"Add-ins$\" $\" My Add-ins$\n3. Open the Shared Folder tab$\n4. Select AutoOffice and click Add"
 SectionEnd
 
 ; ── Uninstall ────────────────────────────────────────────────────────────────
