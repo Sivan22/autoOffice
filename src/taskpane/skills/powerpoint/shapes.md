@@ -38,6 +38,44 @@ await PowerPoint.run(async (context) => {
   await context.sync();
 });
 ```
+
+### Common Geometric Shape Names
+
+When passing a shape type to `addGeometricShape`, use these exact enum values. The table below maps colloquial English to the correct enum value:
+
+| You might say | Enum value |
+|---|---|
+| Circle / Oval | **`Ellipse`** |
+| Square / Rectangle | `Rectangle` |
+| Rounded rectangle | `RoundRectangle` |
+| Triangle | `Triangle` |
+| Right triangle | `RightTriangle` |
+| Diamond | `Diamond` |
+| Star (5 points) | `Star5` |
+| Right arrow | `RightArrow` |
+
+### Adding a Centered Circle
+
+To add a perfect circle (not an oval), pass equal `width` and `height` to `addGeometricShape` with `"Ellipse"` as the type:
+
+```javascript
+await PowerPoint.run(async (context) => {
+  const slide = context.presentation.slides.getItemAt(0);
+  const pageSetup = context.presentation.pageSetup;
+  pageSetup.load("slideWidth, slideHeight");
+  await context.sync();
+
+  const diameter = pageSetup.slideHeight / 2;
+  const circle = slide.shapes.addGeometricShape("Ellipse", {
+    left: (pageSetup.slideWidth - diameter) / 2,
+    top: (pageSetup.slideHeight - diameter) / 2,
+    width: diameter,
+    height: diameter,
+  });
+  circle.fill.setSolidColor("#4CAF50");
+  await context.sync();
+});
+```
 ---
 
 ## Adding a Text Box
@@ -125,51 +163,9 @@ await PowerPoint.run(async (context) => {
 
 ---
 
-## Accessing a Shape's Table
-
-When `shape.type === "Table"`, call `shape.getTable()` to get the `Table` object.
-
-```javascript
-await PowerPoint.run(async (context) => {
-  const slide = context.presentation.slides.getItemAt(0);
-  const shapes = slide.shapes;
-  shapes.load("items/type");
-  await context.sync();
-
-  const tableShape = shapes.items.find(s => s.type === "Table");
-  if (tableShape) {
-    const table = tableShape.getTable();
-    table.load("rowCount, columnCount");
-    await context.sync();
-    console.log(`Table: ${table.rowCount} rows x ${table.columnCount} cols`);
-  }
-});
-```
-
----
-
-## Finding a Shape by Name
-
-```javascript
-await PowerPoint.run(async (context) => {
-  const slide = context.presentation.slides.getItemAt(0);
-  const shapes = slide.shapes;
-  shapes.load("items/name, items/id");
-  await context.sync();
-
-  const target = shapes.items.find(s => s.name === "BlueBanner");
-  if (target) {
-    const liveShape = slide.shapes.getItem(target.id);
-    liveShape.fill.setSolidColor("#FF5722");
-    await context.sync();
-  }
-});
-```
-
----
-
 ## Common Mistakes
 
+- **Passing `"Oval"` or `"Circle"` to `addGeometricShape`**: These are rejected with `InvalidArgument`. The enum value is `"Ellipse"`. To create a perfect circle, set equal `width` and `height`.
 - **Calling `slide.shapes.addImage(...)`**: This method does not exist in PowerPoint.run. Image insertion requires an OOXML round-trip via `presentation.insertSlidesFromBase64`. See the `images` skill.
 - **Confusing points with pixels**: All geometry values (`left`, `top`, `width`, `height`) are in points (72 pt = 1 inch). A typical 10-inch-wide slide is 720 pt. Do not pass pixel values.
 - **Reading `shape.type` before sync**: `shape.type` is a proxy property. You must `load("items/type")` and `await context.sync()` before reading it.

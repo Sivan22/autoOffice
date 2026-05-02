@@ -142,6 +142,22 @@ await PowerPoint.run(async (context) => {
 });
 ```
 
+## PageSetup: Slide Dimensions
+
+The `pageSetup` property exposes slide dimensions in points. It has two read/write properties:
+
+- `slideWidth: number` — width of slides in points (PowerPointApi 1.10)
+- `slideHeight: number` — height of slides in points (PowerPointApi 1.10)
+
+```javascript
+await PowerPoint.run(async (context) => {
+  const pageSetup = context.presentation.pageSetup;
+  pageSetup.load("slideWidth, slideHeight");
+  await context.sync();
+  console.log(`Slide is ${pageSetup.slideWidth} x ${pageSetup.slideHeight} pt`);
+});
+```
+
 ## Common Mistakes
 
 - **Assuming `presentation.save()` exists**: There is no API to programmatically save or export the presentation file from within `PowerPoint.run`. The user must save manually.
@@ -150,3 +166,4 @@ await PowerPoint.run(async (context) => {
 - **Passing a URL or XML fragment to `insertSlidesFromBase64`**: The argument must be a base64-encoded complete `.pptx` zip package. A URL or a raw XML string will fail. See the `ooxml` skill.
 - **Calling `getSelectedTextRange()` unconditionally**: When no text is selected, this method throws. Use `getSelectedTextRangeOrNullObject()` and check `isNullObject`, or wrap in a try/catch. See the `selection` skill.
 - **Assuming `slides.add()` returns the new slide**: The method returns `void`. Re-query the collection after sync to access the newly added slide.
+- **Accessing `pageSetup.slideSize`**: There is no nested `slideSize` object. Dimensions are flat properties on `pageSetup`: use `pageSetup.slideWidth` and `pageSetup.slideHeight` directly (both in points, both read/write).
