@@ -2,7 +2,7 @@
 ; Inno Setup Script
 ; https://jrsoftware.org/isinfo.php
 
-#define MyAppName "AutoOffice for Word & Excel"
+#define MyAppName "AutoOffice for Word, Excel & PowerPoint"
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "AutoOffice"
 #define MyAppURL "https://sivan22.github.io/autoOffice/"
@@ -175,7 +175,7 @@ begin
 end;
 
 [Messages]
-FinishedLabel=ההתקנה הסתיימה בהצלחה.%n%nכדי להשתמש בתוסף ב-Word או Excel:%n%n1. פתח את Microsoft Word או Excel%n2. עבור לעמוד הבית > תוספות%n3. לחץ על "תיקייה משותפת" בחלק התחתון%n4. בחר "AutoOffice" והקלק הוסף
+FinishedLabel=ההתקנה הסתיימה בהצלחה.%n%nכדי להשתמש בתוסף ב-Word, Excel או PowerPoint:%n%n1. פתח את Microsoft Word, Excel או PowerPoint%n2. עבור לעמוד הבית > תוספות%n3. לחץ על "תיקייה משותפת" בחלק התחתון%n4. בחר "AutoOffice" והקלק הוסף
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
