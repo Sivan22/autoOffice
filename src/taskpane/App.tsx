@@ -16,6 +16,7 @@ import {
   renameConversation,
   deleteConversation,
   mostRecentForHost,
+  CURRENT_VERSION,
   type Conversation,
   type ConversationSummary,
 } from './store/history.ts';
@@ -231,7 +232,7 @@ export function App({ host }: AppProps) {
       const existing = isFirstTurn ? null : getConversation(convId!);
       const conv: Conversation = {
         id: convId!,
-        v: 1,
+        v: CURRENT_VERSION,
         title: isFirstTurn ? placeholder : (existing?.title ?? 'New chat'),
         host: convHost,
         createdAt: existing?.createdAt ?? now,

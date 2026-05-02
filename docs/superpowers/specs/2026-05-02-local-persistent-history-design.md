@@ -133,7 +133,7 @@ We do **not** save mid-stream (per-token). End-of-turn is enough because that's 
 
 - **Soft cap on total size.** Before each write, sum the byte length of all `autooffice_history_conv_*` keys. If over ~4 MB, evict oldest conversations by `updatedAt` until under threshold. The **active** conversation is never evicted.
 - **Per-conversation truncation.** Runs inside `saveConversation`, before the blob is written. If the conversation's serialized size exceeds 1 MB, walk its `uiMessages[].codeBlock.result` strings oldest-first, replacing each with `"[truncated]"` until under 1 MB. Tool-result strings are the typical bloat source. Message structure and order are preserved.
-- **`QuotaExceededError` during save.** Run eviction once and retry. If still failing, surface a one-time toast (*"Local history full — older conversations were removed"* or *"Could not save chat history"*) and continue in-memory only for the rest of the session.
+- **`QuotaExceededError` during save.** Run eviction once and retry. If still failing, log a `console.warn` and continue in-memory only for the rest of the session. *(A user-visible toast was originally specified but deferred — Fluent UI's `useToastController` isn't wired up in this codebase yet. Tracked as a follow-up; the warn is the only signal until then.)*
 
 Numbers (4 MB total cap, 1 MB per-conversation cap) are conservative defaults and live in one constants block in `history.ts` so they're easy to tune.
 
