@@ -14,6 +14,9 @@ import pivotTables from './pivot-tables.md?raw';
 import conditionalFormatting from './conditional-formatting.md?raw';
 import dataValidation from './data-validation.md?raw';
 import filtersSort from './filters-sort.md?raw';
+import comments from './comments.md?raw';
+import hyperlinks from './hyperlinks.md?raw';
+import imagesShapes from './images-shapes.md?raw';
 
 export const EXCEL_SKILL_NAMES = [
   'context-sync',
@@ -31,6 +34,9 @@ export const EXCEL_SKILL_NAMES = [
   'conditional-formatting',
   'data-validation',
   'filters-sort',
+  'comments',
+  'hyperlinks',
+  'images-shapes',
 ] as const;
 export type ExcelSkillName = (typeof EXCEL_SKILL_NAMES)[number];
 
@@ -50,4 +56,7 @@ export const EXCEL_SKILLS: Record<string, string> = {
   'conditional-formatting': conditionalFormatting,
   'data-validation': dataValidation,
   'filters-sort': filtersSort,
+  'comments': comments,
+  'hyperlinks': hyperlinks,
+  'images-shapes': imagesShapes,
 };
