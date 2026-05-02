@@ -4,28 +4,36 @@
 
 ## Key Types
 
-- `PowerPoint.Presentation` — accessed via `context.presentation`. Properties: `title`, `slides`, `slideMasters`, `tags`.
-- `PowerPoint.SlideCollection` — `presentation.slides`. Ordered collection of all slides. Use `getItemAt(index)` (0-based) or `getItemOrNullObject(id)`.
+- `PowerPoint.Presentation` — accessed via `context.presentation`. Properties: `title`, `id`, `slides`, `slideMasters`, `tags`, `bindings`, `customXmlParts`, `pageSetup`, `properties`.
+- `PowerPoint.SlideCollection` — `presentation.slides`. Ordered collection of all slides. Methods: `add(options?)`, `getItem(id)`, `getItemAt(index)`, `getItemOrNullObject(id)`, `getCount()`, `exportAsBase64Presentation(values)`.
 - `PowerPoint.SlideMasterCollection` — `presentation.slideMasters`. Collection of all slide masters in the deck.
-- `PowerPoint.Tags` — `presentation.tags`. Key-value metadata attached to the presentation. See the `tags` skill.
+- `PowerPoint.TagCollection` — `presentation.tags`. Key-value metadata attached to the presentation. See the `tags` skill.
+- `PowerPoint.DocumentProperties` — `presentation.properties`. Document-level metadata (title, author, subject, etc.).
 
 ## Presentation Properties
 
 | Property | Type | Notes |
 |---|---|---|
 | `title` | `string` | The deck's internal title metadata, **not** the file name. Must be loaded before reading. |
+| `id` | `string` | Unique presentation ID. Must be loaded before reading. |
 | `slides` | `SlideCollection` | All slides, in order. |
 | `slideMasters` | `SlideMasterCollection` | All slide masters. |
-| `tags` | `Tags` | Presentation-level key-value metadata. |
+| `tags` | `TagCollection` | Presentation-level key-value metadata. |
+| `bindings` | `BindingCollection` | Bindings associated with the presentation (PowerPointApi 1.8). |
+| `customXmlParts` | `CustomXmlPartCollection` | Custom XML parts (PowerPointApi 1.7). |
+| `pageSetup` | `PageSetup` | Slide size and orientation (PowerPointApi 1.10). |
+| `properties` | `DocumentProperties` | Document metadata: author, subject, etc. (PowerPointApi 1.7). |
 
 ## Presentation Methods
 
 | Method | Description |
 |---|---|
 | `getSelectedSlides()` | Returns a `SlideScopedCollection` of currently selected slides. |
-| `getSelectedShapes()` | Returns a `ShapeScopedCollection` of currently selected shapes. |
-| `getSelectedTextRange()` | Returns the `TextRange` of the currently selected text cursor or selection. May throw if no text is selected. |
-| `insertSlidesFromBase64(base64File, options?)` | Inserts slides from a base64-encoded `.pptx` file. Primary path for adding new slides with specific layouts, tables, charts, or other content not available via typed API. See the `ooxml` skill. |
+| `getSelectedShapes()` | Returns a `ShapeScopedCollection` of currently selected shapes on the current slide. |
+| `getSelectedTextRange()` | Returns the `TextRange` of the currently selected text. Throws if no text is selected. |
+| `getSelectedTextRangeOrNullObject()` | Safe variant — returns a null-object if no text is selected; check `isNullObject`. |
+| `insertSlidesFromBase64(base64File, options?)` | Inserts slides from a base64-encoded `.pptx` file. Primary path for adding slides with complex content. See the `ooxml` skill. |
+| `setSelectedSlides(slideIds)` | Sets the slide selection to the given array of slide ID strings. |
 
 ## Load and Read Title and Slide Count
 
@@ -36,11 +44,12 @@ await PowerPoint.run(async (context) => {
   const presentation = context.presentation;
   const slides = presentation.slides;
 
-  presentation.load("title");
+  presentation.load("title, id");
   slides.load("items/id");
   await context.sync();
 
   console.log("Title:", presentation.title);
+  console.log("ID:", presentation.id);
   console.log("Slide count:", slides.items.length);
 });
 ```
@@ -52,11 +61,11 @@ Use the `slides` collection and load the sub-properties you need across all item
 ```javascript
 await PowerPoint.run(async (context) => {
   const slides = context.presentation.slides;
-  slides.load("items/id");
+  slides.load("items/id, items/index");
   await context.sync();
 
-  slides.items.forEach((slide, index) => {
-    console.log(`Slide ${index + 1}: id=${slide.id}`);
+  slides.items.forEach((slide) => {
+    console.log(`Slide index=${slide.index}, id=${slide.id}`);
   });
 });
 ```
@@ -75,14 +84,35 @@ await PowerPoint.run(async (context) => {
 });
 ```
 
+## Add a New Slide
+
+`presentation.slides.add(options?)` adds a blank slide (PowerPointApi 1.3). It returns `void` — to work with the new slide, re-query the collection after sync. Pass `slideMasterId` and/or `layoutId` to control which master and layout are used.
+
+```javascript
+await PowerPoint.run(async (context) => {
+  const slides = context.presentation.slides;
+
+  // Add a slide using the default master and its first layout.
+  slides.add();
+  await context.sync();
+
+  // Re-query to get the new slide (it was appended to the end).
+  slides.load("items/id");
+  await context.sync();
+  console.log("New slide count:", slides.items.length);
+});
+```
+
+See the `slides` skill for the full `add()` pattern with a specific layout.
+
 ## Insert Slides from Base64 (OOXML Round-Trip)
 
-When you need to add new slides — especially with specific layouts, tables, charts, or complex formatting — build a `.pptx` file, base64-encode it, and call `insertSlidesFromBase64`. The inserted slides are appended by default; use `options.targetSlideId` to control position.
+For slides with complex content (specific layouts, tables, charts), build a `.pptx` file, base64-encode it, and call `insertSlidesFromBase64`. Slides are appended by default; use `options.targetSlideId` to control position.
 
 ```javascript
 await PowerPoint.run(async (context) => {
   // base64Pptx is a base64-encoded complete .pptx file (not a URL, not raw XML).
-  const base64Pptx = "..."; // Provided by caller or constructed via OOXML.
+  const base64Pptx = "...";
 
   context.presentation.insertSlidesFromBase64(base64Pptx, {
     formatting: PowerPoint.InsertSlideFormatting.keepSourceFormatting,
@@ -112,16 +142,11 @@ await PowerPoint.run(async (context) => {
 });
 ```
 
-## Limitations
-
-- **No `presentation.save()`**: There is no API to programmatically save or export the presentation file from within `PowerPoint.run`. The user must save manually, or you can use `slide.exportAsBase64()` to export individual slides.
-- **No typed table or chart creation**: Inserting tables, charts, SmartArt, or complex layouts requires the OOXML round-trip via `insertSlidesFromBase64`. See the `ooxml` skill.
-- **No `slides.add()`**: There is no method to add a blank slide directly to the collection. All new slides come from `insertSlidesFromBase64`. See the `slides` skill.
-
 ## Common Mistakes
 
-- **Assuming `presentation.save()` exists**: There is no save API in `PowerPoint.run`. Do not try to call it.
+- **Assuming `presentation.save()` exists**: There is no API to programmatically save or export the presentation file from within `PowerPoint.run`. The user must save manually.
 - **Treating `title` as the file name**: `presentation.title` is the internal metadata title (from File > Properties), not the `.pptx` filename. They may differ.
 - **Reading `title` without `load`**: Like all proxy properties, `title` is `undefined` until you call `presentation.load("title")` + `await context.sync()`.
 - **Passing a URL or XML fragment to `insertSlidesFromBase64`**: The argument must be a base64-encoded complete `.pptx` zip package. A URL or a raw XML string will fail. See the `ooxml` skill.
-- **Assuming `getSelectedTextRange()` is safe to call unconditionally**: When no text is selected, this method may throw. Wrap in a try/catch or use `getSelectedShapes()` first. See the `selection` skill.
+- **Calling `getSelectedTextRange()` unconditionally**: When no text is selected, this method throws. Use `getSelectedTextRangeOrNullObject()` and check `isNullObject`, or wrap in a try/catch. See the `selection` skill.
+- **Assuming `slides.add()` returns the new slide**: The method returns `void`. Re-query the collection after sync to access the newly added slide.

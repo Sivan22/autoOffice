@@ -1,38 +1,37 @@
 # Slides — Slide Collection and Per-Slide Operations
 
-`presentation.slides` is a `SlideCollection` containing all slides in deck order. You can iterate, inspect, reorder, duplicate, delete, and export individual slides. Adding new slides requires an OOXML round-trip — there is no `slides.add()` method.
+`presentation.slides` is a `SlideCollection` containing all slides in deck order. You can iterate, inspect, reorder, delete, and export individual slides. New slides are added via `slides.add(options?)` (typed API) or via `presentation.insertSlidesFromBase64(...)` for OOXML round-trips.
 
 ## Key Types
 
-- `PowerPoint.SlideCollection` — `presentation.slides`. Methods: `getItemAt(index)`, `getItemOrNullObject(id)`, `load("items/...")`.
-- `PowerPoint.Slide` — single slide proxy. Properties: `id`, `layout`, `slideMaster`, `shapes`, `tags`, `notesPage`. Methods: `delete()`, `moveTo(index)`, `duplicate()`, `exportAsBase64()`.
+- `PowerPoint.SlideCollection` — `presentation.slides`. Methods: `add(options?)`, `getItem(id)`, `getItemAt(index)`, `getItemOrNullObject(id)`, `getCount()`, `exportAsBase64Presentation(values)`, `load(...)`.
+- `PowerPoint.Slide` — single slide proxy. Properties: `id` (string), `index` (number, 0-based), `layout`, `slideMaster`, `shapes`, `tags`, `hyperlinks`, `customXmlParts`, `background`, `themeColorScheme`. Methods: `applyLayout(slideLayout)`, `delete()`, `exportAsBase64()`, `getImageAsBase64(options?)`, `moveTo(slideIndex)`, `setSelectedShapes(shapeIds)`.
 - `PowerPoint.ShapeCollection` — `slide.shapes`. All shapes on a slide. See the `shapes` skill.
-- `PowerPoint.Tags` — `slide.tags`. Key-value metadata on a slide. See the `tags` skill.
+- `PowerPoint.TagCollection` — `slide.tags`. Key-value metadata on a slide. See the `tags` skill.
 
 ## Slide Identity
 
-Each slide has a string `id` assigned by the runtime — it is stable across session and is the canonical way to reference a specific slide when using `getItemOrNullObject(id)`. The zero-based position in the collection is transient and changes when slides are reordered.
+Each slide has a string `id` assigned by the runtime — it is stable and is the canonical way to reference a specific slide with `getItem(id)` or `getItemOrNullObject(id)`. The `index` property (PowerPointApi 1.8) returns the 0-based position in the collection; this changes when slides are reordered.
 
 ## Accessing Slides
 
 ### By Index (0-based)
 
-`getItemAt(index)` is **0-based**. The first slide is at index `0`.
+`getItemAt(index)` is **0-based**. The first slide in the UI is at index `0`.
 
 ```javascript
 await PowerPoint.run(async (context) => {
-  // Get the first slide (index 0).
   const firstSlide = context.presentation.slides.getItemAt(0);
-  firstSlide.load("id");
+  firstSlide.load("id, index");
   await context.sync();
 
-  console.log("First slide id:", firstSlide.id);
+  console.log("First slide id:", firstSlide.id, "index:", firstSlide.index);
 });
 ```
 
 ### By ID
 
-Use `getItemOrNullObject(id)` when you have a slide ID from a prior sync. Check `isNullObject` before using the result.
+Use `getItemOrNullObject(id)` when you have a slide ID from a prior sync. Always check `isNullObject` before using the result.
 
 ```javascript
 await PowerPoint.run(async (context) => {
@@ -48,40 +47,31 @@ await PowerPoint.run(async (context) => {
 });
 ```
 
-## Iterate All Slides — Log ID and Shape Count
+## Iterate All Slides — Log ID, Index, and Shape Count
 
 ```javascript
 await PowerPoint.run(async (context) => {
   const slides = context.presentation.slides;
-  slides.load("items/id");
+  slides.load("items/id, items/index");
   await context.sync();
 
   // Load shape counts for all slides in one batch.
   slides.items.forEach((slide) => slide.shapes.load("items/id"));
   await context.sync();
 
-  slides.items.forEach((slide, index) => {
-    console.log(`Slide ${index + 1}: id=${slide.id}, shapes=${slide.shapes.items.length}`);
+  slides.items.forEach((slide) => {
+    console.log(`Slide index=${slide.index}, id=${slide.id}, shapes=${slide.shapes.items.length}`);
   });
 });
 ```
 
-## Delete a Slide
+## Add a New Slide
 
-`slide.delete()` removes the slide from the deck. Queued synchronously; call `context.sync()` to commit.
+`slides.add(options?)` adds a new slide (PowerPointApi 1.3) and returns `void`. To work with the new slide, re-query the collection after sync.
 
-```javascript
-await PowerPoint.run(async (context) => {
-  // Delete the slide at index 2 (the third slide, 0-based).
-  const slide = context.presentation.slides.getItemAt(2);
-  slide.delete();
-  await context.sync();
-});
-```
-
-## Duplicate a Slide and Move the Copy to the End
-
-`slide.duplicate()` returns a proxy for the new slide. `moveTo(index)` repositions it. After `context.sync()`, you can read the slide's `id` if needed.
+- If neither `slideMasterId` nor `layoutId` is provided, the previous slide's master and its first layout are used (or the presentation's first master if there is no previous slide).
+- If only `layoutId` is provided, the specified layout must be available under the default master.
+- If both are provided, the layout must belong to the specified master.
 
 ```javascript
 await PowerPoint.run(async (context) => {
@@ -89,23 +79,58 @@ await PowerPoint.run(async (context) => {
   slides.load("items/id");
   await context.sync();
 
-  const slideCount = slides.items.length;
-
-  // Duplicate the first slide.
-  const original = slides.getItemAt(0);
-  const copy = original.duplicate();
-
-  // Move the copy to the last position (0-based, so count is correct after insert).
-  copy.moveTo(slideCount);
-
+  // Add a slide using the default master and layout.
+  slides.add();
   await context.sync();
-  console.log("Slide duplicated and moved to end.");
+
+  // Re-query to see the newly added slide.
+  slides.load("items/id");
+  await context.sync();
+  console.log("Slide count after add:", slides.items.length);
+});
+```
+
+To add a slide with a specific master and layout:
+
+```javascript
+await PowerPoint.run(async (context) => {
+  const masters = context.presentation.slideMasters;
+  masters.load("items/id");
+  await context.sync();
+
+  const master = masters.getItemAt(0);
+  master.layouts.load("items/id, items/name");
+  await context.sync();
+
+  const layout = master.layouts.items.find((l) => l.name === "Title and Content");
+
+  if (layout) {
+    context.presentation.slides.add({
+      slideMasterId: master.id,
+      layoutId: layout.id,
+    });
+    await context.sync();
+    console.log("Slide added with specified layout.");
+  }
+});
+```
+
+## Delete a Slide
+
+`slide.delete()` removes the slide from the deck. Call `context.sync()` to commit.
+
+```javascript
+await PowerPoint.run(async (context) => {
+  // Delete the third slide (0-based index 2).
+  const slide = context.presentation.slides.getItemAt(2);
+  slide.delete();
+  await context.sync();
 });
 ```
 
 ## Move a Slide to a New Position
 
-`moveTo(index)` places the slide at the given 0-based position. Other slides shift to accommodate.
+`moveTo(slideIndex)` places the slide at the given 0-based position. Other slides shift to accommodate.
 
 ```javascript
 await PowerPoint.run(async (context) => {
@@ -120,9 +145,33 @@ await PowerPoint.run(async (context) => {
 });
 ```
 
+## Copy a Slide to the End (exportAsBase64 + insertSlidesFromBase64)
+
+There is no `slide.duplicate()` method. To copy a slide, export it as a self-contained `.pptx` via `exportAsBase64()`, then re-insert via `presentation.insertSlidesFromBase64(...)`. See the `ooxml` skill for full round-trip patterns.
+
+```javascript
+await PowerPoint.run(async (context) => {
+  // Export the first slide as a base64 .pptx.
+  const slide = context.presentation.slides.getItemAt(0);
+  const result = slide.exportAsBase64();
+  await context.sync();
+
+  // result.value is now a base64-encoded single-slide .pptx.
+  const base64 = result.value;
+
+  // Insert it back — this appends the copied slide to the end by default.
+  context.presentation.insertSlidesFromBase64(base64, {
+    formatting: PowerPoint.InsertSlideFormatting.keepSourceFormatting,
+  });
+  await context.sync();
+
+  console.log("Slide copied to end.");
+});
+```
+
 ## Export a Slide as Base64
 
-`slide.exportAsBase64()` returns a `ClientResult<string>`. You must `await context.sync()` before reading `.value`.
+`slide.exportAsBase64()` returns a `ClientResult<string>`. Read `.value` only after `await context.sync()`.
 
 ```javascript
 await PowerPoint.run(async (context) => {
@@ -130,38 +179,21 @@ await PowerPoint.run(async (context) => {
   const result = slide.exportAsBase64();
   await context.sync();
 
-  const base64 = result.value; // Complete .pptx of this one slide.
+  const base64 = result.value; // Complete .pptx containing this one slide.
   console.log("Exported slide, base64 length:", base64.length);
-});
-```
-
-## Adding New Slides (No slides.add())
-
-There is **no `slides.add()` method** in the PowerPoint typed API. To add a new slide, use `presentation.insertSlidesFromBase64(base64Pptx, options?)` with a complete `.pptx` file as the source. This is the standard OOXML round-trip pattern. See the `ooxml` skill for full examples.
-
-```javascript
-// Pattern — new slides come from insertSlidesFromBase64, not slides.add().
-await PowerPoint.run(async (context) => {
-  // base64Pptx must be a full .pptx file encoded as base64.
-  const base64Pptx = "..."; // Build or fetch this externally.
-
-  context.presentation.insertSlidesFromBase64(base64Pptx, {
-    formatting: PowerPoint.InsertSlideFormatting.keepSourceFormatting,
-  });
-
-  await context.sync();
 });
 ```
 
 ## Per-Slide Layout and Master
 
-`slide.layout` is the `SlideLayout` applied to this slide. `slide.slideMaster` is the `SlideMaster`. Both are proxy objects that need `load()` before reading their properties. See the `slide-layouts` skill.
+`slide.layout` is the `SlideLayout` applied to this slide; `slide.slideMaster` is the `SlideMaster`. Both are proxy objects that require `load()` before reading their properties. Use `slide.applyLayout(slideLayout)` (PowerPointApi 1.8) to change the layout — see the `slide-layouts` skill.
 
 ## Common Mistakes
 
-- **Assuming `slides.add()` exists** — it does not. New slides require `presentation.insertSlidesFromBase64(...)`. See the `ooxml` skill.
+- **Calling `slide.duplicate()`** — this method does not exist. Copy a slide via `exportAsBase64()` + `insertSlidesFromBase64(...)`. See the `ooxml` skill.
 - **Treating `getItemAt` index as 1-based** — it is **0-based**. Slide 1 in the UI is `getItemAt(0)`.
+- **Assuming `slides.add()` returns the new slide** — it returns `void`. Re-query the collection after sync to access the new slide.
 - **Not loading the collection before reading `items.length`** — call `slides.load("items/id")` and sync before checking `slides.items.length`.
-- **`moveTo` index ambiguity** — after calling `duplicate()`, the collection length increases before `moveTo` is evaluated at sync time. Use the pre-duplicate length as the target end index.
 - **Calling `exportAsBase64()` and reading `.value` before sync** — `exportAsBase64()` returns a `ClientResult<string>`. The `.value` is only populated after `await context.sync()`.
-- **Deleting a slide while iterating `slides.items`** — mutating the collection while iterating can produce unexpected results. Collect the slides to delete first, then call `delete()` in a separate pass.
+- **Deleting a slide while iterating `slides.items`** — mutating the collection during iteration produces unexpected results. Collect the slides to delete first, then call `delete()` in a separate pass.
+- **Passing a layout from a different master to `slides.add({ layoutId })`** — if `layoutId` belongs to a master other than the default (and `slideMasterId` is not specified), the call throws. Specify both `slideMasterId` and `layoutId` together.

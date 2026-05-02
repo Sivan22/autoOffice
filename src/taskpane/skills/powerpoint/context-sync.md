@@ -1,16 +1,16 @@
 # Context, PowerPoint.run, and Sync
 
-`PowerPoint.run` opens a `PowerPoint.RequestContext`, runs your async callback, then flushes any queued operations. Inside the callback, `context.presentation` is the root proxy for the open presentation. All reads require `load()` + `await context.sync()` before values are available.
+`PowerPoint.run` opens a `PowerPoint.RequestContext`, runs your async callback, and flushes queued operations. Inside the callback, `context.presentation` is the root proxy for the open presentation. All reads require `load()` + `await context.sync()` before values are available.
 
 ## Key Types
 
 - `PowerPoint.RequestContext` — the `context` argument inside `PowerPoint.run`. Exposes `context.presentation`.
-- `PowerPoint.Presentation` — top-level proxy: `title`, `slides`, `slideMasters`, `tags`.
+- `PowerPoint.Presentation` — top-level proxy: `title`, `id`, `slides`, `slideMasters`, `tags`.
 - Proxy objects — every object returned by the API is a client-side proxy. Property values are **not** populated until you call `load()` + `await context.sync()`.
 
 ## How PowerPoint.run Works
 
-`PowerPoint.run` opens a request context, executes your async callback, then automatically calls `context.sync()` once more at the end. All PowerPoint API calls must happen inside this callback.
+`PowerPoint.run` opens a request context, executes your async callback, and flushes queued operations when you `await context.sync()` or when the run callback returns. All PowerPoint API calls must happen inside this callback.
 
 ```javascript
 await PowerPoint.run(async (context) => {
@@ -19,7 +19,7 @@ await PowerPoint.run(async (context) => {
 });
 ```
 
-The auto-sync at the end flushes pending writes (formatting, property sets, deletions). It does **not** bring property values back to the client — if you need to read a value, you must explicitly `load()` and `await context.sync()` before accessing it.
+Queued operations are flushed when you `await context.sync()` or when the `PowerPoint.run` callback returns. Always `load` + `sync` explicitly before reading a property — do not rely on the run callback's flush to bring values back to the client.
 
 ## The Proxy Object Model
 
@@ -42,11 +42,11 @@ await PowerPoint.run(async (context) => {
 
 ## Difference from Excel.run
 
-`PowerPoint.run` and `Excel.run` share the same proxy/load/sync model. The key differences for PowerPoint:
+`PowerPoint.run` and `Excel.run` share the same proxy/load/sync model. Key differences for PowerPoint:
 
 - There is no `context.application` — use `context.presentation` as the sole entry point.
 - PowerPoint has no calculation engine, so there is no equivalent of `suspendApiCalculationUntilNextSync`.
-- Many presentation-level operations (saving, exporting, inserting new slides) use dedicated methods such as `presentation.insertSlidesFromBase64(...)` rather than typed collection additions. See the `ooxml` skill.
+- Adding slides uses `presentation.slides.add(options?)` (typed API) or `presentation.insertSlidesFromBase64(...)` for OOXML round-trips. See the `slides` and `ooxml` skills.
 
 ## Reading a Collection
 
@@ -64,7 +64,7 @@ await PowerPoint.run(async (context) => {
 });
 ```
 
-Loading `"items/id"` fetches the `id` property for every item in one round-trip. To load multiple sub-properties, use a comma-separated list: `"items/id, items/layout"`.
+Loading `"items/id"` fetches the `id` property for every item in one round-trip. To load multiple sub-properties, use a comma-separated list: `"items/id, items/index"`.
 
 ## Chaining Proxy Objects
 
@@ -122,5 +122,5 @@ await PowerPoint.run(async (context) => {
 - Reading a proxy property before calling `load()` + `await context.sync()` — the value will be `undefined`.
 - Calling `load()` but forgetting `await context.sync()` before accessing the returned value.
 - Calling `await context.sync()` inside a `for` loop — causes one round-trip per iteration; batch loads instead.
-- Assuming the final auto-sync at the end of `PowerPoint.run` brings property values back to the client — it flushes queued writes only; reads still need an explicit `load` + `sync`.
+- Assuming the run callback's automatic flush at exit brings property values back to the client — it does not. Reads always need an explicit `load` + `sync`.
 - Forgetting that `context.presentation` is a proxy — you do not need to `load` it to use it, but you do need to `load` its individual properties before reading them.

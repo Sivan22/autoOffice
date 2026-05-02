@@ -1,14 +1,14 @@
 # Slide Layouts — Masters and Layouts
 
-A PowerPoint deck is structured around slide masters, each of which owns a set of slide layouts. A layout defines placeholder arrangement and formatting for slides that use it. You can read which master and layout a slide uses, and enumerate all available layouts. Changing a slide's layout via direct property assignment is not a documented typed API — use the OOXML round-trip if you need to re-layout slides programmatically.
+A PowerPoint deck is structured around slide masters, each of which owns a set of slide layouts. A layout defines placeholder arrangement and formatting for slides that use it. You can read which master and layout a slide uses, enumerate all available layouts, and apply a different layout to a slide using `slide.applyLayout(slideLayout)` (PowerPointApi 1.8).
 
 ## Key Types
 
 - `PowerPoint.SlideMasterCollection` — `presentation.slideMasters`. Ordered collection of all slide masters.
-- `PowerPoint.SlideMaster` — single master. Properties: `id` (string), `name` (string), `layouts` (SlideLayoutCollection).
+- `PowerPoint.SlideMaster` — single master. Properties: `id` (string), `name` (string), `layouts` (`SlideLayoutCollection`), `shapes`, `background`, `customXmlParts`, `themeColorScheme`.
 - `PowerPoint.SlideLayoutCollection` — `slideMaster.layouts`. All layouts under a master.
-- `PowerPoint.SlideLayout` — single layout. Properties: `id` (string), `name` (string).
-- `PowerPoint.Slide` — has proxy navigations: `slide.layout` (`SlideLayout`) and `slide.slideMaster` (`SlideMaster`).
+- `PowerPoint.SlideLayout` — single layout. Properties: `id` (string), `name` (string), `type` (`SlideLayoutType`), `shapes`, `background`, `customXmlParts`, `themeColorScheme`.
+- `PowerPoint.Slide` — has proxy navigations: `slide.layout` (`SlideLayout`) and `slide.slideMaster` (`SlideMaster`). Method: `applyLayout(slideLayout)`.
 
 ## Structure Overview
 
@@ -17,7 +17,7 @@ Presentation
   └── slideMasters (SlideMasterCollection)
         └── SlideMaster  (id, name)
               └── layouts (SlideLayoutCollection)
-                    └── SlideLayout  (id, name)
+                    └── SlideLayout  (id, name, type)
 
 Slide
   ├── layout      → SlideLayout  (read via slide.layout.load(...))
@@ -105,10 +105,9 @@ Layout names are not guaranteed to be unique across masters. Always scope your l
 ```javascript
 await PowerPoint.run(async (context) => {
   const masters = context.presentation.slideMasters;
-  masters.load("items/name");
+  masters.load("items/id, items/name");
   await context.sync();
 
-  // Pick the first master.
   const master = masters.getItemAt(0);
   master.layouts.load("items/id, items/name");
   await context.sync();
@@ -126,12 +125,38 @@ await PowerPoint.run(async (context) => {
 
 ## Applying a Layout to a Slide
 
-The typed `PowerPoint.run` API does not expose a documented property assignment for `slide.layout` or `slide.slideMaster`. **Do not rely on `slide.layout = someLayout` — verify against current `@types/office-js` types before relying on direct assignment.** If the assignment is not supported in the version you are targeting, the correct approach is the OOXML round-trip: export the slide via `slide.exportAsBase64()`, modify the layout reference in the OOXML, and re-import via `presentation.insertSlidesFromBase64(...)`. See the `ooxml` skill.
+`slide.applyLayout(slideLayout)` (PowerPointApi 1.8) is a typed API for reassigning a slide's layout. The `slideLayout` argument must be a `SlideLayout` object belonging to the slide's current `SlideMaster`. Passing a layout from a different master will throw.
+
+```javascript
+await PowerPoint.run(async (context) => {
+  const slide = context.presentation.slides.getItemAt(0);
+
+  // Load the slide's current master so we can query its layouts.
+  slide.slideMaster.load("id");
+  await context.sync();
+
+  // Load the layouts of the slide's own master.
+  slide.slideMaster.layouts.load("items/id, items/name");
+  await context.sync();
+
+  const targetName = "Blank";
+  const layout = slide.slideMaster.layouts.items.find((l) => l.name === targetName);
+
+  if (layout) {
+    slide.applyLayout(layout);
+    await context.sync();
+    console.log(`Applied layout "${targetName}" to slide.`);
+  } else {
+    console.log(`Layout "${targetName}" not found on this slide's master.`);
+  }
+});
+```
 
 ## Common Mistakes
 
 - **Assuming layout `name` is unique across masters** — two different masters can both have a layout named "Title Slide". Always scope layout lookups to a specific master.
-- **Assuming `slide.layout` can be reassigned via direct property write** — this is not a documented typed mutation; verify against current `@types/office-js` types before relying on assignment. Use the OOXML round-trip if you need to change a slide's layout.
-- **Not loading both levels before accessing layout names** — you must first sync after loading masters, then load each master's layouts, then sync again. Trying to read `master.layouts` before syncing masters returns an empty or invalid proxy.
+- **Passing a layout from a different master to `applyLayout`** — the layout must belong to the slide's current `SlideMaster`. Passing a layout from a different master will throw at runtime.
+- **Not loading both levels before accessing layout names** — you must sync after loading masters, then load each master's layouts, then sync again. Reading `master.layouts` before syncing masters returns an empty or invalid proxy.
 - **Treating `SlideLayout.id` as a display number** — `id` is an opaque string identifier, not the 1-based layout index shown in the PowerPoint UI.
 - **Using `getItemAt` to navigate into layouts without loading first** — always `load("items/id, items/name")` and sync before calling `find` or indexing into `layouts.items`.
+- **Assuming `SlideLayout` has a `tags` property** — `SlideLayout` does not expose `tags` in the verified `@types/office-js` types. Only `Slide` and `Presentation` expose `tags` (`TagCollection`).
