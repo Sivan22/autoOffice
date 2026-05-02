@@ -78,3 +78,19 @@ export function saveConversation(c: Conversation): void {
   index.push(summarize(c));
   writeIndex(index);
 }
+
+export function renameConversation(id: string, title: string): void {
+  const conv = getConversation(id);
+  if (!conv) return;
+  const next: Conversation = { ...conv, title };
+  // Direct write — no updatedAt bump, since rename is metadata only.
+  localStorage.setItem(blobKeyFor(id), JSON.stringify(next));
+  const index = readIndex().map(s => s.id === id ? { ...s, title } : s);
+  writeIndex(index);
+}
+
+export function deleteConversation(id: string): void {
+  localStorage.removeItem(blobKeyFor(id));
+  const index = readIndex().filter(s => s.id !== id);
+  writeIndex(index);
+}

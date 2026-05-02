@@ -6,6 +6,8 @@ import {
   saveConversation,
   getConversation,
   listConversations,
+  renameConversation,
+  deleteConversation,
   type ConversationSummary,
   type Conversation,
 } from './history.ts';
@@ -97,5 +99,36 @@ describe('history.ts — save / get / list', () => {
     // without throwing.
     expect(getConversation('bad')).toBeNull();
     expect(listConversations().map(s => s.id)).toEqual(['good']);
+  });
+});
+
+describe('history.ts — rename and delete', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('renames the title in both blob and index', () => {
+    saveConversation(makeConv({ id: 'r1', title: 'before' }));
+    renameConversation('r1', 'after');
+    expect(getConversation('r1')?.title).toBe('after');
+    expect(listConversations()[0].title).toBe('after');
+  });
+
+  it('renaming an unknown id is a no-op (no throw)', () => {
+    expect(() => renameConversation('nope', 'x')).not.toThrow();
+    expect(listConversations()).toEqual([]);
+  });
+
+  it('deletes both blob and index entry', () => {
+    saveConversation(makeConv({ id: 'd1' }));
+    saveConversation(makeConv({ id: 'd2' }));
+    deleteConversation('d1');
+    expect(getConversation('d1')).toBeNull();
+    expect(localStorage.getItem(blobKeyFor('d1'))).toBeNull();
+    expect(listConversations().map(s => s.id)).toEqual(['d2']);
+  });
+
+  it('deleting an unknown id is a no-op', () => {
+    saveConversation(makeConv({ id: 'd1' }));
+    expect(() => deleteConversation('nope')).not.toThrow();
+    expect(listConversations()).toHaveLength(1);
   });
 });
