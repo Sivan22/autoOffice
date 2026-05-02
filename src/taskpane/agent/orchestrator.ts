@@ -107,9 +107,9 @@ export async function runAgent(
 
       retryCount++;
       if (retryCount >= settings.maxRetries) {
-        return translationService.t('errors.maxRetriesReached', { count: retryCount.toString(), error: result.error }) + logsStr;
+        return translationService.t('errors.maxRetriesReached', { count: retryCount, error: result.error || 'Unknown error' }) + logsStr;
       }
-      return translationService.t('errors.executionFailed', { message: result.error }) + `\n${result.stack || ''}${logsStr}\n` + translationService.t('errors.pleaseFixAndRetry');
+      return translationService.t('errors.executionFailed', { message: result.error || 'Unknown error' }) + `\n${result.stack || ''}${logsStr}\n` + translationService.t('errors.pleaseFixAndRetry');
     },
   });
 

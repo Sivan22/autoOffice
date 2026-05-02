@@ -221,14 +221,19 @@ describe('Translation Data Structures', () => {
       const keys: TranslationKeys['code'] = {
         approveButton: 'Approve',
         rejectButton: 'Reject',
-        executingStatus: 'Executing',
+        awaitingApprovalStatus: 'Awaiting',
+        rejectedStatus: 'Rejected',
+        runningStatus: 'Running',
         successStatus: 'Success',
         errorStatus: 'Error',
+        errorDetails: 'Details',
+        result: 'Result',
+        toolActivity: 'Activity',
       };
 
       expect(keys.approveButton).toBeDefined();
       expect(keys.rejectButton).toBeDefined();
-      expect(keys.executingStatus).toBeDefined();
+      expect(keys.awaitingApprovalStatus).toBeDefined();
       expect(keys.successStatus).toBeDefined();
       expect(keys.errorStatus).toBeDefined();
     });
@@ -240,6 +245,10 @@ describe('Translation Data Structures', () => {
         invalidApiKey: 'Invalid key',
         timeout: 'Timeout',
         unknownError: 'Unknown',
+        codeRejected: 'Rejected',
+        maxRetriesReached: 'Max retries',
+        pleaseFixAndRetry: 'Fix and retry',
+        streamError: 'Stream error',
       };
 
       expect(keys.executionFailed).toBeDefined();
