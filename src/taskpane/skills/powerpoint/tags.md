@@ -1,8 +1,8 @@
 # Tags — Working with Tags in PowerPoint
 
-Tags are key-value string pairs you attach to a `Presentation`, `Slide`, `SlideMaster`,
-`SlideLayout`, or `Shape`. They are invisible to the end-user, survive save and reopen, and are
-ideal for storing non-visual metadata such as slide roles, shape identifiers, or workflow state.
+Tags are key-value string pairs you attach to a `Presentation`, `Slide`, or `Shape`. They are
+invisible to the end-user, survive save and reopen, and are ideal for storing non-visual metadata
+such as slide roles, shape identifiers, or workflow state.
 
 ---
 
@@ -14,8 +14,6 @@ ideal for storing non-visual metadata such as slide roles, shape identifiers, or
 - **`PowerPoint.TagCollection`** — the typed name of the collection (NOT `Tags`). Found on:
   - `context.presentation.tags`
   - `slide.tags`
-  - `slideMaster.tags`
-  - `slideLayout.tags`
   - `shape.tags`
 - **`TagCollection` methods** (all PowerPointApi 1.3 unless noted):
   - `add(key: string, value: string): void` — upsert; if `key` already exists its value is replaced
@@ -157,6 +155,7 @@ await PowerPoint.run(async (context) => {
 ## Common Mistakes
 
 - **Writing `TagCollection` as `Tags`**: The TypeScript type and runtime property are both `PowerPoint.TagCollection`. There is no `Tags` type.
+- **Assuming `SlideMaster` and `SlideLayout` have tags**: Only `Presentation`, `Slide`, and `Shape` expose a `tags` property. `SlideMaster` and `SlideLayout` do NOT have a `tags` property, even though they are presentation entities.
 - **Expecting lowercase keys after round-trip**: Keys are always stored uppercased. `slide.tags.getItem("status")` and `slide.tags.getItem("STATUS")` resolve to the same tag, but after sync `tag.key` will return `"STATUS"`.
 - **Relying on tag iteration order**: The order of `tags.items` is not guaranteed; do not treat index 0 as the first-added tag.
 - **Storing large payloads in `tag.value`**: Tags are meant for short metadata strings. Very large values may hit document size limits or degrade performance.
