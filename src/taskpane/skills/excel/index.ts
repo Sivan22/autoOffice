@@ -11,6 +11,9 @@ import tables from './tables.md?raw';
 import namedItems from './named-items.md?raw';
 import charts from './charts.md?raw';
 import pivotTables from './pivot-tables.md?raw';
+import conditionalFormatting from './conditional-formatting.md?raw';
+import dataValidation from './data-validation.md?raw';
+import filtersSort from './filters-sort.md?raw';
 
 export const EXCEL_SKILL_NAMES = [
   'context-sync',
@@ -25,6 +28,9 @@ export const EXCEL_SKILL_NAMES = [
   'named-items',
   'charts',
   'pivot-tables',
+  'conditional-formatting',
+  'data-validation',
+  'filters-sort',
 ] as const;
 export type ExcelSkillName = (typeof EXCEL_SKILL_NAMES)[number];
 
@@ -41,4 +47,7 @@ export const EXCEL_SKILLS: Record<string, string> = {
   'named-items': namedItems,
   'charts': charts,
   'pivot-tables': pivotTables,
+  'conditional-formatting': conditionalFormatting,
+  'data-validation': dataValidation,
+  'filters-sort': filtersSort,
 };
