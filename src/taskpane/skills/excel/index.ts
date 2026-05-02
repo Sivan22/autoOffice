@@ -17,6 +17,9 @@ import filtersSort from './filters-sort.md?raw';
 import comments from './comments.md?raw';
 import hyperlinks from './hyperlinks.md?raw';
 import imagesShapes from './images-shapes.md?raw';
+import protection from './protection.md?raw';
+import events from './events.md?raw';
+import ooxml from './ooxml.md?raw';
 
 export const EXCEL_SKILL_NAMES = [
   'context-sync',
@@ -37,6 +40,9 @@ export const EXCEL_SKILL_NAMES = [
   'comments',
   'hyperlinks',
   'images-shapes',
+  'protection',
+  'events',
+  'ooxml',
 ] as const;
 export type ExcelSkillName = (typeof EXCEL_SKILL_NAMES)[number];
 
@@ -59,4 +65,7 @@ export const EXCEL_SKILLS: Record<string, string> = {
   'comments': comments,
   'hyperlinks': hyperlinks,
   'images-shapes': imagesShapes,
+  'protection': protection,
+  'events': events,
+  'ooxml': ooxml,
 };
