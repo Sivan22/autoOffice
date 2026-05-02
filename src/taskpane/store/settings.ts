@@ -1,3 +1,5 @@
+import type { Locale } from '../i18n/types';
+
 export interface McpServerConfig {
   name: string;
   url: string;
@@ -20,6 +22,7 @@ export interface AppSettings {
   mcpServers: McpServerConfig[];
   maxRetries: number;
   executionTimeout: number;
+  language: Locale;
 }
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -39,6 +42,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   mcpServers: [],
   maxRetries: 3,
   executionTimeout: 30000,
+  language: 'en',
 };
 
 const STORAGE_KEY = 'autooffice_settings';

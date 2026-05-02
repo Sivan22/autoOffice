@@ -16,6 +16,7 @@ import type { ChatMessage } from '../agent/orchestrator.ts';
 import type { HostContext } from '../host/context.ts';
 import { MessageBubble } from './MessageBubble.tsx';
 import { CodeBlock } from './CodeBlock.tsx';
+import { useTranslation } from '../i18n';
 
 const useStyles = makeStyles({
   container: {
@@ -102,6 +103,7 @@ interface ChatPanelProps {
 
 export function ChatPanel({ host, messages, isLoading, pendingApproval, onSend, onApprove, onOpenSettings }: ChatPanelProps) {
   const styles = useStyles();
+  const { t } = useTranslation();
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -142,7 +144,7 @@ export function ChatPanel({ host, messages, isLoading, pendingApproval, onSend, 
           <Text className={styles.title}>AutoOffice</Text>
           <Badge appearance="outline" size="small">{host.displayName}</Badge>
         </div>
-        <Tooltip content="Settings" relationship="label">
+        <Tooltip content={t('settings.title')} relationship="label">
           <Button
             appearance="subtle"
             icon={<Settings24Regular />}
@@ -154,14 +156,14 @@ export function ChatPanel({ host, messages, isLoading, pendingApproval, onSend, 
       <div className={styles.messageList}>
         {messages.length === 0 && !pendingApproval ? (
           <div className={styles.empty}>
-            <Text size={400} weight="semibold">Welcome to AutoOffice</Text>
+            <Text size={400} weight="semibold">{t('chat.welcomeTitle')}</Text>
             <Text size={200}>
-              Ask me to do anything with your {host.displayName} document. I'll write and run office.js code to make it happen.
+              {t('chat.welcomeMessage', { host: host.displayName })}
             </Text>
             <Text size={200}>
               {host.kind === 'word'
-                ? 'Try: "Make all headings blue" or "Insert a 3-column table"'
-                : 'Try: "Put 1 through 10 in column A" or "Make a chart from B2:D8"'}
+                ? t('chat.exampleWord')
+                : t('chat.exampleExcel')}
             </Text>
           </div>
         ) : (
@@ -187,7 +189,7 @@ export function ChatPanel({ host, messages, isLoading, pendingApproval, onSend, 
         <Textarea
           className={styles.input}
           textarea={{ ref: textareaRef, className: styles.textarea }}
-          placeholder={`Ask me to modify the ${host.kind === 'excel' ? 'workbook' : 'document'}...`}
+          placeholder={t('chat.inputPlaceholder', { host: host.kind === 'excel' ? 'Excel' : 'Word' })}
           value={inputText}
           onChange={(_, data) => setInputText(data.value)}
           onKeyDown={handleKeyDown}
@@ -199,6 +201,7 @@ export function ChatPanel({ host, messages, isLoading, pendingApproval, onSend, 
           icon={<Send24Regular />}
           onClick={handleSubmit}
           disabled={!inputText.trim() || isLoading}
+          aria-label={t('chat.sendButton')}
         />
       </div>
     </div>

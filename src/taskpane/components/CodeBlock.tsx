@@ -4,6 +4,7 @@ import {
   DismissCircle24Regular,
   Play24Regular,
 } from '@fluentui/react-icons';
+import { useTranslation } from '../i18n';
 
 const useStyles = makeStyles({
   container: {
@@ -25,6 +26,7 @@ const useStyles = makeStyles({
     padding: '12px',
     overflow: 'auto',
     maxHeight: '300px',
+    direction: 'ltr', // Always LTR for code
   },
   code: {
     fontFamily: 'Consolas, "Courier New", monospace',
@@ -34,6 +36,8 @@ const useStyles = makeStyles({
     wordBreak: 'break-all',
     margin: 0,
     color: tokens.colorNeutralForeground1,
+    direction: 'ltr', // Always LTR for code
+    textAlign: 'left', // Always left-aligned for code
   },
   actions: {
     display: 'flex',
@@ -73,6 +77,8 @@ const useStyles = makeStyles({
     maxHeight: '300px',
     overflow: 'auto',
     color: tokens.colorNeutralForeground1,
+    direction: 'ltr', // Always LTR for code output
+    textAlign: 'left', // Always left-aligned for code output
   },
   resultBodyError: {
     color: tokens.colorPaletteRedForeground1,
@@ -80,14 +86,6 @@ const useStyles = makeStyles({
 });
 
 type CodeStatus = 'pending' | 'rejected' | 'running' | 'success' | 'error';
-
-const STATUS_LABELS: Record<CodeStatus, string> = {
-  pending: 'Awaiting Approval',
-  rejected: 'Rejected',
-  running: 'Running...',
-  success: 'Success',
-  error: 'Error',
-};
 
 const STATUS_COLORS: Record<CodeStatus, 'informative' | 'success' | 'danger' | 'warning'> = {
   pending: 'informative',
@@ -107,15 +105,31 @@ interface CodeBlockProps {
 
 export function CodeBlock({ code, status, result, onApprove, onReject }: CodeBlockProps) {
   const styles = useStyles();
+  const { t } = useTranslation();
   const isError = status === 'error';
   const showResult = (status === 'success' || status === 'error') && !!result;
+
+  const getStatusLabel = (status: CodeStatus): string => {
+    switch (status) {
+      case 'pending':
+        return t('code.awaitingApprovalStatus');
+      case 'rejected':
+        return t('code.rejectedStatus');
+      case 'running':
+        return t('code.runningStatus');
+      case 'success':
+        return t('code.successStatus');
+      case 'error':
+        return t('code.errorStatus');
+    }
+  };
 
   return (
     <div className={styles.container}>
       <div className={styles.header}>
         <Text size={200} weight="semibold">office.js</Text>
         <Badge appearance="filled" color={STATUS_COLORS[status]}>
-          {STATUS_LABELS[status]}
+          {getStatusLabel(status)}
         </Badge>
       </div>
 
@@ -126,10 +140,10 @@ export function CodeBlock({ code, status, result, onApprove, onReject }: CodeBlo
       {status === 'pending' && onApprove && onReject && (
         <div className={styles.actions}>
           <Button appearance="primary" icon={<Play24Regular />} size="small" onClick={onApprove}>
-            Approve & Run
+            {t('code.approveButton')}
           </Button>
           <Button appearance="subtle" icon={<DismissCircle24Regular />} size="small" onClick={onReject}>
-            Reject
+            {t('code.rejectButton')}
           </Button>
         </div>
       )}
@@ -137,7 +151,7 @@ export function CodeBlock({ code, status, result, onApprove, onReject }: CodeBlo
       {showResult && (
         <details className={`${styles.details} ${isError ? styles.detailsError : ''}`} open={isError}>
           <summary className={`${styles.summary} ${isError ? styles.summaryError : ''}`}>
-            {isError ? 'Error details' : 'Result'}
+            {isError ? t('code.errorDetails') : t('code.result')}
           </summary>
           <div className={`${styles.resultBody} ${isError ? styles.resultBodyError : ''}`}>
             {result}

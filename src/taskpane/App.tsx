@@ -7,6 +7,7 @@ import { SettingsPanel } from './components/SettingsPanel.tsx';
 import { runAgent, type ChatMessage, type OrchestratorCallbacks } from './agent/orchestrator.ts';
 import { Sandbox } from './executor/sandbox.ts';
 import { loadSettings, saveSettings, type AppSettings } from './store/settings.ts';
+import { LanguageProvider, useDirection } from './i18n';
 
 const useStyles = makeStyles({
   root: {
@@ -22,8 +23,9 @@ interface AppProps {
   host: HostContext;
 }
 
-export function App({ host }: AppProps) {
+function AppContent({ host }: AppProps) {
   const styles = useStyles();
+  const direction = useDirection();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -99,20 +101,16 @@ export function App({ host }: AppProps) {
     }
   }, [isLoading, settings, host]);
 
-  if (showSettings) {
-    return (
-      <div className={styles.root}>
-        <SettingsPanel
-          settings={settings}
-          onChange={handleSettingsChange}
-          onClose={() => setShowSettings(false)}
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className={styles.root}>
+  return showSettings ? (
+    <div className={styles.root} dir={direction}>
+      <SettingsPanel
+        settings={settings}
+        onChange={handleSettingsChange}
+        onClose={() => setShowSettings(false)}
+      />
+    </div>
+  ) : (
+    <div className={styles.root} dir={direction}>
       <ChatPanel
         host={host}
         messages={messages}
@@ -123,5 +121,13 @@ export function App({ host }: AppProps) {
         onOpenSettings={() => setShowSettings(true)}
       />
     </div>
+  );
+}
+
+export function App({ host }: AppProps) {
+  return (
+    <LanguageProvider>
+      <AppContent host={host} />
+    </LanguageProvider>
   );
 }

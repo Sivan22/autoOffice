@@ -7,6 +7,7 @@ import type { HostKind } from '../host/context.ts';
 import type { AppSettings } from '../store/settings.ts';
 import type { Sandbox } from '../executor/sandbox.ts';
 import { getMcpTools } from '../mcp/client.ts';
+import { translationService } from '../i18n/service.ts';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -69,7 +70,7 @@ export async function runAgent(
           content: '',
           codeBlock: { code, status: 'rejected' },
         });
-        return 'User rejected the code. Ask what they would like changed.';
+        return translationService.t('errors.codeRejected');
       }
 
       const result = await sandbox.execute(code, settings.executionTimeout);
@@ -106,9 +107,9 @@ export async function runAgent(
 
       retryCount++;
       if (retryCount >= settings.maxRetries) {
-        return `Failed after ${retryCount} attempts. Last error: ${result.error}${logsStr}`;
+        return translationService.t('errors.maxRetriesReached', { count: retryCount.toString(), error: result.error }) + logsStr;
       }
-      return `Execution failed: ${result.error}\n${result.stack || ''}${logsStr}\nPlease fix and try again.`;
+      return translationService.t('errors.executionFailed', { message: result.error }) + `\n${result.stack || ''}${logsStr}\n` + translationService.t('errors.pleaseFixAndRetry');
     },
   });
 
@@ -145,7 +146,10 @@ export async function runAgent(
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    callbacks.onMessage({ role: 'assistant', content: `Error: ${msg}` });
+    callbacks.onMessage({ 
+      role: 'assistant', 
+      content: translationService.t('errors.streamError', { message: msg })
+    });
     return messages;
   }
 
