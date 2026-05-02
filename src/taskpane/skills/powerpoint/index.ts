@@ -9,6 +9,7 @@ import tables from './tables.md?raw';
 import images from './images.md?raw';
 import charts from './charts.md?raw';
 import hyperlinks from './hyperlinks.md?raw';
+import tags from './tags.md?raw';
 
 export const POWERPOINT_SKILL_NAMES = [
   'context-sync',
@@ -21,6 +22,7 @@ export const POWERPOINT_SKILL_NAMES = [
   'images',
   'charts',
   'hyperlinks',
+  'tags',
 ] as const;
 export type PowerPointSkillName = (typeof POWERPOINT_SKILL_NAMES)[number];
 
@@ -35,4 +37,5 @@ export const POWERPOINT_SKILLS: Record<string, string> = {
   'images': images,
   'charts': charts,
   'hyperlinks': hyperlinks,
+  'tags': tags,
 };
