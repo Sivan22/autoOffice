@@ -8,6 +8,7 @@ import {
   listConversations,
   renameConversation,
   deleteConversation,
+  mostRecentForHost,
   type ConversationSummary,
   type Conversation,
 } from './history.ts';
@@ -133,5 +134,26 @@ describe('history.ts — rename and delete', () => {
     saveConversation(makeConv({ id: 'd1' }));
     expect(() => deleteConversation('nope')).not.toThrow();
     expect(listConversations()).toHaveLength(1);
+  });
+});
+
+describe('history.ts — mostRecentForHost', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('returns null when nothing exists', () => {
+    expect(mostRecentForHost('word')).toBeNull();
+  });
+
+  it('returns the newest conversation for the requested host', () => {
+    saveConversation(makeConv({ id: 'w-old', host: 'word', updatedAt: 1000 }));
+    saveConversation(makeConv({ id: 'w-new', host: 'word', updatedAt: 3000 }));
+    saveConversation(makeConv({ id: 'e-newest', host: 'excel', updatedAt: 4000 }));
+    expect(mostRecentForHost('word')?.id).toBe('w-new');
+    expect(mostRecentForHost('excel')?.id).toBe('e-newest');
+  });
+
+  it('returns null when host has no conversations', () => {
+    saveConversation(makeConv({ id: 'w', host: 'word' }));
+    expect(mostRecentForHost('excel')).toBeNull();
   });
 });

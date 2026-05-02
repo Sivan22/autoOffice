@@ -93,3 +93,8 @@ export function deleteConversation(id: string): void {
   const index = readIndex().filter(s => s.id !== id);
   writeIndex(index);
 }
+
+export function mostRecentForHost(host: HostKind): ConversationSummary | null {
+  const matches = listConversations().filter(s => s.host === host);
+  return matches[0] ?? null;
+}
