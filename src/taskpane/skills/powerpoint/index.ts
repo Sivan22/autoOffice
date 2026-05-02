@@ -6,6 +6,7 @@ import slideLayouts from './slide-layouts.md?raw';
 import shapes from './shapes.md?raw';
 import text from './text.md?raw';
 import tables from './tables.md?raw';
+import images from './images.md?raw';
 
 export const POWERPOINT_SKILL_NAMES = [
   'context-sync',
@@ -15,6 +16,7 @@ export const POWERPOINT_SKILL_NAMES = [
   'shapes',
   'text',
   'tables',
+  'images',
 ] as const;
 export type PowerPointSkillName = (typeof POWERPOINT_SKILL_NAMES)[number];
 
@@ -26,4 +28,5 @@ export const POWERPOINT_SKILLS: Record<string, string> = {
   'shapes': shapes,
   'text': text,
   'tables': tables,
+  'images': images,
 };
