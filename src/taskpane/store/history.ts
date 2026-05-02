@@ -14,6 +14,19 @@ export const HISTORY_LIMITS = {
   PER_CONVERSATION_BYTES: 1 * 1024 * 1024,
 };
 
+// Test-only mutation hook. Production code never calls this. Exposed so
+// unit tests can shrink the byte caps without overwriting them globally.
+export const __testing = {
+  setLimits(total: number, perConv: number) {
+    HISTORY_LIMITS.TOTAL_BYTES = total;
+    HISTORY_LIMITS.PER_CONVERSATION_BYTES = perConv;
+  },
+  resetLimits() {
+    HISTORY_LIMITS.TOTAL_BYTES = 4 * 1024 * 1024;
+    HISTORY_LIMITS.PER_CONVERSATION_BYTES = 1 * 1024 * 1024;
+  },
+};
+
 export type ConversationVersion = 1;
 export const CURRENT_VERSION: ConversationVersion = 1;
 
@@ -72,11 +85,85 @@ export function getConversation(id: string): Conversation | null {
   }
 }
 
+function conversationBytes(c: Conversation): number {
+  return new Blob([JSON.stringify(c)]).size;
+}
+
+function truncateInPlace(c: Conversation, cap: number): void {
+  if (conversationBytes(c) <= cap) return;
+  // Walk uiMessages oldest-first, replacing codeBlock.result strings until under cap.
+  for (const msg of c.uiMessages) {
+    if (conversationBytes(c) <= cap) return;
+    const cb = msg.codeBlock;
+    if (cb && typeof cb.result === 'string' && cb.result !== '[truncated]') {
+      cb.result = '[truncated]';
+    }
+  }
+  // If still over cap (e.g. very long user messages), best-effort: leave as-is.
+  // The total-cap eviction will continue to keep the global store bounded.
+}
+
+function isQuotaExceeded(err: unknown): boolean {
+  if (err instanceof DOMException) {
+    return err.name === 'QuotaExceededError' || err.code === 22;
+  }
+  return false;
+}
+
+function setItemWithQuotaRetry(key: string, value: string, activeId: string): void {
+  try {
+    localStorage.setItem(key, value);
+    return;
+  } catch (err) {
+    if (!isQuotaExceeded(err)) throw err;
+    // Aggressive eviction: shrink to half the cap to make room.
+    evictOldestUntilUnder(activeId, Math.floor(HISTORY_LIMITS.TOTAL_BYTES / 2));
+    try {
+      localStorage.setItem(key, value);
+    } catch (err2) {
+      if (isQuotaExceeded(err2)) {
+        console.warn('[history] localStorage full; chat history not persisted this turn');
+        return;
+      }
+      throw err2;
+    }
+  }
+}
+
+function totalBlobBytes(): number {
+  let sum = 0;
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (k && k.startsWith(BLOB_KEY_PREFIX)) {
+      const v = localStorage.getItem(k);
+      if (v) sum += new Blob([v]).size;
+    }
+  }
+  return sum;
+}
+
+function evictOldestUntilUnder(activeId: string, cap: number): void {
+  while (totalBlobBytes() > cap) {
+    const candidates = readIndex()
+      .filter(s => s.id !== activeId)
+      .sort((a, b) => a.updatedAt - b.updatedAt); // oldest first
+    const oldest = candidates[0];
+    if (!oldest) return; // nothing else to evict
+    deleteConversation(oldest.id);
+  }
+}
+
 export function saveConversation(c: Conversation): void {
-  localStorage.setItem(blobKeyFor(c.id), JSON.stringify(c));
-  const index = readIndex().filter(s => s.id !== c.id);
-  index.push(summarize(c));
+  // Defensive copy so callers don't see their objects mutated.
+  const toStore: Conversation = JSON.parse(JSON.stringify(c));
+  truncateInPlace(toStore, HISTORY_LIMITS.PER_CONVERSATION_BYTES);
+
+  setItemWithQuotaRetry(blobKeyFor(toStore.id), JSON.stringify(toStore), toStore.id);
+  const index = readIndex().filter(s => s.id !== toStore.id);
+  index.push(summarize(toStore));
   writeIndex(index);
+
+  evictOldestUntilUnder(toStore.id, HISTORY_LIMITS.TOTAL_BYTES);
 }
 
 export function renameConversation(id: string, title: string): void {

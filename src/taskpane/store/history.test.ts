@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 import {
   HISTORY_LIMITS,
   INDEX_KEY,
@@ -9,6 +9,7 @@ import {
   renameConversation,
   deleteConversation,
   mostRecentForHost,
+  __testing,
   type ConversationSummary,
   type Conversation,
 } from './history.ts';
@@ -155,5 +156,146 @@ describe('history.ts — mostRecentForHost', () => {
   it('returns null when host has no conversations', () => {
     saveConversation(makeConv({ id: 'w', host: 'word' }));
     expect(mostRecentForHost('excel')).toBeNull();
+  });
+});
+
+function bigString(n: number): string {
+  return 'x'.repeat(n);
+}
+
+describe('history.ts — eviction (soft total cap)', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    __testing.resetLimits();
+  });
+
+  afterAll(() => __testing.resetLimits());
+
+  it('evicts oldest non-active conversations until under the total cap', () => {
+    __testing.setLimits(/* total */ 5_000, /* perConv */ 100_000);
+
+    // Each conversation is ~1.5 KB after JSON serialization
+    saveConversation(makeConv({
+      id: 'old', updatedAt: 1000,
+      uiMessages: [{ role: 'user', content: bigString(1_400) }],
+      modelMessages: [{ role: 'user', content: bigString(1_400) }],
+    }));
+    saveConversation(makeConv({
+      id: 'mid', updatedAt: 2000,
+      uiMessages: [{ role: 'user', content: bigString(1_400) }],
+      modelMessages: [{ role: 'user', content: bigString(1_400) }],
+    }));
+    saveConversation(makeConv({
+      id: 'new', updatedAt: 3000,
+      uiMessages: [{ role: 'user', content: bigString(1_400) }],
+      modelMessages: [{ role: 'user', content: bigString(1_400) }],
+    }));
+
+    const ids = listConversations().map(s => s.id);
+    // 'old' should have been evicted.
+    expect(ids).not.toContain('old');
+    expect(ids).toContain('new');
+  });
+
+  it('never evicts the just-saved (active) conversation, even if it is the oldest', () => {
+    __testing.setLimits(2_000, 100_000);
+    // Save two large conversations; the second save pushes us over the cap.
+    saveConversation(makeConv({
+      id: 'first', updatedAt: 5000, // newer
+      uiMessages: [{ role: 'user', content: bigString(1_400) }],
+      modelMessages: [{ role: 'user', content: bigString(1_400) }],
+    }));
+    saveConversation(makeConv({
+      id: 'second', updatedAt: 1000, // older — but this is the one being saved
+      uiMessages: [{ role: 'user', content: bigString(1_400) }],
+      modelMessages: [{ role: 'user', content: bigString(1_400) }],
+    }));
+    const ids = listConversations().map(s => s.id);
+    expect(ids).toContain('second'); // active save preserved
+    expect(ids).not.toContain('first'); // older non-active evicted
+  });
+});
+
+describe('history.ts — per-conversation truncation', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    __testing.resetLimits();
+  });
+
+  afterAll(() => __testing.resetLimits());
+
+  it('truncates the oldest large codeBlock.result strings until under cap', () => {
+    __testing.setLimits(/* total */ 100_000_000, /* perConv */ 1_500);
+
+    const huge = bigString(2_000);
+    const conv = makeConv({
+      id: 't1',
+      uiMessages: [
+        { role: 'assistant', content: '', codeBlock: { code: 'a', status: 'success', result: huge } },
+        { role: 'assistant', content: '', codeBlock: { code: 'b', status: 'success', result: huge } },
+        { role: 'assistant', content: '', codeBlock: { code: 'c', status: 'success', result: 'small' } },
+      ],
+    });
+
+    saveConversation(conv);
+
+    const stored = getConversation('t1')!;
+    // Oldest large result was replaced first
+    expect(stored.uiMessages[0].codeBlock!.result).toBe('[truncated]');
+    // Smallest / latest should be preserved
+    expect(stored.uiMessages[2].codeBlock!.result).toBe('small');
+    // Conversation is now under the cap
+    const size = new Blob([JSON.stringify(stored)]).size;
+    expect(size).toBeLessThanOrEqual(1_500);
+  });
+
+  it('preserves message structure even when truncating', () => {
+    __testing.setLimits(100_000_000, 800);
+    const huge = bigString(3_000);
+    saveConversation(makeConv({
+      id: 't2',
+      uiMessages: [
+        { role: 'user', content: 'hello' },
+        { role: 'assistant', content: '', codeBlock: { code: 'x', status: 'success', result: huge } },
+      ],
+    }));
+    const stored = getConversation('t2')!;
+    expect(stored.uiMessages).toHaveLength(2);
+    expect(stored.uiMessages[0].content).toBe('hello');
+    expect(stored.uiMessages[1].codeBlock!.result).toBe('[truncated]');
+  });
+});
+
+describe('history.ts — quota-exceeded retry', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    __testing.resetLimits();
+  });
+  afterAll(() => __testing.resetLimits());
+
+  it('evicts and retries when setItem throws QuotaExceededError once', () => {
+    saveConversation(makeConv({ id: 'old', updatedAt: 100 }));
+    saveConversation(makeConv({ id: 'new', updatedAt: 999 }));
+
+    // Make the *next* setItem call throw a single QuotaExceededError.
+    const real = Storage.prototype.setItem;
+    let throws = 1;
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, k: string, v: string) {
+      if (throws > 0 && k.startsWith('autooffice_history_conv_')) {
+        throws--;
+        const err = new DOMException('quota', 'QuotaExceededError');
+        throw err;
+      }
+      return real.call(this, k, v);
+    });
+
+    try {
+      saveConversation(makeConv({ id: 'incoming', updatedAt: 2000 }));
+    } finally {
+      spy.mockRestore();
+    }
+
+    const ids = listConversations().map(s => s.id);
+    expect(ids).toContain('incoming');
   });
 });
