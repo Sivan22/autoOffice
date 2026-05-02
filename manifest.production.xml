@@ -11,13 +11,14 @@
   <ProviderName>AutoOffice</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="AutoOffice" />
-  <Description DefaultValue="AI-powered dynamic code execution add-in for Microsoft Word" />
+  <Description DefaultValue="AI-powered dynamic code execution add-in for Microsoft Word and Excel" />
   <IconUrl DefaultValue="https://sivan22.github.io/autoOffice/assets/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="https://sivan22.github.io/autoOffice/assets/icon-64.png" />
   <SupportUrl DefaultValue="https://github.com/Sivan22/autoOffice" />
 
   <Hosts>
     <Host Name="Document" />
+    <Host Name="Workbook" />
   </Hosts>
 
   <DefaultSettings>
@@ -65,6 +66,43 @@
           </ExtensionPoint>
         </DesktopFormFactor>
       </Host>
+      <Host xsi:type="Workbook">
+        <DesktopFormFactor>
+          <GetStarted>
+            <Title resid="GetStarted.Title" />
+            <Description resid="GetStarted.Description" />
+            <LearnMoreUrl resid="GetStarted.LearnMoreUrl" />
+          </GetStarted>
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="AutoOfficeGroupExcel">
+                <Label resid="CommandsGroup.Label" />
+                <Icon>
+                  <bt:Image size="16" resid="Icon.16x16" />
+                  <bt:Image size="32" resid="Icon.32x32" />
+                  <bt:Image size="80" resid="Icon.80x80" />
+                </Icon>
+                <Control xsi:type="Button" id="TaskpaneButtonExcel">
+                  <Label resid="TaskpaneButton.Label" />
+                  <Supertip>
+                    <Title resid="TaskpaneButton.Label" />
+                    <Description resid="TaskpaneButton.Tooltip" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16" />
+                    <bt:Image size="32" resid="Icon.32x32" />
+                    <bt:Image size="80" resid="Icon.80x80" />
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>AutoOfficeTaskPane</TaskpaneId>
+                    <SourceLocation resid="Taskpane.Url" />
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
     </Hosts>
 
     <Resources>
@@ -83,7 +121,7 @@
         <bt:String id="TaskpaneButton.Label" DefaultValue="AutoOffice" />
       </bt:ShortStrings>
       <bt:LongStrings>
-        <bt:String id="GetStarted.Description" DefaultValue="AI-powered assistant for Word" />
+        <bt:String id="GetStarted.Description" DefaultValue="AI-powered assistant for Word and Excel" />
         <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Open the AutoOffice AI assistant" />
       </bt:LongStrings>
     </Resources>

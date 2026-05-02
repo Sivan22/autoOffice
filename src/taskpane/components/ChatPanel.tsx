@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useLayoutEffect } from 'react';
 import {
   makeStyles,
   tokens,
+  Badge,
   Textarea,
   Button,
   Text,
@@ -12,6 +13,7 @@ import {
   Settings24Regular,
 } from '@fluentui/react-icons';
 import type { ChatMessage } from '../agent/orchestrator.ts';
+import type { HostContext } from '../host/context.ts';
 import { MessageBubble } from './MessageBubble.tsx';
 import { CodeBlock } from './CodeBlock.tsx';
 
@@ -89,6 +91,7 @@ const useStyles = makeStyles({
 });
 
 interface ChatPanelProps {
+  host: HostContext;
   messages: ChatMessage[];
   isLoading: boolean;
   pendingApproval: string | null;
@@ -97,7 +100,7 @@ interface ChatPanelProps {
   onOpenSettings: () => void;
 }
 
-export function ChatPanel({ messages, isLoading, pendingApproval, onSend, onApprove, onOpenSettings }: ChatPanelProps) {
+export function ChatPanel({ host, messages, isLoading, pendingApproval, onSend, onApprove, onOpenSettings }: ChatPanelProps) {
   const styles = useStyles();
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -137,6 +140,7 @@ export function ChatPanel({ messages, isLoading, pendingApproval, onSend, onAppr
             className={styles.logo}
           />
           <Text className={styles.title}>AutoOffice</Text>
+          <Badge appearance="outline" size="small">{host.displayName}</Badge>
         </div>
         <Tooltip content="Settings" relationship="label">
           <Button
@@ -152,10 +156,12 @@ export function ChatPanel({ messages, isLoading, pendingApproval, onSend, onAppr
           <div className={styles.empty}>
             <Text size={400} weight="semibold">Welcome to AutoOffice</Text>
             <Text size={200}>
-              Ask me to do anything with your Word document. I'll write and run office.js code to make it happen.
+              Ask me to do anything with your {host.displayName} document. I'll write and run office.js code to make it happen.
             </Text>
             <Text size={200}>
-              Try: "Make all headings blue" or "Insert a 3-column table"
+              {host.kind === 'word'
+                ? 'Try: "Make all headings blue" or "Insert a 3-column table"'
+                : 'Try: "Put 1 through 10 in column A" or "Make a chart from B2:D8"'}
             </Text>
           </div>
         ) : (
@@ -181,7 +187,7 @@ export function ChatPanel({ messages, isLoading, pendingApproval, onSend, onAppr
         <Textarea
           className={styles.input}
           textarea={{ ref: textareaRef, className: styles.textarea }}
-          placeholder="Ask me to modify the document..."
+          placeholder={`Ask me to modify the ${host.kind === 'excel' ? 'workbook' : 'document'}...`}
           value={inputText}
           onChange={(_, data) => setInputText(data.value)}
           onKeyDown={handleKeyDown}

@@ -1,3 +1,6 @@
+// src/taskpane/executor/sandbox.ts
+import type { HostKind } from '../host/context.ts';
+
 export interface ExecutionResult {
   success: boolean;
   output?: unknown;
@@ -17,23 +20,38 @@ const formatArg = (a: unknown): string => {
 };
 
 const makeCapturingConsole = (logs: string[]) => ({
-  log: (...args: unknown[]) => logs.push(args.map(formatArg).join(' ')),
-  info: (...args: unknown[]) => logs.push('[info] ' + args.map(formatArg).join(' ')),
-  warn: (...args: unknown[]) => logs.push('[warn] ' + args.map(formatArg).join(' ')),
+  log:   (...args: unknown[]) => logs.push(args.map(formatArg).join(' ')),
+  info:  (...args: unknown[]) => logs.push('[info] '  + args.map(formatArg).join(' ')),
+  warn:  (...args: unknown[]) => logs.push('[warn] '  + args.map(formatArg).join(' ')),
   error: (...args: unknown[]) => logs.push('[error] ' + args.map(formatArg).join(' ')),
   debug: (...args: unknown[]) => logs.push('[debug] ' + args.map(formatArg).join(' ')),
 });
 
 export class Sandbox {
+  constructor(private readonly host: HostKind) {}
+
   init(): void {}
   destroy(): void {}
 
   async execute(code: string, timeout: number = 30000): Promise<ExecutionResult> {
+    const ns = this.host === 'word' ? 'Word' : 'Excel';
+    const otherNs = this.host === 'word' ? 'Excel' : 'Word';
     const trimmed = code.trim();
-    const isWrapped = trimmed.startsWith('Word.run');
+
+    // Reject code targeting the wrong host before running it. Yields a clear
+    // error the agent can self-heal on, instead of an opaque "X is not defined".
+    if (trimmed.startsWith(`${otherNs}.run`)) {
+      return {
+        success: false,
+        error: `Code uses ${otherNs}.run but the add-in is running in ${ns}. Rewrite using ${ns}.run.`,
+        logs: [],
+      };
+    }
+
+    const isWrapped = trimmed.startsWith(`${ns}.run`);
     const execCode = isWrapped
       ? `return (${trimmed.replace(/;+\s*$/, '')});`
-      : `return Word.run(async function(context) {\n${code}\n});`;
+      : `return ${ns}.run(async function(context) {\n${code}\n});`;
 
     const logs: string[] = [];
     const capturingConsole = makeCapturingConsole(logs);

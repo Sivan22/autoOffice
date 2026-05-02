@@ -9,8 +9,10 @@
     "preview": "vite preview",
     "certs": "office-addin-dev-certs install",
     "start": "office-addin-debugging start manifest.xml --app word",
+    "start:excel": "office-addin-debugging start manifest.xml --app excel",
     "stop": "office-addin-debugging stop manifest.xml",
-    "sideload": "office-addin-debugging start manifest.xml desktop --no-debug"
+    "sideload": "office-addin-debugging start manifest.xml desktop --no-debug --app word",
+    "sideload:excel": "office-addin-debugging start manifest.xml desktop --no-debug --app excel"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.71",

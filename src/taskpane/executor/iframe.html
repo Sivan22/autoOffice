@@ -12,12 +12,24 @@
 
     var id = data.id;
     var code = data.code;
+    var host = data.host === 'excel' ? 'excel' : 'word'; // default word for back-compat
+    var ns = host === 'excel' ? 'Excel' : 'Word';
+    var otherNs = host === 'excel' ? 'Word' : 'Excel';
 
     var trimmed = code.trim();
-    var isWrapped = trimmed.startsWith('Word.run');
+    if (trimmed.indexOf(otherNs + '.run') === 0) {
+      parent.postMessage({
+        type: 'error', id: id, success: false,
+        error: 'Code uses ' + otherNs + '.run but host is ' + ns + '. Rewrite using ' + ns + '.run.',
+        logs: []
+      }, '*');
+      return;
+    }
+
+    var isWrapped = trimmed.indexOf(ns + '.run') === 0;
     var execCode = isWrapped
       ? 'return (' + trimmed.replace(/;+\s*$/, '') + ');'
-      : 'return Word.run(async function(context) {\n' + code + '\n});';
+      : 'return ' + ns + '.run(async function(context) {\n' + code + '\n});';
 
     var logs = [];
     function formatArg(a) {

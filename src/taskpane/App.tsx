@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { makeStyles, tokens } from '@fluentui/react-components';
 import type { ModelMessage } from 'ai';
+import type { HostContext } from './host/context.ts';
 import { ChatPanel } from './components/ChatPanel.tsx';
 import { SettingsPanel } from './components/SettingsPanel.tsx';
 import { runAgent, type ChatMessage, type OrchestratorCallbacks } from './agent/orchestrator.ts';
@@ -17,7 +18,11 @@ const useStyles = makeStyles({
   },
 });
 
-export function App() {
+interface AppProps {
+  host: HostContext;
+}
+
+export function App({ host }: AppProps) {
   const styles = useStyles();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,11 +35,11 @@ export function App() {
   const approvalResolveRef = useRef<((approved: boolean) => void) | null>(null);
 
   useEffect(() => {
-    const sandbox = new Sandbox();
+    const sandbox = new Sandbox(host.kind);
     sandbox.init();
     sandboxRef.current = sandbox;
     return () => sandbox.destroy();
-  }, []);
+  }, [host.kind]);
 
   const handleSettingsChange = useCallback((newSettings: AppSettings) => {
     setSettings(newSettings);
@@ -81,6 +86,7 @@ export function App() {
         conversationHistory.current,
         settings,
         sandboxRef.current!,
+        host.kind,
         callbacks,
       );
       conversationHistory.current = history;
@@ -91,7 +97,7 @@ export function App() {
       setIsLoading(false);
       setPendingApproval(null);
     }
-  }, [isLoading, settings]);
+  }, [isLoading, settings, host]);
 
   if (showSettings) {
     return (
@@ -108,6 +114,7 @@ export function App() {
   return (
     <div className={styles.root}>
       <ChatPanel
+        host={host}
         messages={messages}
         isLoading={isLoading}
         pendingApproval={pendingApproval}
