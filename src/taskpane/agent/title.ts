@@ -24,8 +24,13 @@ function transcriptOf(messages: ModelMessage[]): string {
 
 function clean(raw: string): string {
   let t = raw.trim();
-  // Strip wrapping quotes / smart quotes
-  t = t.replace(/^["'"']|["'"']$/g, '').trim();
+  // Strip wrapping ASCII (" ') and smart (“ ” ‘ ’) quotes.
+  // Loop in case the model returns nested quotes; cap to avoid pathological input.
+  for (let i = 0; i < 3; i++) {
+    const next = t.replace(/^["'“‘]|["'”’]$/g, '').trim();
+    if (next === t) break;
+    t = next;
+  }
   if (t.length > MAX_TITLE_LEN) t = t.slice(0, MAX_TITLE_LEN);
   return t;
 }

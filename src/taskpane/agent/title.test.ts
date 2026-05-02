@@ -74,4 +74,10 @@ describe('generateTitle', () => {
     const out = await generateTitle(messages, settings);
     expect(out).toBe('Quarterly Plan');
   });
+
+  it('strips wrapping smart (curly) quotes', async () => {
+    mocks.generateText.mockResolvedValue({ text: '“Quarterly Plan”' });
+    const out = await generateTitle(messages, settings);
+    expect(out).toBe('Quarterly Plan');
+  });
 });
