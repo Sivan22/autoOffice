@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "AI-powered dynamic code execution add-in for Microsoft Word, Excel, and PowerPoint",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
