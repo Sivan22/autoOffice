@@ -167,9 +167,10 @@ function evictOldestUntilUnder(activeId: string, cap: number): void {
 export function saveConversation(c: Conversation): void {
   // Defensive copy so callers don't see their objects mutated.
   const toStore: Conversation = JSON.parse(JSON.stringify(c));
-  truncateInPlace(toStore, HISTORY_LIMITS.PER_CONVERSATION_BYTES);
 
-  // Refuse to overwrite a blob written by a newer schema version.
+  // Refuse to overwrite a blob written by a newer schema version. Run this
+  // *before* truncation so we don't burn cycles preparing a payload we'll
+  // throw away.
   const existingRaw = localStorage.getItem(blobKeyFor(toStore.id));
   if (existingRaw) {
     try {
@@ -182,6 +183,8 @@ export function saveConversation(c: Conversation): void {
       // Corrupt JSON — let normal save path proceed (we'll overwrite garbage).
     }
   }
+
+  truncateInPlace(toStore, HISTORY_LIMITS.PER_CONVERSATION_BYTES);
 
   setItemWithQuotaRetry(blobKeyFor(toStore.id), JSON.stringify(toStore), toStore.id);
   const index = readIndex().filter(s => s.id !== toStore.id);

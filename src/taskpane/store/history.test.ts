@@ -334,9 +334,19 @@ describe('history.ts — schema versioning', () => {
 
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     saveConversation(makeConv({ id: 'fut', title: 'overwritten' }));
-    warn.mockRestore();
-
     // The blob on disk still has v: 99 and the original title.
     expect(getConversation('fut')?.title).toBe('future');
+    // The user-visible signal that we refused must fire — guards against the
+    // version-check block being silently removed in a future refactor.
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('refusing to overwrite v99'));
+    warn.mockRestore();
+  });
+
+  it('allows overwrite when existing v is non-numeric (corrupted schema field)', () => {
+    const corrupted = { ...makeConv({ id: 'bad', title: 'old' }), v: 'not-a-number' as unknown as 1 };
+    localStorage.setItem(blobKeyFor('bad'), JSON.stringify(corrupted));
+    saveConversation(makeConv({ id: 'bad', title: 'new' }));
+    // Type guard means non-numeric v is treated as "no future version" — overwrite proceeds.
+    expect(getConversation('bad')?.title).toBe('new');
   });
 });
