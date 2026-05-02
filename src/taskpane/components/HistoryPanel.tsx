@@ -221,7 +221,16 @@ export function HistoryPanel({
                 {isRenaming ? (
                   <>
                     <Button appearance="subtle" size="small" icon={<Checkmark20Regular />} onClick={commitRename} aria-label="Save name" />
-                    <Button appearance="subtle" size="small" icon={<Dismiss20Regular />} onClick={cancelRename} aria-label="Cancel rename" />
+                    <Button
+                      appearance="subtle"
+                      size="small"
+                      icon={<Dismiss20Regular />}
+                      // preventDefault on mouseDown keeps focus on the input so its
+                      // onBlur (commit) does not race ahead of this onClick (cancel).
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={cancelRename}
+                      aria-label="Cancel rename"
+                    />
                   </>
                 ) : (
                   <>

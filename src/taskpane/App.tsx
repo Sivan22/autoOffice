@@ -113,24 +113,36 @@ export function App({ host }: AppProps) {
     }
   }, []);
 
+  // Cancel any pending debounced save. The pending callback closes over an
+  // older Conversation object that, if allowed to fire, would write stale data
+  // (potentially under a different active id after the user switches/clears).
+  const cancelPendingSave = useCallback(() => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+  }, []);
+
   const handleNewChat = useCallback(() => {
     if (isLoading) return;
+    cancelPendingSave();
     setMessages([]);
     conversationHistory.current = [];
     setActiveConversationId(null);
     setActiveChatHost(null);
-  }, [isLoading]);
+  }, [isLoading, cancelPendingSave]);
 
   const handleLoadConversation = useCallback((id: string) => {
     if (isLoading) return;
     const conv = getConversation(id);
     if (!conv) return;
+    cancelPendingSave();
     setMessages(conv.uiMessages);
     conversationHistory.current = conv.modelMessages;
     setActiveConversationId(conv.id);
     setActiveChatHost(conv.host);
     setShowHistory(false);
-  }, [isLoading]);
+  }, [isLoading, cancelPendingSave]);
 
   const handleRename = useCallback((id: string, title: string) => {
     renameConversation(id, title);
@@ -140,13 +152,14 @@ export function App({ host }: AppProps) {
   const handleDelete = useCallback((id: string) => {
     deleteConversation(id);
     if (id === activeConversationId) {
+      cancelPendingSave();
       setMessages([]);
       conversationHistory.current = [];
       setActiveConversationId(null);
       setActiveChatHost(null);
     }
     refreshSummaries();
-  }, [activeConversationId, refreshSummaries]);
+  }, [activeConversationId, cancelPendingSave, refreshSummaries]);
 
   const handleSend = useCallback(async (text: string) => {
     if (!text.trim() || isLoading) return;
