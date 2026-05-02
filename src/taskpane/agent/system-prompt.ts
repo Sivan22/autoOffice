@@ -2,11 +2,20 @@
 import type { HostKind } from '../host/context.ts';
 
 export function buildSystemPrompt(host: HostKind, skills: readonly string[]): string {
-  const hostName = host === 'word' ? 'Microsoft Word' : 'Microsoft Excel';
-  const apiRoot = host === 'word' ? 'Word' : 'Excel';
-  const insertEnumNote = host === 'word'
-    ? '- You MUST use Word.InsertLocation enum for insertion positions'
-    : '- For inserting/clearing ranges, prefer typed Excel APIs (e.g. range.values = [[...]], range.clear()) over string concatenation';
+  const hostName =
+    host === 'word' ? 'Microsoft Word' :
+    host === 'excel' ? 'Microsoft Excel' :
+    'Microsoft PowerPoint';
+  const apiRoot =
+    host === 'word' ? 'Word' :
+    host === 'excel' ? 'Excel' :
+    'PowerPoint';
+  const insertEnumNote =
+    host === 'word'
+      ? '- You MUST use Word.InsertLocation enum for insertion positions'
+      : host === 'excel'
+        ? '- For inserting/clearing ranges, prefer typed Excel APIs (e.g. range.values = [[...]], range.clear()) over string concatenation'
+        : '- Most edits go through shapes; many things (inserting tables, complex charts, new slides with arbitrary layout) require OOXML round-trips via presentation.insertSlidesFromBase64';
 
   return `You are AutoOffice, an AI assistant that controls ${hostName} by writing and executing office.js code.
 

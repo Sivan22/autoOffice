@@ -4,11 +4,11 @@
 
 <h1 align="center">AutoOffice</h1>
 
-<p align="center">AI-powered Microsoft Word + Excel add-in that writes and executes real <code>office.js</code> code on demand.</p>
+<p align="center">AI-powered Microsoft Word + Excel + PowerPoint add-in that writes and executes real <code>office.js</code> code on demand.</p>
 
 ## What It Does
 
-AutoOffice is a task-pane add-in you chat with. Describe what you want — for Word ("make all headings blue", "insert a 3-column table") or Excel ("put 1 through 10 in column A", "build a column chart from B2:D8") — and the agent:
+AutoOffice is a task-pane add-in you chat with. Describe what you want — for Word ("make all headings blue", "insert a 3-column table"), Excel ("put 1 through 10 in column A", "build a column chart from B2:D8"), or PowerPoint ("add a slide titled 'Q3 plan' with three bullets", "make every slide title bold") — and the agent:
 
 1. Looks up the relevant `office.js` API docs as needed
 2. Generates working code
@@ -16,20 +16,35 @@ AutoOffice is a task-pane add-in you chat with. Describe what you want — for W
 4. Executes it in a sandboxed iframe against your live Word document
 5. Self-heals on errors — feeds the error back to the LLM and retries up to 3 times
 
-**Key differentiator:** No wrapper functions. The AI writes real `office.js` code, grounded by structured API docs fetched on demand.
+## Why AutoOffice
 
-## Comparison: Word AI Add-ins
+Two things make AutoOffice different from every other AI option for Word and Excel:
+
+**1. Private by design — open source, runs locally, works with local models.**
+The whole add-in is MIT-licensed and runs in your browser as a normal Office task pane. Your API key is stored on your machine, and traffic goes only to the provider you pick — Anthropic, OpenAI, Azure, or any OpenAI-compatible endpoint. Point it at Ollama or LM Studio and your document never leaves the machine. No Microsoft account requirement, no Copilot license, no third-party server in the middle. Audit the code, fork it, self-host the build — nothing is hidden.
+
+**2. Pure `office.js` + MCP — minimal in code, maximal in capability.**
+There is no curated wrapper API. The agent has exactly two built-in tools: look up the relevant `office.js` API docs, and run real code against the live document. That means anything Word or Excel can natively do is reachable on day one — formatting, tables, charts, ranges, comments, content controls, all of it — without us having to "support" each operation one at a time. Plug in MCP servers (Linear, Notion, internal APIs) and the same tiny surface area extends to anything outside Office too. Tiny core, unbounded reach.
+
+## Comparison: Word + Excel + PowerPoint AI Add-ins
 
 | | **AutoOffice** | **Microsoft Copilot** | **Claude for Word** | **Word GPT Plus** |
 |---|:---:|:---:|:---:|:---:|
-| **Source** | Open (MIT) | Closed | Closed | Open (MIT) |
-| **Pricing** | Free (BYO key) | M365 Copilot license | Claude paid plan | Free (BYO key) |
-| **AI providers** | Anthropic, OpenAI, any OpenAI-compatible, Ollama | Microsoft-hosted only | Claude only | OpenAI, Azure, Gemini, Ollama |
-| **MCP support** | ✅ | ✅ via Copilot Studio | ❌ | ❌ |
-| **Executes real `office.js`** | ✅ | ❌ | ❌ | ⚠️ partial |
-| **Code preview & self-healing** | ✅ | ❌ | ❌ | ❌ |
-| **Native tracked changes** | ❌ | ❌ | ✅ | ❌ |
-| **Multi-doc context** | ❌ (Word + Excel, single-doc) | ✅ all M365 apps | ✅ Word + Excel + PowerPoint | ❌ |
+| **— Privacy & openness —** | | | | |
+| Open source | ✅ MIT | ❌ | ❌ | ✅ MIT |
+| Self-hostable | ✅ | ❌ | ❌ | ✅ |
+| Local model support | ✅ Ollama, any OpenAI-compatible endpoint | ❌ | ❌ | ✅ Ollama |
+| BYO API key (key stays local) | ✅ | ❌ | ❌ | ✅ |
+| Cost | Free + your provider usage | M365 Copilot license | Claude paid plan | Free + your provider usage |
+| Provider choice | Anthropic, OpenAI, any OpenAI-compatible, Ollama | Microsoft-hosted only | Claude only | OpenAI, Azure, Gemini, Ollama |
+| **— Power (small core, big reach) —** | | | | |
+| Executes real `office.js` | ✅ | ❌ | ❌ | ⚠️ partial |
+| Code preview before run | ✅ | ❌ | ❌ | ❌ |
+| MCP support | ✅ HTTP / SSE | ✅ via Copilot Studio | ❌ | ❌ |
+| Reaches full Word + Excel API surface | ✅ via real code | ⚠️ curated actions | ⚠️ curated actions | ⚠️ curated actions |
+| **— AutoOffice trade-offs —** | | | | |
+| Native tracked-changes UX | ❌ | ❌ | ✅ | ❌ |
+| Cross-app context (Outlook, Teams, PPT…) | ❌ Word + Excel + PowerPoint, single-doc | ✅ all M365 | ✅ Word + Excel + PPT | ❌ |
 
 ## Tech Stack
 
@@ -55,14 +70,14 @@ Task Pane (React)
             └── Sandboxed iframe ← executes generated code against live document
 ```
 
-The same task pane runs in Word and Excel; `HostContext` is resolved at startup and gates the skill registry, sandbox wrapping, and system prompt per host.
+The same task pane runs in Word, Excel, and PowerPoint; `HostContext` is resolved at startup and gates the skill registry, sandbox wrapping, and system prompt per host.
 
 ## Quick Start
 
 ### Prerequisites
 
 - Node.js 18+
-- Microsoft 365 (Word or Excel — Web or Desktop)
+- Microsoft 365 (Word, Excel, or PowerPoint — Web or Desktop)
 - An API key for Anthropic, OpenAI, or any OpenAI-compatible provider
 
 ### Install
@@ -102,6 +117,15 @@ Same scripts but targeting Excel:
 ```bash
 npm run start:excel       # debugger
 npm run sideload:excel    # no debugger
+```
+
+### Run + sideload PowerPoint
+
+Same scripts but targeting PowerPoint:
+
+```bash
+npm run start:powerpoint       # debugger
+npm run sideload:powerpoint    # no debugger
 ```
 
 ### Run dev server only
@@ -191,7 +215,7 @@ When code execution fails, the error is fed back to the LLM with the instruction
 | Execution timeout | 30 seconds |
 | MCP Servers | Empty |
 
-Settings are persisted via `Office.context.roamingSettings` when running inside Office, and `localStorage` during development. Provider, API key, MCP server, and other settings are shared between Word and Excel by design — there is one logical add-in per install.
+Settings are persisted via `Office.context.roamingSettings` when running inside Office, and `localStorage` during development. Provider, API key, MCP server, and other settings are shared across Word, Excel, and PowerPoint by design — there is one logical add-in per install.
 
 ## Build
 

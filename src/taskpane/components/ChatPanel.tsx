@@ -161,7 +161,9 @@ export function ChatPanel({ host, messages, isLoading, pendingApproval, onSend, 
             <Text size={200}>
               {host.kind === 'word'
                 ? 'Try: "Make all headings blue" or "Insert a 3-column table"'
-                : 'Try: "Put 1 through 10 in column A" or "Make a chart from B2:D8"'}
+                : host.kind === 'excel'
+                  ? 'Try: "Put 1 through 10 in column A" or "Make a chart from B2:D8"'
+                  : 'Try: "Add a slide titled \'Q3 plan\' with three bullets" or "Make all slide titles bold"'}
             </Text>
           </div>
         ) : (
@@ -187,7 +189,9 @@ export function ChatPanel({ host, messages, isLoading, pendingApproval, onSend, 
         <Textarea
           className={styles.input}
           textarea={{ ref: textareaRef, className: styles.textarea }}
-          placeholder={`Ask me to modify the ${host.kind === 'excel' ? 'workbook' : 'document'}...`}
+          placeholder={`Ask me to modify the ${
+            host.kind === 'word' ? 'document' : host.kind === 'excel' ? 'workbook' : 'presentation'
+          }...`}
           value={inputText}
           onChange={(_, data) => setInputText(data.value)}
           onKeyDown={handleKeyDown}

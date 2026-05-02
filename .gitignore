@@ -2,3 +2,4 @@ node_modules
 dist
 installer/files
 installer/AutoOffice-Setup.exe
+.worktrees/
