@@ -15,7 +15,7 @@ Text in PowerPoint lives inside a `TextFrame`, which is accessed via `shape.text
   - `start`, `length` — position and length of this range within the text frame.
 - `PowerPoint.ShapeFont` — `textRange.font`. Properties: `bold`, `italic`, `underline`, `color`, `name`, `size`, `allCaps`, `strikethrough`, `subscript`, `superscript`, `smallCaps`. All return `null` when the range has mixed values.
 - `PowerPoint.ParagraphFormat` — `textRange.paragraphFormat`. Properties: `horizontalAlignment` (`"Left"`, `"Center"`, `"Right"`, `"Justify"`), `indentLevel` (PowerPointApi 1.10), `bulletFormat`.
-- `PowerPoint.BulletFormat` — `paragraphFormat.bulletFormat`. Properties: `visible` (bool), `type` (`"None"`, `"Numbered"`, `"Unnumbered"`), `style`.
+- `PowerPoint.BulletFormat` — `paragraphFormat.bulletFormat`. Properties: `visible` (bool), `type` (`"None"`, `"Numbered"`, `"Unnumbered"`, `"Unsupported"`), `style`.
 
 ---
 
@@ -147,6 +147,7 @@ await PowerPoint.run(async (context) => {
 
 ## Common Mistakes
 
+- **`bulletFormat.type` includes `"Unsupported"`**: When switching on `bulletFormat.type`, always handle the `"Unsupported"` case for shapes or content that may not support the full bullet type range.
 - **`shape.textFrame` on a non-text shape throws**: Images and tables do not have a text frame. Guard with a `shape.type === "TextBox"` or `"Placeholder"` check, or use `shape.getTextFrameOrNullObject()` (PowerPointApi 1.10) and check `.isNullObject`.
 - **Setting `textRange.text = "..."` replaces ALL paragraphs**: There is no append method. Writing to `.text` overwrites everything in the frame, including multi-paragraph content and inline formatting.
 - **No `textRange.paragraphs` collection**: PowerPoint's `TextRange` does not expose a `paragraphs` array. Apply formatting via `textRange.font` (whole range) or `getSubstring(start, length)` (character range). There is no per-paragraph iteration API.

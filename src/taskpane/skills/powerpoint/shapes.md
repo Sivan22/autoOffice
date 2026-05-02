@@ -11,7 +11,7 @@ Shapes are the primary content container on a slide. Every text box, geometric s
 - `PowerPoint.ShapeFill` — `shape.fill`. Method: `setSolidColor(htmlColor)`. Property: `foregroundColor` (string), `transparency` (0-1).
 - `PowerPoint.ShapeLineFormat` — `shape.lineFormat`. Properties: `color`, `weight`, `dashStyle`, `transparency`, `visible`.
 - `PowerPoint.TextFrame` — `shape.textFrame` (throws if the shape has no text frame). Use `shape.getTextFrameOrNullObject()` (PowerPointApi 1.10) to get a null-safe handle.
-- `Shape.setHyperlink(options?)` (PowerPointApi 1.8) — attaches a hyperlink to the entire shape. Full coverage of hyperlink targets, types, and reading patterns is in the `hyperlinks` skill.
+- `Shape.setHyperlink(options?)` (PowerPointApi 1.10) — attaches a hyperlink to the entire shape. Full coverage of hyperlink targets, types, and reading patterns will be covered in the upcoming `hyperlinks` skill.
 
 ---
 
