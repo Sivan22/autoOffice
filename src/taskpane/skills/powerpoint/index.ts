@@ -11,6 +11,7 @@ import charts from './charts.md?raw';
 import hyperlinks from './hyperlinks.md?raw';
 import tags from './tags.md?raw';
 import selection from './selection.md?raw';
+import ooxml from './ooxml.md?raw';
 
 export const POWERPOINT_SKILL_NAMES = [
   'context-sync',
@@ -25,6 +26,7 @@ export const POWERPOINT_SKILL_NAMES = [
   'hyperlinks',
   'tags',
   'selection',
+  'ooxml',
 ] as const;
 export type PowerPointSkillName = (typeof POWERPOINT_SKILL_NAMES)[number];
 
@@ -41,4 +43,5 @@ export const POWERPOINT_SKILLS: Record<string, string> = {
   'hyperlinks': hyperlinks,
   'tags': tags,
   'selection': selection,
+  'ooxml': ooxml,
 };
