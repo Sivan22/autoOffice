@@ -69,8 +69,8 @@ await PowerPoint.run(async (context) => {
 
 `slides.add(options?)` adds a new slide (PowerPointApi 1.3) and returns `void`. To work with the new slide, re-query the collection after sync.
 
-- If neither `slideMasterId` nor `layoutId` is provided, the previous slide's master and its first layout are used (or the presentation's first master if there is no previous slide).
-- If only `layoutId` is provided, the specified layout must be available under the default master.
+- When neither `slideMasterId` nor `layoutId` is provided, the runtime selects the master from the previous slide; the specific layout chosen for the new slide is not documented in the types — verify with a `slides.load("items/layout")` round-trip if you need to know.
+- If only `layoutId` is provided, the specified layout must be available under the default master (the previous slide's master, or the presentation's first master if there is no previous slide).
 - If both are provided, the layout must belong to the specified master.
 
 ```javascript
