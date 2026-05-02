@@ -192,8 +192,10 @@ describe('history.ts — eviction (soft total cap)', () => {
     }));
 
     const ids = listConversations().map(s => s.id);
-    // 'old' should have been evicted.
+    // With a 5KB cap and ~3KB conversations, both 'old' and 'mid' should be
+    // evicted to fit 'new' under the cap.
     expect(ids).not.toContain('old');
+    expect(ids).not.toContain('mid');
     expect(ids).toContain('new');
   });
 
@@ -263,6 +265,22 @@ describe('history.ts — per-conversation truncation', () => {
     expect(stored.uiMessages).toHaveLength(2);
     expect(stored.uiMessages[0].content).toBe('hello');
     expect(stored.uiMessages[1].codeBlock!.result).toBe('[truncated]');
+  });
+
+  it("does not mutate the caller's conversation object", () => {
+    __testing.setLimits(100_000_000, 500);
+    const huge = bigString(2_000);
+    const conv = makeConv({
+      id: 'nomut',
+      uiMessages: [
+        { role: 'assistant', content: '', codeBlock: { code: 'x', status: 'success', result: huge } },
+      ],
+    });
+    saveConversation(conv);
+    // The stored copy is truncated.
+    expect(getConversation('nomut')!.uiMessages[0].codeBlock!.result).toBe('[truncated]');
+    // The caller's original object is NOT mutated.
+    expect(conv.uiMessages[0].codeBlock!.result).toBe(huge);
   });
 });
 

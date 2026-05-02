@@ -57,7 +57,17 @@ function readIndex(): ConversationSummary[] {
 }
 
 function writeIndex(index: ConversationSummary[]): void {
-  localStorage.setItem(INDEX_KEY, JSON.stringify(index));
+  try {
+    localStorage.setItem(INDEX_KEY, JSON.stringify(index));
+  } catch (err) {
+    if (isQuotaExceeded(err)) {
+      // Consistent with the blob-write contract: quota failures surface as a
+      // single warning, never an exception that bubbles into the React tree.
+      console.warn('[history] localStorage full; index not updated this turn');
+      return;
+    }
+    throw err;
+  }
 }
 
 function summarize(c: Conversation): ConversationSummary {
@@ -99,8 +109,9 @@ function truncateInPlace(c: Conversation, cap: number): void {
       cb.result = '[truncated]';
     }
   }
-  // If still over cap (e.g. very long user messages), best-effort: leave as-is.
-  // The total-cap eviction will continue to keep the global store bounded.
+  // If still over cap, the dominant uncovered source is large
+  // modelMessages tool-result strings (we only walk uiMessages here). The
+  // total-cap eviction will continue to keep the global store bounded.
 }
 
 function isQuotaExceeded(err: unknown): boolean {
