@@ -8,6 +8,9 @@ import numberFormats from './number-formats.md?raw';
 import formatting from './formatting.md?raw';
 import styles from './styles.md?raw';
 import tables from './tables.md?raw';
+import namedItems from './named-items.md?raw';
+import charts from './charts.md?raw';
+import pivotTables from './pivot-tables.md?raw';
 
 export const EXCEL_SKILL_NAMES = [
   'context-sync',
@@ -19,6 +22,9 @@ export const EXCEL_SKILL_NAMES = [
   'formatting',
   'styles',
   'tables',
+  'named-items',
+  'charts',
+  'pivot-tables',
 ] as const;
 export type ExcelSkillName = (typeof EXCEL_SKILL_NAMES)[number];
 
@@ -32,4 +38,7 @@ export const EXCEL_SKILLS: Record<string, string> = {
   'formatting': formatting,
   'styles': styles,
   'tables': tables,
+  'named-items': namedItems,
+  'charts': charts,
+  'pivot-tables': pivotTables,
 };
