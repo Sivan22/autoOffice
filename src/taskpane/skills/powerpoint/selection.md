@@ -58,18 +58,20 @@ await PowerPoint.run(async (context) => {
     return;
   }
 
-  // Iterate the active slide's shapes collection to delete by id.
-  const slide = pres.slides.getItemAt(0);
+  // Get the active slide (the first item in getSelectedSlides()).
+  const activeSlide = pres.getSelectedSlides().getItemAt(0);
   for (const s of selectedShapes.items) {
-    slide.shapes.getItem(s.id).delete();
+    activeSlide.shapes.getItem(s.id).delete();
   }
   await context.sync();
   console.log(`Deleted ${selectedShapes.items.length} shape(s).`);
 });
 ```
 
-> Note: `getSelectedShapes()` returns shapes from the **current slide** only, which is also the
-> active editing slide. Use the shape `id` to look them up in `slide.shapes.getItem(id)`.
+> Note: Selected shapes belong to the **active slide** — the slide visible in the editing area.
+> Retrieve it via `presentation.getSelectedSlides().getItemAt(0)` (the first item in the
+> collection is always the active slide). Use the shape `id` to look them up in
+> `activeSlide.shapes.getItem(id)`.
 
 ---
 
@@ -143,9 +145,9 @@ await PowerPoint.run(async (context) => {
     return;
   }
 
-  const slide = pres.slides.getItemAt(0);
+  const activeSlide = pres.getSelectedSlides().getItemAt(0);
   for (const s of selectedShapes.items) {
-    const liveShape = slide.shapes.getItem(s.id);
+    const liveShape = activeSlide.shapes.getItem(s.id);
     liveShape.textFrame.textRange.font.color = "#C00000";
   }
   await context.sync();

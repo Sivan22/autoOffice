@@ -23,7 +23,9 @@ that slide, regardless of whether it is shape-level or text-level.
   - `shape = "Shape"` — hyperlink is on a whole `Shape`
 - **`PowerPoint.HyperlinkCollection`** (`slide.hyperlinks`) — all hyperlinks on a slide.
   Methods: `add(target, options?)`, `getCount()`, `getItemAt(index)`, `load(...)`.
-- **`PowerPoint.HyperlinkScopedCollection`** (`textRange.hyperlinks`) — hyperlinks within a specific `TextRange`. Same set of methods.
+- **`PowerPoint.HyperlinkScopedCollection`** (`textRange.hyperlinks`) — hyperlinks within a specific `TextRange`.
+  Methods: `getCount()`, `getItemAt(index)`, `load(...)`. **Note: `add()` is NOT available on the scoped collection.**
+  To add a hyperlink to a `TextRange`, call `textRange.setHyperlink(options?)` instead (PowerPointApi 1.10).
 - **`PowerPoint.HyperlinkAddOptions`** — `{ address?: string; screenTip?: string }`.
 - **`Shape.setHyperlink(options?)` → `PowerPoint.Hyperlink`** — sets a hyperlink on the whole shape; deletes any existing shape hyperlink (PowerPointApi 1.10).
 - **`TextRange.setHyperlink(options?)` → `PowerPoint.Hyperlink`** — sets a hyperlink on the text range; deletes all existing hyperlinks on that range (PowerPointApi 1.10).

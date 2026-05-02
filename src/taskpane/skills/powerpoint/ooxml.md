@@ -20,8 +20,8 @@ standalone XML fragment. Constructing that file from scratch is out of scope for
 - **`PowerPoint.InsertSlideFormatting`** enum:
   - `keepSourceFormatting = "KeepSourceFormatting"` — preserve the source `.pptx` theme.
   - `useDestinationTheme = "UseDestinationTheme"` — apply the current presentation's theme.
-- **`slide.exportAsBase64() → OfficeExtension.ClientResult<string>`** — exports a single slide as a base64-encoded `.pptx` (PowerPointApi 1.5).
-- **`presentation.slides.exportAsBase64Presentation(values: Array<string | Slide>) → ClientResult<string>`** — exports a subset of slides (identified by ID string or `Slide` object) as a base64 `.pptx` (PowerPointApi 1.5).
+- **`slide.exportAsBase64() → OfficeExtension.ClientResult<string>`** — exports a single slide as a base64-encoded `.pptx` (PowerPointApi 1.8).
+- **`presentation.slides.exportAsBase64Presentation(values: Array<string | Slide>) → ClientResult<string>`** — exports a subset of slides (identified by ID string or `Slide` object) as a base64 `.pptx` (PowerPointApi 1.10).
 - **`slideScopedCollection.exportAsBase64Presentation() → ClientResult<string>`** — exports all slides in a `SlideScopedCollection` (e.g. selected slides) as a base64 `.pptx` (PowerPointApi 1.10).
 
 ---
@@ -112,18 +112,28 @@ When you need to modify slide content that the typed API cannot reach (e.g. char
 4. Re-import via `insertSlidesFromBase64`.
 
 ```javascript
-// Step 1: export
+// Step 1: export and capture the previous slide's id (for re-insertion)
 await PowerPoint.run(async (context) => {
-  const slide = context.presentation.slides.getItemAt(1);
+  const slides = context.presentation.slides;
+  slides.load("items/id");
+  await context.sync();
+
+  const slide = slides.getItemAt(1);
   const result = slide.exportAsBase64();
   await context.sync();
 
   const modifiedBase64 = await serverSideModify(result.value);  // external step
 
-  // Step 2: re-import after the old slide (or at beginning if deleted)
+  // Step 2: capture the previous slide's ID before deletion
+  const previousSlideId = slides.items[0].id;  // or slides.items.length > 2 ? slides.items[1].id : null
+  
+  // Step 3: delete the original slide
   slide.delete();
+  
+  // Step 4: re-import after the previous slide
   context.presentation.insertSlidesFromBase64(modifiedBase64, {
     formatting: PowerPoint.InsertSlideFormatting.keepSourceFormatting,
+    targetSlideId: previousSlideId,
   });
   await context.sync();
   console.log("Round-trip complete.");
