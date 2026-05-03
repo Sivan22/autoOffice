@@ -4,6 +4,7 @@ import {
   DismissCircle24Regular,
   Play24Regular,
 } from '@fluentui/react-icons';
+import { useTranslation } from '../i18n/index.ts';
 
 const useStyles = makeStyles({
   container: {
@@ -99,15 +100,6 @@ const useStyles = makeStyles({
 
 type CodeStatus = 'streaming' | 'pending' | 'rejected' | 'running' | 'success' | 'error';
 
-const STATUS_LABELS: Record<CodeStatus, string> = {
-  streaming: 'Generating…',
-  pending: 'Awaiting Approval',
-  rejected: 'Rejected',
-  running: 'Running...',
-  success: 'Success',
-  error: 'Error',
-};
-
 const STATUS_COLORS: Record<CodeStatus, 'informative' | 'success' | 'danger' | 'warning'> = {
   streaming: 'informative',
   pending: 'informative',
@@ -127,6 +119,15 @@ interface CodeBlockProps {
 
 export function CodeBlock({ code, status, result, onApprove, onReject }: CodeBlockProps) {
   const styles = useStyles();
+  const { t } = useTranslation();
+  const STATUS_LABELS = {
+    streaming: t('code.statusStreaming'),
+    pending:   t('code.statusPending'),
+    rejected:  t('code.statusRejected'),
+    running:   t('code.statusRunning'),
+    success:   t('code.statusSuccess'),
+    error:     t('code.statusError'),
+  } as const;
   const isError = status === 'error';
   const showResult = (status === 'success' || status === 'error') && !!result;
 
@@ -142,7 +143,7 @@ export function CodeBlock({ code, status, result, onApprove, onReject }: CodeBlo
       <div className={styles.codeArea}>
         <pre className={styles.code}>
           {code === '' && status === 'streaming'
-            ? <span className={styles.emptyHint}>Generating code…</span>
+            ? <span className={styles.emptyHint}>{t('code.generatingCode')}</span>
             : code}
           {status === 'streaming' && <span className={styles.caret} aria-hidden />}
         </pre>
@@ -151,10 +152,10 @@ export function CodeBlock({ code, status, result, onApprove, onReject }: CodeBlo
       {status === 'pending' && onApprove && onReject && (
         <div className={styles.actions}>
           <Button appearance="primary" icon={<Play24Regular />} size="small" onClick={onApprove}>
-            Approve & Run
+            {t('code.approveButton')}
           </Button>
           <Button appearance="subtle" icon={<DismissCircle24Regular />} size="small" onClick={onReject}>
-            Reject
+            {t('code.rejectButton')}
           </Button>
         </div>
       )}
@@ -162,7 +163,7 @@ export function CodeBlock({ code, status, result, onApprove, onReject }: CodeBlo
       {showResult && (
         <details className={`${styles.details} ${isError ? styles.detailsError : ''}`} open={isError}>
           <summary className={`${styles.summary} ${isError ? styles.summaryError : ''}`}>
-            {isError ? 'Error details' : 'Result'}
+            {isError ? t('code.errorDetails') : t('code.result')}
           </summary>
           <div className={`${styles.resultBody} ${isError ? styles.resultBodyError : ''}`}>
             {result}

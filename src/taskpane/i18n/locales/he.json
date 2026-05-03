@@ -49,6 +49,7 @@
   "code": {
     "approveButton": "אשר והרץ",
     "rejectButton": "דחה",
+    "statusStreaming": "מייצר...",
     "statusPending": "ממתין לאישור",
     "statusRejected": "נדחה",
     "statusRunning": "רץ...",
@@ -56,6 +57,7 @@
     "statusError": "שגיאה",
     "errorDetails": "פרטי שגיאה",
     "result": "תוצאה",
+    "generatingCode": "מייצר קוד...",
     "toolActivity": "חיפש: {{toolName}}"
   },
   "errors": {
