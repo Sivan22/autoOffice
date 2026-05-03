@@ -7,6 +7,14 @@ export interface ExecutionResult {
   error?: string;
   stack?: string;
   logs?: string[];
+  debugInfo?: {
+    code?: string;
+    errorLocation?: string;
+    statement?: string;
+    surroundingStatements?: string[];
+    fullStatements?: string[];
+    message?: string;
+  };
 }
 
 const NS: Record<HostKind, 'Word' | 'Excel' | 'PowerPoint'> = {
@@ -77,7 +85,18 @@ export class Sandbox {
         const result = await fn(capturingConsole);
         return { success: true, output: result, logs };
       } catch (err) {
-        const e = err as Error;
+        const e = err as Error & { code?: string; debugInfo?: ExecutionResult['debugInfo'] };
+        const isOfficeError = typeof e.code === 'string' && e.debugInfo !== undefined;
+        if (isOfficeError) {
+          const dbg = e.debugInfo!;
+          return {
+            success: false,
+            error: `${e.code}: ${e.message || dbg.message || ''}`.trim(),
+            stack: e.stack,
+            debugInfo: { code: e.code, ...dbg },
+            logs,
+          };
+        }
         return { success: false, error: e.message || String(err), stack: e.stack, logs };
       }
     })();

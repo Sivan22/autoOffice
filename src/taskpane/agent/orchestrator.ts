@@ -7,6 +7,7 @@ import type { HostKind } from '../host/context.ts';
 import type { AppSettings } from '../store/settings.ts';
 import type { Sandbox } from '../executor/sandbox.ts';
 import { getMcpTools } from '../mcp/client.ts';
+import { formatError, type FormattedError } from './errors.ts';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -19,6 +20,7 @@ export interface ChatMessage {
   toolActivity?: {
     toolName: string;
   };
+  error?: FormattedError;
 }
 
 export interface OrchestratorCallbacks {
@@ -36,7 +38,14 @@ export async function runAgent(
   callbacks: OrchestratorCallbacks,
 ): Promise<ModelMessage[]> {
   const model = createModel(settings);
-  const mcpTools = await getMcpTools(settings.mcpServers);
+  const { tools: mcpTools, failures: mcpFailures } = await getMcpTools(settings.mcpServers);
+  for (const f of mcpFailures) {
+    callbacks.onMessage({
+      role: 'assistant',
+      content: '',
+      error: formatError(f.error, { phase: 'mcp-connect', serverName: f.serverName }),
+    });
+  }
 
   const messages: ModelMessage[] = [
     ...conversationHistory,
@@ -62,53 +71,71 @@ export async function runAgent(
       additionalProperties: false,
     }),
     execute: async ({ code }) => {
-      const approved = settings.autoApprove || await callbacks.requestApproval(code);
-      if (!approved) {
-        callbacks.onMessage({
-          role: 'assistant',
-          content: '',
-          codeBlock: { code, status: 'rejected' },
-        });
-        return 'User rejected the code. Ask what they would like changed.';
-      }
+      try {
+        const approved = settings.autoApprove || await callbacks.requestApproval(code);
+        if (!approved) {
+          callbacks.onMessage({
+            role: 'assistant',
+            content: '',
+            codeBlock: { code, status: 'rejected' },
+          });
+          return 'User rejected the code. Ask what they would like changed.';
+        }
 
-      const result = await sandbox.execute(code, settings.executionTimeout);
-      const logsStr = result.logs && result.logs.length ? `\nLogs:\n${result.logs.join('\n')}` : '';
+        const result = await sandbox.execute(code, settings.executionTimeout);
+        const logsStr = result.logs && result.logs.length ? `\nLogs:\n${result.logs.join('\n')}` : '';
 
-      if (result.success) {
-        const outputText = result.output === undefined
-          ? 'undefined'
-          : typeof result.output === 'string'
-            ? result.output
-            : JSON.stringify(result.output, null, 2);
+        if (result.success) {
+          const outputText = result.output === undefined
+            ? 'undefined'
+            : typeof result.output === 'string'
+              ? result.output
+              : JSON.stringify(result.output, null, 2);
+          const uiResult = [
+            `Output:\n${outputText}`,
+            result.logs && result.logs.length ? `Logs:\n${result.logs.join('\n')}` : '',
+          ].filter(Boolean).join('\n\n');
+          callbacks.onMessage({
+            role: 'assistant',
+            content: '',
+            codeBlock: { code, status: 'success', result: uiResult },
+          });
+          return `Code executed successfully. Output: ${JSON.stringify(result.output)}${logsStr}`;
+        }
+
+        const debugSection = result.debugInfo
+          ? [
+              'Office.js debug info:',
+              `Code: ${result.debugInfo.code ?? ''}`,
+              `Location: ${result.debugInfo.errorLocation ?? ''}`,
+              `Statement: ${result.debugInfo.statement ?? ''}`,
+              result.debugInfo.surroundingStatements && result.debugInfo.surroundingStatements.length
+                ? `Surrounding:\n${result.debugInfo.surroundingStatements.join('\n')}`
+                : '',
+            ].filter(Boolean).join('\n')
+          : '';
         const uiResult = [
-          `Output:\n${outputText}`,
+          `Error: ${result.error}`,
+          result.stack || '',
+          debugSection,
           result.logs && result.logs.length ? `Logs:\n${result.logs.join('\n')}` : '',
         ].filter(Boolean).join('\n\n');
         callbacks.onMessage({
           role: 'assistant',
           content: '',
-          codeBlock: { code, status: 'success', result: uiResult },
+          codeBlock: { code, status: 'error', result: uiResult },
         });
-        return `Code executed successfully. Output: ${JSON.stringify(result.output)}${logsStr}`;
-      }
 
-      const uiResult = [
-        `Error: ${result.error}`,
-        result.stack || '',
-        result.logs && result.logs.length ? `Logs:\n${result.logs.join('\n')}` : '',
-      ].filter(Boolean).join('\n\n');
-      callbacks.onMessage({
-        role: 'assistant',
-        content: '',
-        codeBlock: { code, status: 'error', result: uiResult },
-      });
-
-      retryCount++;
-      if (retryCount >= settings.maxRetries) {
-        return `Failed after ${retryCount} attempts. Last error: ${result.error}${logsStr}`;
+        retryCount++;
+        if (retryCount >= settings.maxRetries) {
+          return `Failed after ${retryCount} attempts. Last error: ${result.error}${debugSection ? `\n${debugSection}` : ''}${logsStr}`;
+        }
+        return `Execution failed: ${result.error}\n${result.stack || ''}${debugSection ? `\n${debugSection}` : ''}${logsStr}\nPlease fix and try again.`;
+      } catch (err) {
+        const formatted = formatError(err, { phase: 'tool-execute', tool: 'execute_code' });
+        callbacks.onMessage({ role: 'assistant', content: '', error: formatted });
+        return `Tool failed: ${formatted.title}. ${formatted.detail}`;
       }
-      return `Execution failed: ${result.error}\n${result.stack || ''}${logsStr}\nPlease fix and try again.`;
     },
   });
 
@@ -144,8 +171,13 @@ export async function runAgent(
       callbacks.onStreamToken(chunk);
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    callbacks.onMessage({ role: 'assistant', content: `Error: ${msg}` });
+    const provider = settings.providers.find(p => p.id === settings.selectedProviderId)?.name;
+    const formatted = formatError(err, {
+      phase: 'stream',
+      provider,
+      model: settings.selectedModel,
+    });
+    callbacks.onMessage({ role: 'assistant', content: '', error: formatted });
     return messages;
   }
 

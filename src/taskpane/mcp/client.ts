@@ -9,8 +9,20 @@ function resolveUrl(url: string): string {
   return url;
 }
 
-export async function getMcpTools(servers: McpServerConfig[]): Promise<ToolSet> {
+export interface McpConnectFailure {
+  serverName: string;
+  url: string;
+  error: unknown;
+}
+
+export interface McpToolsResult {
+  tools: ToolSet;
+  failures: McpConnectFailure[];
+}
+
+export async function getMcpTools(servers: McpServerConfig[]): Promise<McpToolsResult> {
   const allTools: ToolSet = {};
+  const failures: McpConnectFailure[] = [];
 
   const enabledServers = servers.filter(s => s.enabled && s.url);
 
@@ -23,13 +35,12 @@ export async function getMcpTools(servers: McpServerConfig[]): Promise<ToolSet> 
           fetch: (url: RequestInfo | URL, init?: RequestInit) => fetch(url, init),
         },
       });
-
       const tools = await client.tools();
       Object.assign(allTools, tools);
     } catch (e) {
-      console.warn(`Failed to connect to MCP server "${server.name}":`, e);
+      failures.push({ serverName: server.name, url: server.url, error: e });
     }
   }
 
-  return allTools;
+  return { tools: allTools, failures };
 }
