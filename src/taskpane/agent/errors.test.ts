@@ -102,3 +102,54 @@ describe('formatError — AI SDK API-shaped errors (non-call)', () => {
     expect(out.title).toBe('OpenAI returned no content');
   });
 });
+
+describe('formatError — OfficeExtension.Error', () => {
+  it('extracts code, errorLocation, statement', () => {
+    const err = new Error('A property on this object was not loaded');
+    Object.assign(err, {
+      code: 'PropertyNotLoaded',
+      debugInfo: {
+        code: 'PropertyNotLoaded',
+        message: 'The property "text" is not available.',
+        errorLocation: 'Paragraph.text',
+        statement: 'paragraph.text',
+        surroundingStatements: ['paragraph.load(\'style\')', 'paragraph.text'],
+        fullStatements: [],
+      },
+    });
+    const out = formatError(err);
+    expect(out.kind).toBe('office');
+    expect(out.title).toBe('Office.js error: PropertyNotLoaded');
+    expect(out.detail).toContain('The property "text" is not available.');
+    expect(out.detail).toContain('Paragraph.text');
+    expect(out.raw).toContain('surroundingStatements');
+  });
+});
+
+describe('formatError — network', () => {
+  it('classifies "Failed to fetch" TypeError', () => {
+    const err = new TypeError('Failed to fetch');
+    const out = formatError(err);
+    expect(out.kind).toBe('network');
+    expect(out.title).toBe('Network error');
+    expect(out.detail).toBe('Failed to fetch');
+  });
+
+  it('classifies AbortError', () => {
+    const err = new Error('aborted');
+    err.name = 'AbortError';
+    const out = formatError(err);
+    expect(out.kind).toBe('network');
+    expect(out.title).toBe('Request cancelled');
+  });
+});
+
+describe('formatError — MCP', () => {
+  it('uses ctx.serverName in title when phase is mcp-connect', () => {
+    const err = new Error('connect ECONNREFUSED 127.0.0.1:9000');
+    const out = formatError(err, { phase: 'mcp-connect', serverName: 'sefaria' });
+    expect(out.kind).toBe('mcp');
+    expect(out.title).toBe('MCP server "sefaria" unreachable');
+    expect(out.detail).toContain('ECONNREFUSED');
+  });
+});
