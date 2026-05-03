@@ -101,6 +101,16 @@ describe('formatError — AI SDK API-shaped errors (non-call)', () => {
     expect(out.kind).toBe('api');
     expect(out.title).toBe('OpenAI returned no content');
   });
+
+  it('classifies AI_NoOutputGeneratedError as kind=api (not "Unexpected error")', () => {
+    const err = new Error('No output generated. Check the stream for errors.');
+    err.name = 'AI_NoOutputGeneratedError';
+    const out = formatError(err, { provider: 'Anthropic', model: 'claude-opus-4-7' });
+    expect(out.kind).toBe('api');
+    expect(out.title).not.toBe('Unexpected error');
+    expect(out.title).toContain('Anthropic');
+    expect(out.detail).toContain('No output generated');
+  });
 });
 
 describe('formatError — OfficeExtension.Error', () => {

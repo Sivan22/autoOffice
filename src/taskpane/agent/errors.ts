@@ -72,6 +72,7 @@ const CONFIG_ERROR_NAMES = new Set([
 
 const API_ERROR_NAMES = new Set([
   'AI_NoContentGeneratedError',
+  'AI_NoOutputGeneratedError',
   'AI_InvalidResponseDataError',
 ]);
 

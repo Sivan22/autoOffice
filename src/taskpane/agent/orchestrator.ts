@@ -145,6 +145,8 @@ export async function runAgent(
     },
   });
 
+  let capturedStreamError: unknown;
+
   const result = streamText({
     model,
     system: buildSystemPrompt(host, listSkills(host)),
@@ -155,6 +157,9 @@ export async function runAgent(
       ...mcpTools,
     },
     stopWhen: stepCountIs(settings.maxRetries + 5),
+    onError: ({ error }) => {
+      capturedStreamError = error;
+    },
     onStepFinish: ({ toolCalls }) => {
       for (const tc of toolCalls) {
         if (tc.toolName === 'lookup_skill') {
@@ -206,9 +211,10 @@ export async function runAgent(
           break;
       }
     }
+    if (capturedStreamError) throw capturedStreamError;
   } catch (err) {
     const provider = settings.providers.find(p => p.id === settings.selectedProviderId)?.name;
-    const formatted = formatError(err, {
+    const formatted = formatError(capturedStreamError ?? err, {
       phase: 'stream',
       provider,
       model: settings.selectedModel,
