@@ -6,24 +6,30 @@
 </head>
 <body>
 <script>
+  var NS = { word: 'Word', excel: 'Excel', powerpoint: 'PowerPoint' };
+
   window.addEventListener('message', function (event) {
     var data = event.data;
     if (!data || data.type !== 'execute' || !data.id) return;
 
     var id = data.id;
     var code = data.code;
-    var host = data.host === 'excel' ? 'excel' : 'word'; // default word for back-compat
-    var ns = host === 'excel' ? 'Excel' : 'Word';
-    var otherNs = host === 'excel' ? 'Word' : 'Excel';
+    var hostKey = NS.hasOwnProperty(data.host) ? data.host : 'word'; // default word for back-compat
+    var ns = NS[hostKey];
 
     var trimmed = code.trim();
-    if (trimmed.indexOf(otherNs + '.run') === 0) {
-      parent.postMessage({
-        type: 'error', id: id, success: false,
-        error: 'Code uses ' + otherNs + '.run but host is ' + ns + '. Rewrite using ' + ns + '.run.',
-        logs: []
-      }, '*');
-      return;
+    for (var key in NS) {
+      if (!NS.hasOwnProperty(key)) continue;
+      var other = NS[key];
+      if (other === ns) continue;
+      if (trimmed.indexOf(other + '.run') === 0) {
+        parent.postMessage({
+          type: 'error', id: id, success: false,
+          error: 'Code uses ' + other + '.run but host is ' + ns + '. Rewrite using ' + ns + '.run.',
+          logs: []
+        }, '*');
+        return;
+      }
     }
 
     var isWrapped = trimmed.indexOf(ns + '.run') === 0;

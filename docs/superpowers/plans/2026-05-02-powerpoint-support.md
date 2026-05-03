@@ -2,7 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Extend AutoOffice from a Word + Excel multi-host add-in to a Word + Excel + PowerPoint multi-host add-in, with full coverage of `PowerPoint.run` (14 PowerPoint skill markdown files), runtime host detection, host-aware sandbox/orchestrator/system-prompt, and the existing host badge auto-rendering "PowerPoint".
+**Goal:** Extend AutoOffice from a Word + Excel multi-host add-in to a Word + Excel + PowerPoint multi-host add-in, with full coverage of `PowerPoint.run` (13 PowerPoint skill markdown files — original count was 14, but `notes` was dropped after `@types/office-js` verification confirmed `PowerPoint.run` exposes no notes API), runtime host detection, host-aware sandbox/orchestrator/system-prompt, and the existing host badge auto-rendering "PowerPoint".
+
+**API ground truth:** All PowerPoint API claims in this plan have been verified against `node_modules/@types/office-js/index.d.ts`. Implementers should re-verify any specific signature they're unsure about by grep'ing the types file rather than assuming.
 
 **Architecture:** `HostKind` extends from `'word' | 'excel'` to `'word' | 'excel' | 'powerpoint'`. The exhaustive union turns "add PowerPoint" into a compile-time TODO list — every site that needs a third branch (sandbox, iframe, system prompt, skill registry, chat panel copy, orchestrator tool description) is flagged by the type checker. The sandbox's binary `otherNs` check is refactored to a namespace table so adding a fourth host later is one map entry. Skills live in `src/taskpane/skills/{word,excel,powerpoint}/`. The same multi-host `manifest.xml` declares `Document`, `Workbook`, and `Presentation`; one Add-in ID, one task pane URL, one installer.
 
@@ -34,7 +36,6 @@ Smoke test = sideload, open task pane, send a one-line command (e.g. "add a slid
 - `src/taskpane/skills/powerpoint/hyperlinks.md`
 - `src/taskpane/skills/powerpoint/tags.md`
 - `src/taskpane/skills/powerpoint/selection.md`
-- `src/taskpane/skills/powerpoint/notes.md`
 - `src/taskpane/skills/powerpoint/ooxml.md`
 
 **Modified files:**
@@ -789,12 +790,12 @@ The skill tasks below each give the bullet outline of what the markdown must cov
 
 - [ ] **Step 1: Author `src/taskpane/skills/powerpoint/context-sync.md`** — must cover:
   - `PowerPoint.RequestContext` and `context.presentation` as the entry point inside `PowerPoint.run`
-  - Proxy object model: properties are not populated until `load()` + `await context.sync()`
+  - Proxy object model: properties are not populated until `load()` + `await context.sync()` — same as Word/Excel
   - One example: load `presentation.title` and read it back
-  - Difference from `Excel.run`: `PowerPoint.run` callbacks similarly auto-sync at the end, but most reads still need explicit `load + sync`
   - Loading a collection: `presentation.slides.load("items/id")`, then iterate `slides.items`
   - Avoiding sync inside loops (same anti-pattern as Word/Excel)
-  - Common mistakes: reading proxy properties before sync; calling sync inside a `for` loop; assuming the final auto-sync brings values back to the client
+  - **Phrase the run-callback behavior conservatively**: "Queued operations are flushed when you `await context.sync()` or when the `PowerPoint.run` callback returns" — do not promise the runtime will auto-sync property reads. Engineers must always explicit-`load`+`sync` before reading a property.
+  - Common mistakes: reading proxy properties before sync; calling sync inside a `for` loop; assuming the run callback's automatic flush brings property values back to the client
 
 - [ ] **Step 2: Register `'context-sync'` in `powerpoint/index.ts`. Step 3: Build. Step 4: Commit.**
 
@@ -821,12 +822,13 @@ For each subsequent skill, add the import line, append the name, and add the ent
 ### Task 15: PowerPoint skill — `presentation`
 
 - [ ] **Step 1: Author `src/taskpane/skills/powerpoint/presentation.md`** — must cover:
-  - `context.presentation` properties: `title`, `slides`, `slideMasters`, `tags`
-  - Methods: `getSelectedSlides()`, `getSelectedShapes()`, `getSelectedTextRange()`, `insertSlidesFromBase64(base64File, options?)`
+  - `context.presentation` properties (verified against `@types/office-js`): `title` (string), `id` (string), `slides` (`SlideCollection`), `slideMasters` (`SlideMasterCollection`), `tags` (`TagCollection`), `bindings` (`BindingCollection`), `customXmlParts` (`CustomXmlPartCollection`), `pageSetup` (`PageSetup`), `properties` (`DocumentProperties`)
+  - Methods: `getSelectedSlides()`, `getSelectedShapes()`, `getSelectedTextRange()` (throws on no selection), `getSelectedTextRangeOrNullObject()` (safe variant), `insertSlidesFromBase64(base64File, options?: InsertSlideOptions)`, `setSelectedSlides(slideIds: string[])`
   - Loading and reading `title`
   - One example: log title and slide count
-  - Note: many "presentation-level" operations (saving, exporting full deck) are not exposed by `PowerPoint.run` — point to `ooxml` skill for round-trip patterns
-  - Common mistakes: assuming a `presentation.save()` exists; treating `title` as the file name (it's the slide-master title, not the file name)
+  - Brief mention that adding slides goes through `presentation.slides.add(options?)` (see `slides` skill) and that bulk content insertion / OOXML round-trip goes through `insertSlidesFromBase64` (see `ooxml` skill)
+  - Note: there is no typed `presentation.save()` — saving is host-driven
+  - Common mistakes: assuming a `presentation.save()` exists; treating `title` as the file name (it's the slide-master/document title, not the file name); calling `getSelectedTextRange()` when no text is selected (use `getSelectedTextRangeOrNullObject()` or wrap in try/catch)
 
 - [ ] **Step 2: Register; Step 3: Build; Step 4: Commit.**
 
@@ -835,15 +837,17 @@ For each subsequent skill, add the import line, append the name, and add the ent
 ### Task 16: PowerPoint skill — `slides`
 
 - [ ] **Step 1: Author `src/taskpane/skills/powerpoint/slides.md`** — must cover:
-  - `presentation.slides` collection: `getItemAt(index)`, `getItemOrNullObject(id)`, `load("items/id")`
-  - Slide identity: `slide.id` (string)
-  - Per-slide methods: `delete()`, `moveTo(index)`, `duplicate()`, `exportAsBase64()`
-  - Per-slide properties: `layout`, `slideMaster`, `shapes`, `tags`
-  - Adding new slides: `presentation.insertSlidesFromBase64(...)` is the path (no direct `slides.add()`); cross-link to `ooxml` skill
-  - One example: iterate slides, log id and shape count
-  - One example: delete slide at index 2
-  - One example: duplicate the active slide and move the copy to the end
-  - Common mistakes: assuming `slides.add()` exists; treating `getItemAt` index as 1-based (it's 0-based); `moveTo` index ambiguity
+  - `presentation.slides` is a `SlideCollection`. Methods (verified against types): `add(options?: AddSlideOptions)`, `getItem(key)`, `getItemAt(index)` (0-based), `getItemOrNullObject(id)`, `getCount()`, `exportAsBase64Presentation(values)`, `load(...)`.
+  - **Adding slides:** `presentation.slides.add({ slideMasterId?, layoutId? })` is the typed path (PowerPointApi 1.3). When neither is provided, the runtime selects the master from the previous slide; the layout chosen for the new slide is not documented in the types. When only `slideMasterId` is provided, the first layout under that master is used. When only `layoutId` is provided, the layout must be available under the previous slide's master (the "default master"). The method returns `void` — to operate on the new slide, re-query (e.g. `slides.getItemAt(items.length)` after sync).
+  - **No `slides.duplicate()`** — to copy a slide, use `slide.exportAsBase64()` + `presentation.insertSlidesFromBase64(base64)` (cross-link to `ooxml` skill), or `add()` and copy content shape-by-shape.
+  - Slide identity: `slide.id` (string), `slide.index` (number, 0-based, PowerPointApi 1.8).
+  - Per-slide methods (verified): `applyLayout(slideLayout)` (PowerPointApi 1.8 — see `slide-layouts`), `delete()`, `exportAsBase64()` (returns `ClientResult<string>`), `getImageAsBase64(options?)`, `moveTo(slideIndex: number)`, `setSelectedShapes(shapeIds: string[])`.
+  - Per-slide properties (verified): `id`, `index`, `layout`, `slideMaster`, `shapes`, `tags` (`TagCollection`), `hyperlinks` (`HyperlinkCollection`), `customXmlParts`, `background`, `themeColorScheme`.
+  - One example: add a new slide with the default layout, log new slide count.
+  - One example: iterate slides, log id, index, and shape count.
+  - One example: delete slide at index 2.
+  - One example: copy the active slide to the end via `exportAsBase64` + `insertSlidesFromBase64`.
+  - Common mistakes: calling `slides.duplicate()` (doesn't exist); treating `getItemAt` index as 1-based (it's 0-based); reading `slide.id` before sync; assuming `slides.add()` returns the new `Slide` (it returns `void`); passing a layout from a different `SlideMaster` than the slide's current master to `applyLayout`.
 
 - [ ] **Step 2: Register; Step 3: Build; Step 4: Commit.**
 
@@ -852,14 +856,15 @@ For each subsequent skill, add the import line, append the name, and add the ent
 ### Task 17: PowerPoint skill — `slide-layouts`
 
 - [ ] **Step 1: Author `src/taskpane/skills/powerpoint/slide-layouts.md`** — must cover:
-  - `presentation.slideMasters` collection
-  - `SlideMaster` properties: `id`, `name`, `layouts`
-  - `SlideLayout` properties: `id`, `name`
+  - `presentation.slideMasters` (`SlideMasterCollection`)
+  - `SlideMaster` properties (verified): `id`, `name`, `layouts` (`SlideLayoutCollection`)
+  - `SlideLayout` properties (verified): `id`, `name`, `type`, `tags`, `shapes`, `background`
   - `slide.layout` and `slide.slideMaster` proxy navigation
   - Listing all layouts under a master: `master.layouts.load("items/id, items/name")`
-  - Applying a layout to a slide (when supported in the API surface; if not, document as a gap and steer to OOXML)
-  - One example: list every layout name across every master
-  - Common mistakes: assuming layout `name` is unique across masters; assuming the active slide's layout can be reassigned via direct property write — verify before relying on it
+  - **Applying a layout: `slide.applyLayout(slideLayout)`** (PowerPointApi 1.8). The layout passed must belong to the slide's current `SlideMaster`. State this definitively — it's a typed API, not a gap.
+  - One example: list every layout name across every master.
+  - One example: apply a specific layout (looked up by name) to the active slide.
+  - Common mistakes: assuming layout `name` is unique across masters; passing a layout from a different master to `applyLayout` (will fail).
 
 - [ ] **Step 2: Register; Step 3: Build; Step 4: Commit.**
 
@@ -868,17 +873,18 @@ For each subsequent skill, add the import line, append the name, and add the ent
 ### Task 18: PowerPoint skill — `shapes` (high-frequency skill — invest extra detail)
 
 - [ ] **Step 1: Author `src/taskpane/skills/powerpoint/shapes.md`** — must cover:
-  - `slide.shapes` collection: `getItemAt`, `getItemOrNullObject`, `load("items/id, items/name, items/type")`
-  - `Shape.type` enum values: `GeometricShape`, `Image`, `Table`, `Chart`, `Placeholder`, `Group`, `Line`, `SmartArt`, `Unsupported` (etc.)
-  - Geometry props: `top`, `left`, `width`, `height`, `rotation` — all in points (1/72 inch)
-  - `Shape.geometricShapeType` enum (Rectangle, Oval, RoundedRectangle, Triangle, etc.)
-  - Identity props: `name`, `id`, `parentSlide`
-  - Placeholder handling: `Shape.placeholder` (null when not a placeholder)
-  - `Shape.delete()`
-  - One example: insert a rectangle (via `slide.shapes.addGeometricShape(...)`), set position and fill color
-  - One example: iterate all shapes on the active slide and log type + position
-  - One example: delete every image shape on the active slide
-  - Common mistakes: assuming `Shape.type === 'Text'` exists (text lives on a shape's `textFrame`, not as a separate type); confusing points with pixels; setting size before checking the shape supports resize (groups, locked placeholders); forgetting to load `type` before switching on it
+  - `slide.shapes` is a `ShapeCollection`. Add methods (verified): `addGeometricShape(type, options?: ShapeAddOptions)`, `addLine(connectorType?, options?)`, `addTextBox(text, options?)`, `addGroup(values: Array<string | Shape>)`, `addTable(rowCount, columnCount, options?)`. All return `PowerPoint.Shape` (except `addGroup` which returns the group shape; `addTable` returns the shape — use `Shape.table` to get the `Table` object). **`addImage` is NOT in PowerPoint.run** — image insertion requires OOXML round-trip (cross-link `ooxml` and `images`).
+  - Reader methods: `getItem(key)`, `getItemAt(index)`, `getItemOrNullObject(id)`, `getCount()`, `load(...)`.
+  - `Shape.type` enum (verified `PowerPoint.ShapeType`): `Unsupported`, `Image`, `GeometricShape`, `Group`, `Line`, `Table`, `Callout`, `Chart`, `ContentApp`, `Diagram`, `Freeform`, `Graphic`, `Ink`, `Media`, `OfficeArt`, `Placeholder`, `SmartArt`, `TextBox`.
+  - `Shape.geometricShapeType` enum — long list of named shapes (Rectangle, Ellipse, Triangle, etc.). The TS types include the literal-string-union signature.
+  - Geometry props (verified): `top`, `left`, `width`, `height`, `rotation` — all numbers, in points (1/72 inch).
+  - Identity / structural props: `name`, `id`, `parentSlide`, `placeholderFormat` (`PlaceholderFormat | null` — use `placeholderFormatOrNullObject` if available; check the actual signature).
+  - `Shape.delete()`. `Shape.fill` (`ShapeFill`), `Shape.lineFormat` (`ShapeLineFormat`), `Shape.textFrame`, `Shape.hyperlink`, `Shape.tags`. For tables: `Shape.table` (only when `Shape.type === Table`).
+  - One example: insert a rectangle via `addGeometricShape("Rectangle", { left, top, width, height })`, set fill color via `shape.fill.setSolidColor("#FF0000")`.
+  - One example: insert a text box and set text.
+  - One example: iterate all shapes on the active slide, log `type` and position.
+  - One example: delete every image-typed shape on the active slide.
+  - Common mistakes: calling `shapes.addImage(...)` (doesn't exist); confusing points with pixels; setting size on a group shape blindly (resize cascades to children); reading `shape.type` before sync; treating `geometricShapeType` as readable on non-geometric shapes (only valid when `type === GeometricShape`).
 
 - [ ] **Step 2: Register; Step 3: Build; Step 4: Commit.**
 
@@ -906,12 +912,16 @@ For each subsequent skill, add the import line, append the name, and add the ent
 ### Task 20: PowerPoint skill — `tables`
 
 - [ ] **Step 1: Author `src/taskpane/skills/powerpoint/tables.md`** — must cover:
-  - **Limitation up front:** `PowerPoint.run` does not expose a typed table-creation API as of this writing. To insert a new table, package OOXML and call `presentation.insertSlidesFromBase64(...)` — point to the `ooxml` skill.
-  - Reading existing table shapes: detect via `Shape.type === 'Table'`; access cells/rows is limited at the typed API level
-  - Pattern: when asked to "add a table", round-trip via OOXML; when asked to read/modify a table that already exists, prefer reading via shape `name` and mutating shape-level properties (position, size) only
-  - One example: list all table-typed shapes on a slide
-  - One example (commented as OOXML round-trip): produce a base64 .pptx with a 3×3 table and call `insertSlidesFromBase64`
-  - Common mistakes: assuming `slide.shapes.addTable(rows, cols)` exists; trying to set cell text directly on a table shape's `textFrame` (it doesn't reach cells)
+  - **Typed table API is fully supported** (PowerPointApi 1.8). `slide.shapes.addTable(rowCount: number, columnCount: number, options?: TableAddOptions)` returns a `Shape` whose `Shape.table` proxy is the `Table` object.
+  - `Table` properties (verify against types): `rows` (`TableRowCollection`), `columns` (`TableColumnCollection`), `rowCount`, `columnCount`, `style`, `styleSettings` (`TableStyleSettings` — `firstRowEmphasis`, `lastRowEmphasis`, `firstColumnEmphasis`, `lastColumnEmphasis`, `bandedRows`, `bandedColumns`).
+  - `Table.getCell(rowIndex, columnIndex)` returns a `TableCell`. `TableCell.textFrame.textRange` for text. `TableCell.fill`, `TableCell.borders` for styling.
+  - `TableRow` / `TableColumn` collections: `getCount`, `getItemAt(index)`, iteration via `load("items/...")`.
+  - Mention `TableAddOptions` shape (left/top/width/height) per the typed signature.
+  - Reading existing tables: detect via `Shape.type === PowerPoint.ShapeType.Table`, then navigate via `shape.table`.
+  - One example: insert a 3×3 table, fill in headers in row 0, set bold via `cell.textFrame.textRange.font.bold = true`.
+  - One example: read all cell text from an existing table.
+  - One example: apply a built-in style via `table.style = "MediumStyle1Accent1"` (or whichever name the agent chooses — point to `PowerPoint.TableStyle` enum).
+  - Common mistakes: assuming the `Shape.textFrame` reaches table cells (it doesn't — go through `Shape.table.getCell(...)`); writing 2D arrays of values like Excel (PowerPoint tables are cell-by-cell); ignoring the `Shape.table` navigation and trying to access cells from `Shape` directly.
 
 - [ ] **Step 2: Register; Step 3: Build; Step 4: Commit.**
 
@@ -920,13 +930,14 @@ For each subsequent skill, add the import line, append the name, and add the ent
 ### Task 21: PowerPoint skill — `images`
 
 - [ ] **Step 1: Author `src/taskpane/skills/powerpoint/images.md`** — must cover:
-  - Inserting an image: `slide.shapes.addImage(base64String)` — note: argument is the base64-encoded image data (PNG/JPEG), not a URL
-  - Sizing/positioning the returned `Shape`: set `top`, `left`, `width`, `height`
-  - Reading an existing image: detect via `Shape.type === 'Image'`; `shape.image.getImageAsBase64()` returns a `ClientResult<string>` — must call `await context.sync()` before reading `.value`
-  - Replacing an image: typically delete + re-insert at same position/size
-  - One example: insert a base64 image and place it at (100, 100) with width 300
-  - One example: extract every image from the active slide as base64 strings
-  - Common mistakes: passing a `data:` URI prefix (must be raw base64); reading `getImageAsBase64()` synchronously; not awaiting sync before reading `ClientResult.value`
+  - **Limitation up front:** `PowerPoint.ShapeCollection` does NOT expose `addImage(...)`. To add an image to a slide, package a `.pptx` containing the image and call `presentation.insertSlidesFromBase64(base64File, options)` (cross-link `ooxml`). State this definitively — it's a typed-API gap, not an oversight.
+  - Reading existing images: detect via `Shape.type === PowerPoint.ShapeType.Image`. Per-shape geometry props (`top`, `left`, `width`, `height`) work for any shape.
+  - For exporting a slide containing images as a base64 file, use `slide.exportAsBase64()` or `presentation.slides.exportAsBase64Presentation(...)`.
+  - Repositioning / resizing existing image shapes: set `shape.top` / `left` / `width` / `height` like any other shape.
+  - Replacing an image: delete the old shape and re-insert via OOXML round-trip. There's no in-place replace.
+  - One example: list all image-typed shapes on the active slide (geometry + name).
+  - One example (sketch): OOXML round-trip outline showing where the implementer would build a single-image slide and call `insertSlidesFromBase64` (full base64 generation is out of scope — agents will rely on a user-supplied base64 blob or a known template).
+  - Common mistakes: calling `slide.shapes.addImage(...)` (doesn't exist in PowerPoint.run); expecting `shape.image.getImageAsBase64()` (PowerPoint.Shape has no `image` proxy); confusing PowerPoint with Excel's image API.
 
 - [ ] **Step 2: Register; Step 3: Build; Step 4: Commit.**
 
@@ -935,13 +946,13 @@ For each subsequent skill, add the import line, append the name, and add the ent
 ### Task 22: PowerPoint skill — `charts`
 
 - [ ] **Step 1: Author `src/taskpane/skills/powerpoint/charts.md`** — must cover:
-  - **Limitation up front:** `PowerPoint.run` exposes chart shapes (`Shape.type === 'Chart'`) but does not provide a typed chart-creation API. To add a chart, OOXML round-trip via `presentation.insertSlidesFromBase64(...)` is the path.
-  - Reading existing chart shapes: detect via type; geometry props (top/left/width/height) work as for any shape
-  - Embedded Excel charts: charts on PowerPoint slides are typically backed by an embedded Excel workbook; PowerPoint.run does not expose that workbook
-  - Pattern: "add a column chart from these numbers" → OOXML round-trip with the chart pre-built
-  - One example: list all chart-typed shapes on a slide
-  - One example (OOXML round-trip): construct a base64 .pptx containing a chart slide, call `insertSlidesFromBase64`
-  - Common mistakes: assuming `addChart()` exists; trying to set chart series via shape properties; expecting chart data to be queryable via PowerPoint.run
+  - **Limitation up front:** `PowerPoint.run` exposes chart shapes (`Shape.type === PowerPoint.ShapeType.Chart`) but does not provide a typed chart-creation or chart-mutation API. To add a chart, package OOXML and call `presentation.insertSlidesFromBase64(...)`.
+  - Reading existing chart shapes: detect via type; geometry props (top/left/width/height) work as for any shape. Chart-specific metadata is not accessible from `PowerPoint.run`.
+  - Embedded Excel charts: PowerPoint charts are typically backed by an embedded Excel workbook; `PowerPoint.run` does not expose that workbook.
+  - Pattern: "add a column chart from these numbers" → OOXML round-trip with the chart pre-built (cross-link `ooxml`).
+  - One example: list all chart-typed shapes on a slide.
+  - One example (sketch): OOXML round-trip outline for inserting a chart-bearing slide.
+  - Common mistakes: assuming `slide.shapes.addChart(...)` exists; trying to set chart series via shape properties; expecting chart data to be queryable via `PowerPoint.run`.
 
 - [ ] **Step 2: Register; Step 3: Build; Step 4: Commit.**
 
@@ -950,14 +961,14 @@ For each subsequent skill, add the import line, append the name, and add the ent
 ### Task 23: PowerPoint skill — `hyperlinks`
 
 - [ ] **Step 1: Author `src/taskpane/skills/powerpoint/hyperlinks.md`** — must cover:
-  - `Shape.hyperlink` (`Hyperlink` proxy): `address` (URL), `screenTip`, `tooltip`
-  - `TextRange.hyperlinks` collection: per-character or per-run hyperlinks within text
-  - Hyperlink target types: external URL, mailto, slide jump (`#slide=N` style addresses where supported)
-  - Setting a shape-level hyperlink: `shape.hyperlink.address = "https://..."`
-  - Removing: setting address to empty string, or per the API surface
-  - One example: add a hyperlink to the title shape pointing to a URL
-  - One example: read all hyperlinks on the active slide
-  - Common mistakes: setting hyperlink on a shape without sync; conflating shape-level and text-range hyperlinks (text-range wins on overlap); assuming `mailto:` addresses get auto-prefixed (they don't)
+  - `PowerPoint.Hyperlink` class. Verify exact property names against the types — likely `address`, plus type/target enums (`PowerPoint.HyperlinkType` exists per the namespace listing).
+  - `Slide.hyperlinks` (`HyperlinkCollection`) — the collection of hyperlinks scoped to a slide.
+  - `Shape.hyperlink` (per-shape).
+  - `TextRange.hyperlinks` if exposed (verify in types) for per-run hyperlinks within text.
+  - Hyperlink target types per `PowerPoint.HyperlinkType` (URL, slide jump, etc. — quote the actual enum members from the types).
+  - One example: add a hyperlink to a shape pointing to a URL.
+  - One example: read all hyperlinks on the active slide via `slide.hyperlinks.load(...)`.
+  - Common mistakes: assuming Excel/Word hyperlink APIs are identical (signatures differ); skipping `await context.sync()` before reading hyperlink properties.
 
 - [ ] **Step 2: Register; Step 3: Build; Step 4: Commit.**
 
@@ -966,13 +977,13 @@ For each subsequent skill, add the import line, append the name, and add the ent
 ### Task 24: PowerPoint skill — `tags`
 
 - [ ] **Step 1: Author `src/taskpane/skills/powerpoint/tags.md`** — must cover:
-  - `Tags` collection lives on `presentation`, `slide`, and `shape` — same API shape on all three
-  - Methods: `add(key, value)`, `getItem(key)`, `getItemOrNullObject(key)`, `delete(key)`, `load("items/key, items/value")`
-  - Use cases: persisting non-visual metadata (e.g. "this slide is the agenda", "this shape is a placeholder for the user's name")
-  - Tags survive save/reopen; key is case-sensitive (verify)
-  - One example: tag the active slide with `kind=agenda`, then later find it by iterating slide tags
-  - One example: list all tags on the active slide
-  - Common mistakes: relying on tag iteration order; storing large blobs as tag values (string-only, modest size); confusing `Tag.value` with `Tag.key`
+  - `PowerPoint.TagCollection` lives on `presentation`, `slide`, `slideMaster`, `slideLayout`, and `shape` — typed as `PowerPoint.TagCollection` (NOT `Tags`).
+  - Methods: `add(key, value)`, `getItem(key)`, `getItemOrNullObject(key)`, `delete(key)`, `getCount()`, `load("items/key, items/value")` — verify the exact signature in `@types/office-js`.
+  - `PowerPoint.Tag` class properties: `key`, `value`.
+  - Use cases: persisting non-visual metadata (e.g. "this slide is the agenda", "this shape is a placeholder for the user's name"). Tags survive save/reopen.
+  - One example: tag the active slide with `kind=agenda`, then find it later by iterating slide tags.
+  - One example: list all tags on the active slide.
+  - Common mistakes: typing the property as `Tags` (it's `TagCollection`); relying on tag iteration order; storing large blobs as tag values; confusing `Tag.value` with `Tag.key`.
 
 - [ ] **Step 2: Register; Step 3: Build; Step 4: Commit.**
 
@@ -981,52 +992,45 @@ For each subsequent skill, add the import line, append the name, and add the ent
 ### Task 25: PowerPoint skill — `selection`
 
 - [ ] **Step 1: Author `src/taskpane/skills/powerpoint/selection.md`** — must cover:
-  - `presentation.getSelectedSlides()` → `SlideScopedCollection`
-  - `presentation.getSelectedShapes()` → `ShapeScopedCollection`
-  - `presentation.getSelectedTextRange()` → `TextRange` (or null if no text is selected)
-  - All selection getters return collection/object proxies — load before reading
-  - Empty/null handling: when nothing is selected, the returned collection has zero items; `getSelectedTextRange()` may throw or return a null object — guard accordingly
-  - "Operate on what the user selected" pattern: when the user says "make this bold", read the selected text range first, fall back to selected shapes' text frames if no text range
-  - One example: bold the currently selected text
-  - One example: delete every currently selected shape
-  - Common mistakes: assuming a selection is always present; calling `getSelectedTextRange()` without a try/catch when no text is selected; assuming the selection is mutable (you can read it, but write through the underlying objects)
+  - `presentation.getSelectedSlides()` → `SlideScopedCollection`. When no slides selected, returns an empty collection.
+  - `presentation.getSelectedShapes()` → `ShapeScopedCollection`. Empty when no shapes selected.
+  - `presentation.getSelectedTextRange()` → `TextRange`. **Throws** if no text is selected — must wrap in try/catch.
+  - `presentation.getSelectedTextRangeOrNullObject()` → `TextRange` with `isNullObject` set when no text is selected. Prefer this over the throwing variant.
+  - `presentation.setSelectedSlides(slideIds: string[])` — programmatic selection, replaces any existing selection.
+  - `slide.setSelectedShapes(shapeIds: string[])` — per-slide programmatic shape selection.
+  - "Operate on what the user selected" pattern: read selected text range first (via the OrNullObject variant), fall back to selected shapes' text frames if no text range.
+  - One example: bold the currently selected text via the null-object guard.
+  - One example: delete every currently selected shape (load shape ids, then iterate via `shapes.getItem(id).delete()`).
+  - One example: programmatically select the second slide via `setSelectedSlides([slides.items[1].id])` after loading slide ids.
+  - Common mistakes: using `getSelectedTextRange()` without try/catch (use `getSelectedTextRangeOrNullObject` instead); assuming the selection getters return regular `SlideCollection`/`ShapeCollection` (they're scoped collections); writing to scoped-collection items expecting the change to propagate without sync.
 
 - [ ] **Step 2: Register; Step 3: Build; Step 4: Commit.**
 
 ---
 
-### Task 26: PowerPoint skill — `notes`
+### Task 26: PowerPoint skill — `notes` — **DROPPED**
 
-- [ ] **Step 1: Author `src/taskpane/skills/powerpoint/notes.md`** — must cover:
-  - Speaker notes are per-slide; access via `slide.notesPage` (a `SlideLayout`-like object)
-  - `notesPage.shapes` contains the notes placeholder; the body shape's `textFrame.textRange.text` holds the notes text
-  - Reading notes: navigate `slide → notesPage → shapes → find body placeholder → textFrame.textRange.text`
-  - Writing notes: the same path, set `textFrame.textRange.text = "..."`
-  - Limitation: rich formatting in notes is supported via the same TextRange API but is rarely useful
-  - One example: read speaker notes from every slide
-  - One example: append "TODO: review" to the active slide's notes
-  - Common mistakes: assuming `slide.notes` is a string property (it isn't); writing to the notes page's title placeholder by accident (find the body explicitly); not all slides have a notes shape — guard with null-object pattern
-
-- [ ] **Step 2: Register; Step 3: Build; Step 4: Commit.**
+Verification against `node_modules/@types/office-js/index.d.ts` confirmed `PowerPoint.run` exposes no notes API: `Slide` has no `notesPage` property (and there is no `Notes`, `NotesPage`, or `notes` member anywhere in the `PowerPoint` namespace). Writing a "no-API documented gap" skill would just teach the agent to bail out, with no actionable content. Skill dropped; total skill count is **13**.
 
 ---
 
 ### Task 27: PowerPoint skill — `ooxml`
 
 - [ ] **Step 1: Author `src/taskpane/skills/powerpoint/ooxml.md`** — must cover:
-  - `presentation.insertSlidesFromBase64(base64File, options?)` — primary OOXML round-trip entry point
-  - Options: `targetSlideId` (insert position), `formatting` (`UseDestinationTheme` | `KeepSourceFormatting`)
-  - The base64 string must be a complete `.pptx` file (zip of the OOXML package), not a single slide XML fragment
-  - Use cases: inserting tables, charts, SmartArt, custom-formatted slides — anything not exposed by typed `PowerPoint.run` APIs
-  - Pattern: build the `.pptx` server-side or in the agent, base64-encode, call `insertSlidesFromBase64`
-  - Pattern: extract one slide via `slide.exportAsBase64()`, modify externally, re-import
-  - One example: minimal `insertSlidesFromBase64` call (assumes a base64 string is in scope) targeting position 2, using `KeepSourceFormatting`
-  - Brief note on building OOXML: the OOXML SDK is out of scope for this skill; the agent should defer to a user-supplied base64 blob or to a known template
-  - Common mistakes: passing a single XML file instead of a full `.pptx` zip; forgetting `await context.sync()` after the call; assuming `targetSlideId` is an index (it's a slide ID string)
+  - `presentation.insertSlidesFromBase64(base64File: string, options?: PowerPoint.InsertSlideOptions): void` — primary OOXML round-trip entry point.
+  - `InsertSlideOptions` (verify against `@types/office-js`): `formatting?: PowerPoint.InsertSlideFormatting` (enum members like `KeepSourceFormatting`, `UseDestinationTheme` — quote the actual enum), `sourceSlideIds?: string[]`, `targetSlideId?: string`.
+  - The base64 string must be a complete `.pptx` file (zip of the OOXML package), not a single slide XML fragment.
+  - **Use cases the typed API can't handle directly:** inserting images (no `addImage`), inserting charts (no chart create API), arbitrary slide content from templates, SmartArt.
+  - Companion methods: `slide.exportAsBase64()` and `presentation.slides.exportAsBase64Presentation(values)` — for round-tripping a slide out, modifying externally, re-importing.
+  - Pattern: build the `.pptx` server-side or via a base64 template the agent reads, then call `insertSlidesFromBase64`.
+  - One example: minimal `insertSlidesFromBase64` call (assumes a base64 string is in scope) using `KeepSourceFormatting`.
+  - One example: round-trip a slide out via `exportAsBase64`, log the base64 length.
+  - Brief note: building OOXML from scratch is out of scope for this skill — agents should defer to a user-supplied base64 blob or a known template.
+  - Common mistakes: passing a single XML file instead of a full `.pptx` zip; forgetting `await context.sync()` after the call; assuming `targetSlideId` is an index (it's a slide ID string); guessing `InsertSlideFormatting` enum values rather than checking the types.
 
 - [ ] **Step 2: Register; Step 3: Build; Step 4: Commit.**
 
-After this task, `src/taskpane/skills/powerpoint/index.ts` registers all 14 skills.
+After this task, `src/taskpane/skills/powerpoint/index.ts` registers all 13 skills.
 
 ---
 
@@ -1214,6 +1218,6 @@ If nothing was tweaked, no commit is needed — the work is already on master.
 
 - HostKind extended to `'powerpoint'`; sandbox + iframe + system prompt + chat panel + skill registry all branch on it.
 - Manifest declares `Document`, `Workbook`, and `Presentation`; `npm run sideload:powerpoint` works.
-- 14 PowerPoint skill files cover the full `PowerPoint.run` surface.
+- 13 PowerPoint skill files cover the full `PowerPoint.run` surface (notes dropped — no API).
 - Installer + README + `package.json` describe the three-host product.
 - All three hosts smoke-test green.

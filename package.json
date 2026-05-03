@@ -2,7 +2,8 @@
   "name": "autooffice",
   "version": "0.1.0",
   "private": true,
-  "description": "AI-powered dynamic code execution add-in for Microsoft Word",
+  "description": "AI-powered dynamic code execution add-in for Microsoft Word, Excel, and PowerPoint",
+  "license": "MIT",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -10,11 +11,13 @@
     "certs": "office-addin-dev-certs install",
     "start": "office-addin-debugging start manifest.xml --app word",
     "start:excel": "office-addin-debugging start manifest.xml --app excel",
+    "start:powerpoint": "office-addin-debugging start manifest.xml --app powerpoint",
     "stop": "office-addin-debugging stop manifest.xml",
     "sideload": "office-addin-debugging start manifest.xml desktop --no-debug --app word",
     "sideload:excel": "office-addin-debugging start manifest.xml desktop --no-debug --app excel",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "sideload:powerpoint": "office-addin-debugging start manifest.xml desktop --no-debug --app powerpoint"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.71",

@@ -11,7 +11,7 @@ Users open AutoOffice in Word, Excel, *or* PowerPoint from the same install. The
 ## Decisions (locked in via brainstorming)
 
 1. **Distribution:** continue with the single multi-host manifest. Add a third `<Host Name="Presentation" />` entry. One Add-in ID, one task pane URL, one installer.
-2. **PowerPoint skill coverage:** full coverage of `PowerPoint.run` — 14 skill markdown files written up front (Section 4).
+2. **PowerPoint skill coverage:** full coverage of `PowerPoint.run` — 13 skill markdown files written up front (Section 4). _Original count was 14; `notes` was dropped during implementation after verification against `@types/office-js` showed `PowerPoint.run` exposes no notes API._
 3. **UI host indicator:** existing host badge auto-extends. The badge will read `PowerPoint` when running inside PowerPoint.
 
 ## Non-goals
@@ -123,24 +123,25 @@ export function lookupSkill(host: HostKind, name: string): string;
 
 The orchestrator continues to read `listSkills(host)` for the system-prompt interpolation and the `lookup_skill` tool's input enum.
 
-### PowerPoint skill set (14 files, full PowerPoint.run coverage)
+### PowerPoint skill set (13 files, full PowerPoint.run coverage)
+
+_Verified against `@types/office-js` PowerPoint namespace during implementation. The `notes` skill from the original brainstorm was dropped because `PowerPoint.run` exposes no notes API. The `tables` skill description was updated from "OOXML only" to documenting the typed `shapes.addTable(...)` / `Table` / `TableCell` / `TableRow` / `TableColumn` API (PowerPointApi 1.8). Several other skills were corrected to use the actual typed methods (`presentation.slides.add`, `slide.applyLayout`, `TagCollection`) instead of the OOXML-round-trip approximations the original brainstorm assumed._
 
 | # | Skill | Covers |
 |---|---|---|
-| 1 | `context-sync` | `PowerPoint.run`, `load()` / `context.sync()`, batching reads vs writes, awaiting between sync and value access |
-| 2 | `presentation` | top-level `context.presentation`: `title`, `slides`, `slideMasters`, `tags`, `getSelectedSlides`, `getSelectedShapes`, `getSelectedTextRange`, `insertSlidesFromBase64` |
-| 3 | `slides` | iterate, `getItemAt`/`getItemOrNullObject`, add via `insertSlidesFromBase64`, `delete`, `moveTo`, `duplicate`, `id`, `layout`, `slideMaster`, `exportAsBase64` |
-| 4 | `slide-layouts` | `SlideLayout`, `SlideMaster`, slide → layout → master chain, layout `name`/`id`, listing layouts under a master, applying a layout to a slide |
-| 5 | `shapes` | iterating `slide.shapes`, `Shape.type` enum, `geometricShapeType`, `name`, `top`/`left`/`width`/`height`/`rotation`, `placeholder`, `parentSlide`, `delete`, common pitfalls (text vs geometric vs image vs table) |
-| 6 | `text` | `shape.textFrame`, `textRange`, `paragraphs`, runs/segments, `font` (name/size/bold/italic/color/underline), bullet vs numbered, alignment, autoSize/wordWrap |
-| 7 | `tables` | reading existing table shapes (`Shape.type === 'Table'` access patterns); inserting new tables via `insertSlidesFromBase64` OOXML round-trip — document the limitation explicitly |
-| 8 | `images` | inserting images via base64, reading `Shape.image.getImageAsBase64`, sizing/positioning, replacing |
-| 9 | `charts` | reading existing chart shapes (`Shape.type === 'Chart'`), interop with Excel-embedded charts on slides, what `PowerPoint.run` exposes vs what requires OOXML |
-| 10 | `hyperlinks` | `shape.hyperlink`, `textRange.hyperlinks`, types (URL, slide jump), removing |
-| 11 | `tags` | `presentation.tags`, `slide.tags`, `shape.tags`: `add`/`getItem`/`delete`, key-value persistence patterns and use cases |
-| 12 | `selection` | `getSelectedSlides()`, `getSelectedShapes()`, `getSelectedTextRange()`, null/empty handling, "act on current selection" patterns |
-| 13 | `notes` | speaker notes via `slide.notesPage` / notes shape access, reading and writing notes text, scope of what office.js exposes |
-| 14 | `ooxml` | `presentation.insertSlidesFromBase64` with source/target formatting options, base64-packaging a single slide or a full deck, common round-trip patterns to work around gaps in the typed API (e.g. inserting tables/charts) |
+| 1 | `context-sync` | `PowerPoint.run`, `load()` / `await context.sync()`, batching reads vs writes |
+| 2 | `presentation` | top-level `context.presentation`: `title`, `id`, `slides`, `slideMasters`, `tags`, `bindings`, `customXmlParts`, `pageSetup`, `properties` (DocumentProperties), `getSelectedSlides`/`getSelectedShapes`/`getSelectedTextRange`/`getSelectedTextRangeOrNullObject`, `insertSlidesFromBase64`, `setSelectedSlides` |
+| 3 | `slides` | `presentation.slides.add(options?: AddSlideOptions)` (typed slide creation with `slideMasterId`/`layoutId`); iterate, `getItemAt`/`getItemOrNullObject`/`getItem`/`getCount`; per-slide methods `delete`, `moveTo(index)`, `exportAsBase64`, `getImageAsBase64`, `setSelectedShapes`; per-slide properties `id`, `index`, `layout`, `slideMaster`, `shapes`, `tags`, `hyperlinks`, `customXmlParts`, `background`, `themeColorScheme` |
+| 4 | `slide-layouts` | `SlideLayout`, `SlideMaster`, slide → layout → master chain; `slide.applyLayout(slideLayout)` (PowerPointApi 1.8); listing layouts under a master |
+| 5 | `shapes` | `slide.shapes` add methods: `addGeometricShape(type, opts?)`, `addLine(connector?, opts?)`, `addTextBox(text, opts?)`, `addGroup(values)`, `addTable(rows, cols, opts?)`; `Shape.type` enum, `geometricShapeType`, `name`, `top`/`left`/`width`/`height`/`rotation`, `placeholderFormat`, `parentSlide`, `delete` |
+| 6 | `text` | `shape.textFrame`, `textRange`, `paragraphs`, `font` (name/size/bold/italic/color/underline), `bulletFormat`/`paragraphFormat`, alignment, autoSize/wordWrap |
+| 7 | `tables` | typed table API: create via `shapes.addTable(rowCount, columnCount, options?: TableAddOptions)`; navigate via `Shape.table` (Table object); rows (`Table.rows`), columns (`Table.columns`), cells (`row.cells` / `Table.getCell`); cell text via `cell.textFrame.textRange`; styling via `Table.style`/`Table.styleSettings` |
+| 8 | `images` | inserting images is **not supported by typed PowerPoint.run** — must use OOXML round-trip via `presentation.insertSlidesFromBase64`. Reading existing images: detect `Shape.type === Image`. Cross-link to `ooxml`. |
+| 9 | `charts` | charts are **not directly creatable in PowerPoint.run** — read-only via `Shape.type === Chart`; OOXML round-trip is the create path. Cross-link to `ooxml`. |
+| 10 | `hyperlinks` | `Shape.hyperlink`, `slide.hyperlinks` collection, `textRange.hyperlinks`; types (URL, slide jump); add/remove |
+| 11 | `tags` | `presentation.tags`, `slide.tags`, `shape.tags` — all typed as `PowerPoint.TagCollection`. Methods: `add(key, value)`, `getItem(key)`, `getItemOrNullObject(key)`, `delete(key)` |
+| 12 | `selection` | `getSelectedSlides()`, `getSelectedShapes()`, `getSelectedTextRange()` (throws if no text selected), `getSelectedTextRangeOrNullObject()` (safe variant); `setSelectedSlides(slideIds)`, `slide.setSelectedShapes(shapeIds)` |
+| 13 | `ooxml` | `presentation.insertSlidesFromBase64` with `InsertSlideOptions` (`targetSlideId`, `formatting: InsertSlideFormatting`); base64-packaging; `slides.exportAsBase64Presentation(values)` and `slide.exportAsBase64()`; round-trip patterns for inserting images/charts and other typed-API gaps |
 
 Each file follows the existing Word/Excel skill template: short overview, key types, common patterns with code examples, common mistakes. The implementation plan treats each PowerPoint skill as its own checklist item.
 
