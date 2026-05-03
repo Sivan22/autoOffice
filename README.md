@@ -66,33 +66,7 @@ The installer just registers an Office add-in manifest. The task-pane assets the
 5. Edit `manifest.production.xml`: replace every `https://sivan22.github.io/autoOffice/` with your fork's Pages URL, and change the `<Id>` GUID to a fresh one so it doesn't collide with the upstream add-in.
 6. Either rebuild the installer (`installer/setup.iss` via Inno Setup) so it ships your edited manifest, or sideload `manifest.production.xml` directly via **Insert → Add-ins → Upload My Add-in**.
 
-## Tech Stack
-
-- **Framework:** React 19 + TypeScript
-- **Build:** Vite with HTTPS (required for Office sideloading)
-- **UI:** Fluent UI (`@fluentui/react-components`)
-- **AI:** Vercel AI SDK (`ai`, `@ai-sdk/anthropic`, `@ai-sdk/openai`)
-- **MCP:** `@ai-sdk/mcp` for external tool servers
-- **Code highlighting:** Shiki
-- **Schemas:** Zod
-
-## Architecture
-
-```
-Task Pane (React)
-├── Chat UI (Fluent UI)          ← user input, message history, tool activity
-├── Code Preview Block           ← syntax-highlighted code with Approve / Reject
-└── Agent Orchestrator
-    ├── streamText (AI SDK)      ← multi-provider LLM client
-    ├── Skill Registry           ← office.js API docs fetched on demand
-    ├── MCP Client               ← external tool servers (HTTP only)
-    └── postMessage bridge
-            └── Sandboxed iframe ← executes generated code against live document
-```
-
-The same task pane runs in Word, Excel, and PowerPoint; `HostContext` is resolved at startup and gates the skill registry, sandbox wrapping, and system prompt per host.
-
-## Quick Start
+## Development
 
 ### Prerequisites
 
@@ -258,3 +232,29 @@ Conversations are persisted to `localStorage` per-device and restored on reload.
 
 Planned work:
 - **Export** — copy conversation (including generated code and results) as markdown or plain text
+
+## Tech Stack
+
+- **Framework:** React 19 + TypeScript
+- **Build:** Vite with HTTPS (required for Office sideloading)
+- **UI:** Fluent UI (`@fluentui/react-components`)
+- **AI:** Vercel AI SDK (`ai`, `@ai-sdk/anthropic`, `@ai-sdk/openai`)
+- **MCP:** `@ai-sdk/mcp` for external tool servers
+- **Code highlighting:** Shiki
+- **Schemas:** Zod
+
+## Architecture
+
+```
+Task Pane (React)
+├── Chat UI (Fluent UI)          ← user input, message history, tool activity
+├── Code Preview Block           ← syntax-highlighted code with Approve / Reject
+└── Agent Orchestrator
+    ├── streamText (AI SDK)      ← multi-provider LLM client
+    ├── Skill Registry           ← office.js API docs fetched on demand
+    ├── MCP Client               ← external tool servers (HTTP only)
+    └── postMessage bridge
+            └── Sandboxed iframe ← executes generated code against live document
+```
+
+The same task pane runs in Word, Excel, and PowerPoint; `HostContext` is resolved at startup and gates the skill registry, sandbox wrapping, and system prompt per host.
