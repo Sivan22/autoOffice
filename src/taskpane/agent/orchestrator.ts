@@ -7,7 +7,7 @@ import type { HostKind } from '../host/context.ts';
 import type { AppSettings } from '../store/settings.ts';
 import type { Sandbox } from '../executor/sandbox.ts';
 import { getMcpTools } from '../mcp/client.ts';
-import type { FormattedError } from './errors.ts';
+import { formatError, type FormattedError } from './errors.ts';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -146,8 +146,13 @@ export async function runAgent(
       callbacks.onStreamToken(chunk);
     }
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    callbacks.onMessage({ role: 'assistant', content: `Error: ${msg}` });
+    const provider = settings.providers.find(p => p.id === settings.selectedProviderId)?.name;
+    const formatted = formatError(err, {
+      phase: 'stream',
+      provider,
+      model: settings.selectedModel,
+    });
+    callbacks.onMessage({ role: 'assistant', content: '', error: formatted });
     return messages;
   }
 
