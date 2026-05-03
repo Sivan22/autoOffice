@@ -73,7 +73,9 @@ function announce(locale: LocaleId): void {
   node.setAttribute('aria-live', 'polite');
   node.style.cssText =
     'position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;';
-  node.textContent = `Language: ${LOCALES[locale].nativeName}`;
+  node.textContent = translationService.t('accessibility.languageChanged', {
+    language: LOCALES[locale].nativeName,
+  });
   document.body.appendChild(node);
   setTimeout(() => node.remove(), 1000);
 }
