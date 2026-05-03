@@ -174,6 +174,7 @@ export function HistoryPanel({
           <Tab value="all">All</Tab>
           <Tab value="word">Word</Tab>
           <Tab value="excel">Excel</Tab>
+          <Tab value="powerpoint">PowerPoint</Tab>
         </TabList>
       </div>
 

@@ -9,6 +9,7 @@ const summaries: ConversationSummary[] = [
   { id: 'w1', title: 'Word chat', host: 'word',  createdAt: 1000, updatedAt: 5000, messageCount: 4 },
   { id: 'e1', title: 'Excel chat', host: 'excel', createdAt: 2000, updatedAt: 4000, messageCount: 2 },
   { id: 'w2', title: 'Other Word', host: 'word',  createdAt: 3000, updatedAt: 3000, messageCount: 8 },
+  { id: 'p1', title: 'Slides chat', host: 'powerpoint', createdAt: 4000, updatedAt: 6000, messageCount: 3 },
 ];
 
 function renderPanel(overrides: Partial<ComponentProps<typeof HistoryPanel>> = {}) {
@@ -48,6 +49,21 @@ describe('HistoryPanel', () => {
     await userEvent.click(screen.getByRole('tab', { name: /excel/i }));
     expect(screen.getByText('Excel chat')).toBeInTheDocument();
     expect(screen.queryByText('Word chat')).not.toBeInTheDocument();
+  });
+
+  it('"PowerPoint" filter shows only powerpoint conversations', async () => {
+    renderPanel();
+    await userEvent.click(screen.getByRole('tab', { name: /powerpoint/i }));
+    expect(screen.getByText('Slides chat')).toBeInTheDocument();
+    expect(screen.queryByText('Word chat')).not.toBeInTheDocument();
+    expect(screen.queryByText('Excel chat')).not.toBeInTheDocument();
+  });
+
+  it('"current host" filter on PowerPoint shows only powerpoint conversations', () => {
+    renderPanel({ currentHost: 'powerpoint' });
+    expect(screen.getByText('Slides chat')).toBeInTheDocument();
+    expect(screen.queryByText('Word chat')).not.toBeInTheDocument();
+    expect(screen.queryByText('Excel chat')).not.toBeInTheDocument();
   });
 
   it('clicking a row fires onSelect with the row id', async () => {

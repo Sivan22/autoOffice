@@ -12,7 +12,7 @@ const useStyles = makeStyles({
   },
 });
 
-const display: Record<HostKind, string> = { word: 'Word', excel: 'Excel' };
+const display: Record<HostKind, string> = { word: 'Word', excel: 'Excel', powerpoint: 'PowerPoint' };
 
 export function CrossHostBanner({ chatHost, currentHost }: { chatHost: HostKind; currentHost: HostKind }) {
   const styles = useStyles();
