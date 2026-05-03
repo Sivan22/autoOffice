@@ -10,15 +10,21 @@
   },
   "chat": {
     "welcomeTitle": "ברוכים הבאים ל-AutoOffice",
-    "welcomeMessage": "בקש ממני לעשות כל דבר עם מסמך ה-{{host}} שלך. אני אכתוב ואריץ קוד office.js כדי לבצע את זה.",
+    "welcomeMessage": "בקש ממני לעשות כל דבר עם ה-{{host}} {{noun}} שלך. אני אכתוב ואריץ קוד office.js כדי לבצע את זה.",
     "exampleWord": "נסה: \"צבע את כל הכותרות בכחול\" או \"הוסף טבלה בת 3 עמודות\"",
     "exampleExcel": "נסה: \"שים את המספרים 1 עד 10 בעמודה A\" או \"צור גרף מ-B2:D8\"",
     "examplePowerpoint": "נסה: \"הוסף שקופית בכותרת 'תוכנית רבעון 3' עם שלוש נקודות\" או \"הפוך את כל כותרות השקופיות למודגשות\"",
-    "inputPlaceholder": "בקש ממני לשנות את ה-{{host}}...",
+    "inputPlaceholder": "בקש ממני לשנות את ה-{{noun}}...",
     "sendButton": "שלח",
     "settingsTooltip": "הגדרות",
     "historyTooltip": "היסטוריה",
-    "newChatTooltip": "צ'אט חדש"
+    "newChatTooltip": "צ'אט חדש",
+    "hostWord": "Word",
+    "hostExcel": "Excel",
+    "hostPowerpoint": "PowerPoint",
+    "hostNounWord": "מסמך",
+    "hostNounExcel": "גיליון",
+    "hostNounPowerpoint": "מצגת"
   },
   "settings": {
     "title": "הגדרות",
@@ -74,5 +80,35 @@
   },
   "fatal": {
     "cannotStart": "AutoOffice לא יכול להיפתח"
+  },
+  "history": {
+    "title": "היסטוריה",
+    "closeAria": "סגור",
+    "filterCurrent": "מארח נוכחי",
+    "filterAll": "הכל",
+    "filterWord": "Word",
+    "filterExcel": "Excel",
+    "filterPowerpoint": "PowerPoint",
+    "empty": "אין שיחות עדיין — התחל לדבר כדי ליצור אחת.",
+    "messageCount_one": "{{n}} הודעה",
+    "messageCount_other": "{{n}} הודעות",
+    "renameAria": "שנה שם",
+    "deleteAria": "מחק",
+    "saveNameAria": "שמור שם",
+    "cancelRenameAria": "בטל שינוי שם",
+    "deleteConfirmTitle": "למחוק שיחה זו?",
+    "deleteConfirmCancel": "ביטול",
+    "deleteConfirmConfirm": "מחק",
+    "newChatPlaceholder": "צ'אט חדש"
+  },
+  "errorBubble": {
+    "copyButton": "העתק",
+    "technicalDetails": "פרטים טכניים"
+  },
+  "crossHost": {
+    "message": "שיחה זו התחילה ב-{{chatHost}}. אתה ב-{{currentHost}}. הודעות חדשות יורצו מול ה-API של {{currentHost}}."
+  },
+  "accessibility": {
+    "languageChanged": "שפה: {{language}}"
   }
 }

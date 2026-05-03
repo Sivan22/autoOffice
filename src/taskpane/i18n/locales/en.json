@@ -10,15 +10,21 @@
   },
   "chat": {
     "welcomeTitle": "Welcome to AutoOffice",
-    "welcomeMessage": "Ask me to do anything with your {{host}} document. I'll write and run office.js code to make it happen.",
+    "welcomeMessage": "Ask me to do anything with your {{host}} {{noun}}. I'll write and run office.js code to make it happen.",
     "exampleWord": "Try: \"Make all headings blue\" or \"Insert a 3-column table\"",
     "exampleExcel": "Try: \"Put 1 through 10 in column A\" or \"Make a chart from B2:D8\"",
     "examplePowerpoint": "Try: \"Add a slide titled 'Q3 plan' with three bullets\" or \"Make all slide titles bold\"",
-    "inputPlaceholder": "Ask me to modify the {{host}}...",
+    "inputPlaceholder": "Ask me to modify the {{noun}}...",
     "sendButton": "Send",
     "settingsTooltip": "Settings",
     "historyTooltip": "History",
-    "newChatTooltip": "New chat"
+    "newChatTooltip": "New chat",
+    "hostWord": "Word",
+    "hostExcel": "Excel",
+    "hostPowerpoint": "PowerPoint",
+    "hostNounWord": "document",
+    "hostNounExcel": "workbook",
+    "hostNounPowerpoint": "presentation"
   },
   "settings": {
     "title": "Settings",
@@ -74,5 +80,35 @@
   },
   "fatal": {
     "cannotStart": "AutoOffice cannot start"
+  },
+  "history": {
+    "title": "History",
+    "closeAria": "Close",
+    "filterCurrent": "Current host",
+    "filterAll": "All",
+    "filterWord": "Word",
+    "filterExcel": "Excel",
+    "filterPowerpoint": "PowerPoint",
+    "empty": "No conversations yet — start chatting to create one.",
+    "messageCount_one": "{{n}} msg",
+    "messageCount_other": "{{n}} msgs",
+    "renameAria": "Rename",
+    "deleteAria": "Delete",
+    "saveNameAria": "Save name",
+    "cancelRenameAria": "Cancel rename",
+    "deleteConfirmTitle": "Delete this conversation?",
+    "deleteConfirmCancel": "Cancel",
+    "deleteConfirmConfirm": "Delete",
+    "newChatPlaceholder": "New chat"
+  },
+  "errorBubble": {
+    "copyButton": "Copy",
+    "technicalDetails": "Technical details"
+  },
+  "crossHost": {
+    "message": "This conversation was started in {{chatHost}}. You're in {{currentHost}}. New messages will run against {{currentHost}}'s APIs."
+  },
+  "accessibility": {
+    "languageChanged": "Language: {{language}}"
   }
 }
