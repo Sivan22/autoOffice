@@ -19,7 +19,7 @@ import {
   EyeOff24Regular,
 } from '@fluentui/react-icons';
 import type { AppSettings, McpServerConfig } from '../store/settings.ts';
-import { useTranslation } from '../i18n/index.ts';
+import { useTranslation, availableLocales, type LocaleId } from '../i18n/index.ts';
 
 const useStyles = makeStyles({
   container: {
@@ -125,7 +125,7 @@ const PROVIDER_MODELS: Record<string, string[]> = {
 
 export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProps) {
   const styles = useStyles();
-  const { t } = useTranslation();
+  const { t, locale, setLocale } = useTranslation();
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
 
   const updateProvider = (id: string, field: string, value: string) => {
@@ -324,6 +324,25 @@ export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProp
               </Select>
             </div>
           ))}
+        </div>
+
+        <Divider />
+
+        {/* Language */}
+        <div className={styles.section}>
+          <Text weight="semibold" size={300}>{t('settings.languageSection')}</Text>
+          <Field label={t('settings.languageLabel')}>
+            <Select
+              value={locale}
+              aria-label={t('settings.languageLabel')}
+              onChange={(_, data) => { void setLocale(data.value as LocaleId); }}
+            >
+              {availableLocales().map(l => (
+                <option key={l.id} value={l.id}>{l.nativeName}</option>
+              ))}
+            </Select>
+          </Field>
+          <Text size={200} italic>{t('settings.languageDescription')}</Text>
         </div>
       </div>
     </div>
