@@ -8,17 +8,18 @@ import { createGateway } from '@ai-sdk/gateway';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { LanguageModel } from 'ai';
 import type { AppSettings } from '../store/settings.ts';
+import { ConfigError } from './errors.ts';
 
 export function createModel(settings: AppSettings): LanguageModel {
   const provider = settings.providers.find(p => p.id === settings.selectedProviderId);
   if (!provider) {
-    throw new Error('No AI provider selected. Please configure a provider in settings.');
+    throw new ConfigError('No AI provider selected. Please configure a provider in settings.');
   }
   if (!provider.apiKey) {
-    throw new Error(`No API key configured for ${provider.name}. Please add one in settings.`);
+    throw new ConfigError(`No API key configured for ${provider.name}. Please add one in settings.`);
   }
   if (!settings.selectedModel) {
-    throw new Error('No model selected. Please choose a model in settings.');
+    throw new ConfigError('No model selected. Please choose a model in settings.');
   }
 
   switch (provider.id) {
@@ -67,7 +68,7 @@ export function createModel(settings: AppSettings): LanguageModel {
     }
     case 'openai-compatible': {
       if (!provider.baseUrl) {
-        throw new Error('Base URL is required for OpenAI-Compatible providers.');
+        throw new ConfigError('Base URL is required for OpenAI-Compatible providers.');
       }
       const compat = createOpenAICompatible({
         name: 'openai-compatible',
@@ -77,6 +78,6 @@ export function createModel(settings: AppSettings): LanguageModel {
       return compat(settings.selectedModel);
     }
     default:
-      throw new Error(`Unknown provider: ${provider.id}`);
+      throw new ConfigError(`Unknown provider: ${provider.id}`);
   }
 }
