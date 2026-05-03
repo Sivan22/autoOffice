@@ -60,6 +60,7 @@ export type TranslationKey =
   | "settings.mcpUrlPlaceholder"
   | "settings.modelLabel"
   | "settings.modelPlaceholder"
+  | "settings.modelSelectPlaceholder"
   | "settings.providerLabel"
   | "settings.providerPlaceholder"
   | "settings.providerSection"

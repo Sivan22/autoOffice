@@ -19,6 +19,7 @@ import {
   EyeOff24Regular,
 } from '@fluentui/react-icons';
 import type { AppSettings, McpServerConfig } from '../store/settings.ts';
+import { useTranslation } from '../i18n/index.ts';
 
 const useStyles = makeStyles({
   container: {
@@ -124,6 +125,7 @@ const PROVIDER_MODELS: Record<string, string[]> = {
 
 export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProps) {
   const styles = useStyles();
+  const { t } = useTranslation();
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
 
   const updateProvider = (id: string, field: string, value: string) => {
@@ -164,20 +166,20 @@ export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProp
     <div className={styles.container}>
       <div className={styles.header}>
         <Button appearance="subtle" icon={<ArrowLeft24Regular />} onClick={onClose} />
-        <Text weight="semibold" size={400}>Settings</Text>
+        <Text weight="semibold" size={400}>{t('settings.title')}</Text>
       </div>
 
       <div className={styles.content}>
         {/* AI Provider */}
         <div className={styles.section}>
-          <Text weight="semibold" size={300}>AI Provider</Text>
+          <Text weight="semibold" size={300}>{t('settings.providerSection')}</Text>
 
-          <Field label="Provider">
+          <Field label={t('settings.providerLabel')}>
             <Select
               value={settings.selectedProviderId}
               onChange={(_, data) => onChange({ ...settings, selectedProviderId: data.value, selectedModel: '' })}
             >
-              <option value="">Select a provider...</option>
+              <option value="">{t('settings.providerPlaceholder')}</option>
               {settings.providers.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
@@ -186,14 +188,14 @@ export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProp
 
           {selectedProvider && (
             <>
-              <Field label="API Key">
+              <Field label={t('settings.apiKeyLabel')}>
                 <div className={styles.row}>
                   <Input
                     className={styles.keyInput}
                     type={showKeys[selectedProvider.id] ? 'text' : 'password'}
                     value={selectedProvider.apiKey}
                     onChange={(_, data) => updateProvider(selectedProvider.id, 'apiKey', data.value)}
-                    placeholder="Enter API key..."
+                    placeholder={t('settings.apiKeyPlaceholder')}
                   />
                   <Button
                     appearance="subtle"
@@ -204,22 +206,22 @@ export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProp
               </Field>
 
               {selectedProvider.id === 'openai-compatible' && (
-                <Field label="Base URL">
+                <Field label={t('settings.baseUrlLabel')}>
                   <Input
                     value={selectedProvider.baseUrl || ''}
                     onChange={(_, data) => updateProvider(selectedProvider.id, 'baseUrl', data.value)}
-                    placeholder="http://localhost:11434/v1"
+                    placeholder={t('settings.baseUrlPlaceholder')}
                   />
                 </Field>
               )}
 
-              <Field label="Model">
+              <Field label={t('settings.modelLabel')}>
                 {models.length > 0 ? (
                   <Select
                     value={settings.selectedModel}
                     onChange={(_, data) => onChange({ ...settings, selectedModel: data.value })}
                   >
-                    <option value="">Select a model...</option>
+                    <option value="">{t('settings.modelSelectPlaceholder')}</option>
                     {models.map(m => (
                       <option key={m} value={m}>{m}</option>
                     ))}
@@ -228,7 +230,7 @@ export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProp
                   <Input
                     value={settings.selectedModel}
                     onChange={(_, data) => onChange({ ...settings, selectedModel: data.value })}
-                    placeholder="Enter model name..."
+                    placeholder={t('settings.modelPlaceholder')}
                   />
                 )}
               </Field>
@@ -240,16 +242,16 @@ export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProp
 
         {/* Execution */}
         <div className={styles.section}>
-          <Text weight="semibold" size={300}>Execution</Text>
+          <Text weight="semibold" size={300}>{t('settings.executionSection')}</Text>
 
-          <Field label="Auto-approve code execution">
+          <Field label={t('settings.autoApproveLabel')}>
             <Switch
               checked={settings.autoApprove}
               onChange={(_, data) => onChange({ ...settings, autoApprove: data.checked })}
             />
           </Field>
 
-          <Field label="Max retry attempts">
+          <Field label={t('settings.maxRetriesLabel')}>
             <Input
               type="number"
               value={String(settings.maxRetries)}
@@ -259,7 +261,7 @@ export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProp
             />
           </Field>
 
-          <Field label="Execution timeout (seconds)">
+          <Field label={t('settings.timeoutLabel')}>
             <Input
               type="number"
               value={String(settings.executionTimeout / 1000)}
@@ -275,14 +277,14 @@ export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProp
         {/* MCP Servers */}
         <div className={styles.section}>
           <div className={styles.row}>
-            <Text weight="semibold" size={300}>MCP Servers</Text>
+            <Text weight="semibold" size={300}>{t('settings.mcpSection')}</Text>
             <Button appearance="subtle" icon={<Add24Regular />} size="small" onClick={addMcpServer}>
-              Add
+              {t('settings.mcpAddButton')}
             </Button>
           </div>
 
           {settings.mcpServers.length === 0 && (
-            <Text size={200} italic>No MCP servers configured. Add one to extend the agent's capabilities.</Text>
+            <Text size={200} italic>{t('settings.mcpNoServers')}</Text>
           )}
 
           {settings.mcpServers.map((server, i) => (
@@ -291,7 +293,7 @@ export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProp
                 <Input
                   value={server.name}
                   onChange={(_, data) => updateMcpServer(i, { name: data.value })}
-                  placeholder="Server name"
+                  placeholder={t('settings.mcpNamePlaceholder')}
                   size="small"
                   style={{ flex: 1 }}
                 />
@@ -309,7 +311,7 @@ export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProp
               <Input
                 value={server.url}
                 onChange={(_, data) => updateMcpServer(i, { url: data.value })}
-                placeholder="https://server-url/mcp"
+                placeholder={t('settings.mcpUrlPlaceholder')}
                 size="small"
               />
               <Select

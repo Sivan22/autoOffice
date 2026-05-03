@@ -31,6 +31,7 @@
     "baseUrlLabel": "Base URL",
     "baseUrlPlaceholder": "http://localhost:11434/v1",
     "modelLabel": "Model",
+    "modelSelectPlaceholder": "Select a model...",
     "modelPlaceholder": "Enter model name...",
     "executionSection": "Execution",
     "autoApproveLabel": "Auto-approve code execution",
