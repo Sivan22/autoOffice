@@ -220,7 +220,13 @@ export function HistoryPanel({
                   <div className={styles.rowTitle}>{c.title}</div>
                 )}
                 <div className={styles.rowMeta}>
-                  <Badge appearance="outline" size="small">{t(hostBadgeKey(c.host))}</Badge>
+                  <Badge
+                    appearance="outline"
+                    size="small"
+                    color={c.host === 'excel' ? 'success' : c.host === 'powerpoint' ? 'danger' : 'brand'}
+                  >
+                    {t(hostBadgeKey(c.host))}
+                  </Badge>
                   <span>{formatRelativeAgo(c.updatedAt, formatRelativeTime)}</span>
                   <span>·</span>
                   <span>{formatPlural(c.messageCount, {
