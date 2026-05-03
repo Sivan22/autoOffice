@@ -3,6 +3,7 @@ import { makeStyles, tokens, Text } from '@fluentui/react-components';
 import type { ChatMessage } from '../agent/orchestrator.ts';
 import { CodeBlock } from './CodeBlock.tsx';
 import { ToolActivity } from './ToolActivity.tsx';
+import { ErrorBubble } from './ErrorBubble.tsx';
 
 const useStyles = makeStyles({
   container: {
@@ -38,6 +39,14 @@ const useStyles = makeStyles({
 
 export function MessageBubble({ message }: { message: ChatMessage }) {
   const styles = useStyles();
+
+  if (message.error) {
+    return (
+      <div className={styles.container}>
+        <ErrorBubble {...message.error} />
+      </div>
+    );
+  }
 
   if (message.toolActivity) {
     return <ToolActivity toolName={message.toolActivity.toolName} />;

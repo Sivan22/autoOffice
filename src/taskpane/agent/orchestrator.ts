@@ -7,6 +7,7 @@ import type { HostKind } from '../host/context.ts';
 import type { AppSettings } from '../store/settings.ts';
 import type { Sandbox } from '../executor/sandbox.ts';
 import { getMcpTools } from '../mcp/client.ts';
+import type { FormattedError } from './errors.ts';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -19,6 +20,7 @@ export interface ChatMessage {
   toolActivity?: {
     toolName: string;
   };
+  error?: FormattedError;
 }
 
 export interface OrchestratorCallbacks {
