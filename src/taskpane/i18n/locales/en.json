@@ -67,17 +67,6 @@
     "generatingCode": "Generating code…",
     "toolActivity": "looked up: {{toolName}}"
   },
-  "errors": {
-    "executionFailed": "Code execution failed: {{message}}",
-    "networkError": "Network error. Please check your connection.",
-    "invalidApiKey": "Invalid API key. Please check your settings.",
-    "timeout": "Request timed out. Please try again.",
-    "unknownError": "An unknown error occurred.",
-    "codeRejected": "User rejected the code. Ask what they would like changed.",
-    "maxRetriesReached": "Failed after {{count}} attempts. Last error: {{error}}",
-    "pleaseFixAndRetry": "Please fix and try again.",
-    "streamError": "Error: {{message}}"
-  },
   "fatal": {
     "cannotStart": "AutoOffice cannot start"
   },

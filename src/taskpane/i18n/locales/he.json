@@ -67,17 +67,6 @@
     "generatingCode": "מייצר קוד...",
     "toolActivity": "חיפש: {{toolName}}"
   },
-  "errors": {
-    "executionFailed": "הרצת הקוד נכשלה: {{message}}",
-    "networkError": "שגיאת רשת. אנא בדוק את החיבור שלך.",
-    "invalidApiKey": "מפתח API לא תקין. אנא בדוק את ההגדרות שלך.",
-    "timeout": "הבקשה פגה. אנא נסה שוב.",
-    "unknownError": "אירעה שגיאה לא ידועה.",
-    "codeRejected": "המשתמש דחה את הקוד. שאל מה הוא רוצה לשנות.",
-    "maxRetriesReached": "נכשל אחרי {{count}} ניסיונות. שגיאה אחרונה: {{error}}",
-    "pleaseFixAndRetry": "אנא תקן ונסה שוב.",
-    "streamError": "שגיאה: {{message}}"
-  },
   "fatal": {
     "cannotStart": "AutoOffice לא יכול להיפתח"
   },
