@@ -103,9 +103,21 @@ export async function runAgent(
           return `Code executed successfully. Output: ${JSON.stringify(result.output)}${logsStr}`;
         }
 
+        const debugSection = result.debugInfo
+          ? [
+              'Office.js debug info:',
+              `Code: ${result.debugInfo.code ?? ''}`,
+              `Location: ${result.debugInfo.errorLocation ?? ''}`,
+              `Statement: ${result.debugInfo.statement ?? ''}`,
+              result.debugInfo.surroundingStatements && result.debugInfo.surroundingStatements.length
+                ? `Surrounding:\n${result.debugInfo.surroundingStatements.join('\n')}`
+                : '',
+            ].filter(Boolean).join('\n')
+          : '';
         const uiResult = [
           `Error: ${result.error}`,
           result.stack || '',
+          debugSection,
           result.logs && result.logs.length ? `Logs:\n${result.logs.join('\n')}` : '',
         ].filter(Boolean).join('\n\n');
         callbacks.onMessage({
@@ -116,9 +128,9 @@ export async function runAgent(
 
         retryCount++;
         if (retryCount >= settings.maxRetries) {
-          return `Failed after ${retryCount} attempts. Last error: ${result.error}${logsStr}`;
+          return `Failed after ${retryCount} attempts. Last error: ${result.error}${debugSection ? `\n${debugSection}` : ''}${logsStr}`;
         }
-        return `Execution failed: ${result.error}\n${result.stack || ''}${logsStr}\nPlease fix and try again.`;
+        return `Execution failed: ${result.error}\n${result.stack || ''}${debugSection ? `\n${debugSection}` : ''}${logsStr}\nPlease fix and try again.`;
       } catch (err) {
         const formatted = formatError(err, { phase: 'tool-execute', tool: 'execute_code' });
         callbacks.onMessage({ role: 'assistant', content: '', error: formatted });
