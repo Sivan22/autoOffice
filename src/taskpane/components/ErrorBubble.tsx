@@ -2,6 +2,7 @@ import React from 'react';
 import { makeStyles, tokens, Button, Text } from '@fluentui/react-components';
 import { Copy24Regular } from '@fluentui/react-icons';
 import type { ErrorKind } from '../agent/errors.ts';
+import { useTranslation } from '../i18n/index.ts';
 
 const useStyles = makeStyles({
   container: {
@@ -65,6 +66,7 @@ export interface ErrorBubbleProps {
 
 export function ErrorBubble({ title, detail, raw }: ErrorBubbleProps) {
   const styles = useStyles();
+  const { t } = useTranslation();
   const handleCopy = () => {
     const payload = [title, detail, raw ?? ''].filter(Boolean).join('\n\n');
     void navigator.clipboard?.writeText(payload);
@@ -79,15 +81,15 @@ export function ErrorBubble({ title, detail, raw }: ErrorBubbleProps) {
           icon={<Copy24Regular />}
           size="small"
           onClick={handleCopy}
-          aria-label="Copy"
+          aria-label={t('errorBubble.copyButton')}
         >
-          Copy
+          {t('errorBubble.copyButton')}
         </Button>
       </div>
       <div className={styles.detail}>{detail}</div>
       {raw && (
         <details className={styles.details}>
-          <summary className={styles.summary}>Technical details</summary>
+          <summary className={styles.summary}>{t('errorBubble.technicalDetails')}</summary>
           <pre className={styles.raw}>{raw}</pre>
         </details>
       )}

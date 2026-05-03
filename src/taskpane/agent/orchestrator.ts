@@ -3,6 +3,7 @@ import { createModel } from './providers.ts';
 import { makeLookupSkillTool } from './tools.ts';
 import { buildSystemPrompt } from './system-prompt.ts';
 import { listSkills } from '../skills/index.ts';
+import { translationService } from '../i18n/index.ts';
 import type { HostKind } from '../host/context.ts';
 import type { AppSettings } from '../store/settings.ts';
 import type { Sandbox } from '../executor/sandbox.ts';
@@ -147,9 +148,10 @@ export async function runAgent(
 
   let capturedStreamError: unknown;
 
+  const systemPrompt = buildSystemPrompt(host, listSkills(host), translationService.getLocale());
   const result = streamText({
     model,
-    system: buildSystemPrompt(host, listSkills(host)),
+    system: systemPrompt,
     messages,
     tools: {
       lookup_skill: makeLookupSkillTool(host),

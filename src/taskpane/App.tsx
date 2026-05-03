@@ -21,6 +21,7 @@ import {
   type Conversation,
   type ConversationSummary,
 } from './store/history.ts';
+import { translationService } from './i18n/index.ts';
 
 const useStyles = makeStyles({
   root: {
@@ -37,7 +38,7 @@ const PLACEHOLDER_LEN = 40;
 
 function placeholderTitle(firstUserMessage: string): string {
   const oneLine = firstUserMessage.replace(/\s+/g, ' ').trim();
-  if (!oneLine) return 'New chat';
+  if (!oneLine) return translationService.t('history.newChatPlaceholder');
   return oneLine.length <= PLACEHOLDER_LEN ? oneLine : oneLine.slice(0, PLACEHOLDER_LEN);
 }
 
@@ -229,7 +230,7 @@ export function App({ host }: AppProps) {
 
     // Compute the placeholder title up front so the title-gen block below
     // can rely on it without coordinating with the setMessages callback.
-    const placeholder = isFirstTurn ? (placeholderTitle(text) || 'New chat') : '';
+    const placeholder = isFirstTurn ? (placeholderTitle(text) || translationService.t('history.newChatPlaceholder')) : '';
 
     try {
       const history = await runAgent(
@@ -258,7 +259,7 @@ export function App({ host }: AppProps) {
       const conv: Conversation = {
         id: convId!,
         v: CURRENT_VERSION,
-        title: isFirstTurn ? placeholder : (existing?.title ?? 'New chat'),
+        title: isFirstTurn ? placeholder : (existing?.title ?? translationService.t('history.newChatPlaceholder')),
         host: convHost,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,

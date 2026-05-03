@@ -18,6 +18,7 @@ import type { ChatMessage } from '../agent/orchestrator.ts';
 import type { HostContext } from '../host/context.ts';
 import { CrossHostBanner } from './CrossHostBanner.tsx';
 import type { HostKind } from '../host/context.ts';
+import { useTranslation } from '../i18n/index.ts';
 import { MessageBubble } from './MessageBubble.tsx';
 import { CodeBlock } from './CodeBlock.tsx';
 
@@ -113,6 +114,17 @@ export function ChatPanel({
   onSend, onApprove, onOpenSettings, onOpenHistory, onNewChat,
 }: ChatPanelProps) {
   const styles = useStyles();
+  const { t } = useTranslation();
+  const hostDisplay = t(
+    host.kind === 'word' ? 'chat.hostWord' :
+    host.kind === 'excel' ? 'chat.hostExcel' :
+    'chat.hostPowerpoint',
+  );
+  const hostNoun = t(
+    host.kind === 'word' ? 'chat.hostNounWord' :
+    host.kind === 'excel' ? 'chat.hostNounExcel' :
+    'chat.hostNounPowerpoint',
+  );
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -154,13 +166,13 @@ export function ChatPanel({
           <Badge appearance="outline" size="small">{host.displayName}</Badge>
         </div>
         <div style={{ display: 'flex', gap: '4px' }}>
-          <Tooltip content="History" relationship="label">
+          <Tooltip content={t('chat.historyTooltip')} relationship="label">
             <Button appearance="subtle" icon={<History24Regular />} onClick={onOpenHistory} disabled={isLoading} />
           </Tooltip>
-          <Tooltip content="New chat" relationship="label">
+          <Tooltip content={t('chat.newChatTooltip')} relationship="label">
             <Button appearance="subtle" icon={<Add24Regular />} onClick={onNewChat} disabled={isLoading} />
           </Tooltip>
-          <Tooltip content="Settings" relationship="label">
+          <Tooltip content={t('chat.settingsTooltip')} relationship="label">
             <Button appearance="subtle" icon={<Settings24Regular />} onClick={onOpenSettings} />
           </Tooltip>
         </div>
@@ -173,16 +185,14 @@ export function ChatPanel({
       <div className={styles.messageList}>
         {messages.length === 0 && !pendingApproval ? (
           <div className={styles.empty}>
-            <Text size={400} weight="semibold">Welcome to AutoOffice</Text>
-            <Text size={200}>
-              Ask me to do anything with your {host.displayName} document. I'll write and run office.js code to make it happen.
-            </Text>
+            <Text size={400} weight="semibold">{t('chat.welcomeTitle')}</Text>
+            <Text size={200}>{t('chat.welcomeMessage', { host: hostDisplay, noun: hostNoun })}</Text>
             <Text size={200}>
               {host.kind === 'word'
-                ? 'Try: "Make all headings blue" or "Insert a 3-column table"'
+                ? t('chat.exampleWord')
                 : host.kind === 'excel'
-                  ? 'Try: "Put 1 through 10 in column A" or "Make a chart from B2:D8"'
-                  : 'Try: "Add a slide titled \'Q3 plan\' with three bullets" or "Make all slide titles bold"'}
+                  ? t('chat.exampleExcel')
+                  : t('chat.examplePowerpoint')}
             </Text>
           </div>
         ) : (
@@ -208,9 +218,7 @@ export function ChatPanel({
         <Textarea
           className={styles.input}
           textarea={{ ref: textareaRef, className: styles.textarea }}
-          placeholder={`Ask me to modify the ${
-            host.kind === 'word' ? 'document' : host.kind === 'excel' ? 'workbook' : 'presentation'
-          }...`}
+          placeholder={t('chat.inputPlaceholder', { noun: hostNoun })}
           value={inputText}
           onChange={(_, data) => setInputText(data.value)}
           onKeyDown={handleKeyDown}
@@ -220,6 +228,7 @@ export function ChatPanel({
         <Button
           appearance="primary"
           icon={<Send24Regular />}
+          aria-label={t('chat.sendButton')}
           onClick={handleSubmit}
           disabled={!inputText.trim() || isLoading}
         />

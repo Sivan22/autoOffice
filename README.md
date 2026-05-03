@@ -233,6 +233,34 @@ Conversations are persisted to `localStorage` per-device and restored on reload.
 Planned work:
 - **Export** — copy conversation (including generated code and results) as markdown or plain text
 
+## Adding a Language
+
+AutoOffice's UI and AI agent both run in the user's language.
+
+To add a new language (example: French):
+
+1. **Register the locale** in `src/taskpane/i18n/registry.ts`:
+
+   ```ts
+   export const LOCALES = {
+     en: { name: 'English', nativeName: 'English',  direction: 'ltr', fallback: null },
+     he: { name: 'Hebrew',  nativeName: 'עברית',    direction: 'rtl', fallback: 'en' },
+     fr: { name: 'French',  nativeName: 'Français', direction: 'ltr', fallback: 'en' },
+   } as const satisfies Record<string, LocaleMeta>;
+   ```
+
+2. **Translate the strings.** Copy `src/taskpane/i18n/locales/en.json` to `src/taskpane/i18n/locales/fr.json` and translate the values. Keep the keys identical and the `{{name}}` placeholders intact.
+
+3. **Verify coverage:**
+
+   ```bash
+   npm run check:i18n
+   ```
+
+   You should see `✓ fr: N keys, complete`. Missing keys fail the build; extra keys are warnings.
+
+That's it — the locale appears in the Settings → Language dropdown automatically, and the AI agent will reply in the new language for users who pick it.
+
 ## Tech Stack
 
 - **Framework:** React 19 + TypeScript

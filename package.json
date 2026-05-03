@@ -17,7 +17,11 @@
     "sideload:excel": "office-addin-debugging start manifest.xml desktop --no-debug --app excel",
     "test": "vitest run",
     "test:watch": "vitest",
-    "sideload:powerpoint": "office-addin-debugging start manifest.xml desktop --no-debug --app powerpoint"
+    "sideload:powerpoint": "office-addin-debugging start manifest.xml desktop --no-debug --app powerpoint",
+    "gen:i18n": "node --experimental-strip-types tools/gen-i18n-types.ts",
+    "check:i18n": "node --experimental-strip-types tools/check-translations.ts",
+    "prebuild": "npm run gen:i18n",
+    "pretest": "npm run gen:i18n"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.71",

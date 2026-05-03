@@ -3,26 +3,47 @@ import { createRoot } from 'react-dom/client';
 import { FluentProvider, webLightTheme, Text } from '@fluentui/react-components';
 import { App } from './App.tsx';
 import { detectHost, UnsupportedHostError, type HostContext } from './host/context.ts';
+import { LanguageProvider, useDirection, useTranslation } from './i18n/index.ts';
+
+function Shell({ children }: { children: React.ReactNode }) {
+  const dir = useDirection();
+  return (
+    <FluentProvider theme={webLightTheme} dir={dir}>
+      {children}
+    </FluentProvider>
+  );
+}
+
+function FatalShell({ message }: { message: string }) {
+  const { t } = useTranslation();
+  return (
+    <Shell>
+      <div style={{ padding: '24px' }}>
+        <Text size={400} weight="semibold">{t('fatal.cannotStart')}</Text>
+        <p>{message}</p>
+      </div>
+    </Shell>
+  );
+}
 
 const rootElement = document.getElementById('root')!;
 const root = createRoot(rootElement);
 
 function renderApp(host: HostContext) {
   root.render(
-    <FluentProvider theme={webLightTheme}>
-      <App host={host} />
-    </FluentProvider>
+    <LanguageProvider>
+      <Shell>
+        <App host={host} />
+      </Shell>
+    </LanguageProvider>,
   );
 }
 
 function renderFatal(message: string) {
   root.render(
-    <FluentProvider theme={webLightTheme}>
-      <div style={{ padding: '24px' }}>
-        <Text size={400} weight="semibold">AutoOffice cannot start</Text>
-        <p>{message}</p>
-      </div>
-    </FluentProvider>
+    <LanguageProvider>
+      <FatalShell message={message} />
+    </LanguageProvider>,
   );
 }
 
