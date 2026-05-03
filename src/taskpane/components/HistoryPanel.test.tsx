@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { HistoryPanel } from './HistoryPanel.tsx';
 import type { ConversationSummary } from '../store/history.ts';
+import { LanguageProvider } from '../i18n/index.ts';
 
 const summaries: ConversationSummary[] = [
   { id: 'w1', title: 'Word chat', host: 'word',  createdAt: 1000, updatedAt: 5000, messageCount: 4 },
@@ -23,7 +24,11 @@ function renderPanel(overrides: Partial<ComponentProps<typeof HistoryPanel>> = {
     onClose: vi.fn(),
     ...overrides,
   };
-  render(<HistoryPanel {...props} />);
+  render(
+    <LanguageProvider initialLocale="en">
+      <HistoryPanel {...props} />
+    </LanguageProvider>,
+  );
   return props;
 }
 
