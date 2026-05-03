@@ -8,13 +8,17 @@ import type { AppSettings } from '../store/settings.ts';
 import type { Sandbox } from '../executor/sandbox.ts';
 import { getMcpTools } from '../mcp/client.ts';
 import { formatError, type FormattedError } from './errors.ts';
+import { extractPartialStringField } from './partial-json.ts';
+
+export type CodeBlockStatus = 'streaming' | 'pending' | 'rejected' | 'running' | 'success' | 'error';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
   content: string;
   codeBlock?: {
+    toolCallId?: string;
     code: string;
-    status: 'pending' | 'rejected' | 'running' | 'success' | 'error';
+    status: CodeBlockStatus;
     result?: string;
   };
   toolActivity?: {
@@ -26,6 +30,15 @@ export interface ChatMessage {
 export interface OrchestratorCallbacks {
   onMessage: (message: ChatMessage) => void;
   onStreamToken: (token: string) => void;
+  /**
+   * Upsert a code-block message addressed by toolCallId. If no message with
+   * that id exists, a new assistant message is appended; otherwise the
+   * existing codeBlock is patched in place.
+   */
+  onUpsertCodeBlock: (
+    toolCallId: string,
+    patch: { code?: string; status?: CodeBlockStatus; result?: string },
+  ) => void;
   requestApproval: (code: string) => Promise<boolean>;
 }
 
@@ -70,17 +83,18 @@ export async function runAgent(
       required: ['code'],
       additionalProperties: false,
     }),
-    execute: async ({ code }) => {
+    execute: async ({ code }, { toolCallId }) => {
       try {
+        if (!settings.autoApprove) {
+          callbacks.onUpsertCodeBlock(toolCallId, { code, status: 'pending' });
+        }
         const approved = settings.autoApprove || await callbacks.requestApproval(code);
         if (!approved) {
-          callbacks.onMessage({
-            role: 'assistant',
-            content: '',
-            codeBlock: { code, status: 'rejected' },
-          });
+          callbacks.onUpsertCodeBlock(toolCallId, { code, status: 'rejected' });
           return 'User rejected the code. Ask what they would like changed.';
         }
+
+        callbacks.onUpsertCodeBlock(toolCallId, { code, status: 'running' });
 
         const result = await sandbox.execute(code, settings.executionTimeout);
         const logsStr = result.logs && result.logs.length ? `\nLogs:\n${result.logs.join('\n')}` : '';
@@ -95,11 +109,7 @@ export async function runAgent(
             `Output:\n${outputText}`,
             result.logs && result.logs.length ? `Logs:\n${result.logs.join('\n')}` : '',
           ].filter(Boolean).join('\n\n');
-          callbacks.onMessage({
-            role: 'assistant',
-            content: '',
-            codeBlock: { code, status: 'success', result: uiResult },
-          });
+          callbacks.onUpsertCodeBlock(toolCallId, { code, status: 'success', result: uiResult });
           return `Code executed successfully. Output: ${JSON.stringify(result.output)}${logsStr}`;
         }
 
@@ -120,11 +130,7 @@ export async function runAgent(
           debugSection,
           result.logs && result.logs.length ? `Logs:\n${result.logs.join('\n')}` : '',
         ].filter(Boolean).join('\n\n');
-        callbacks.onMessage({
-          role: 'assistant',
-          content: '',
-          codeBlock: { code, status: 'error', result: uiResult },
-        });
+        callbacks.onUpsertCodeBlock(toolCallId, { code, status: 'error', result: uiResult });
 
         retryCount++;
         if (retryCount >= settings.maxRetries) {
@@ -166,9 +172,39 @@ export async function runAgent(
     },
   });
 
+  // Per-tool-call state for streaming `execute_code` input.
+  const codeStreamBuffers = new Map<string, string>();
+
   try {
-    for await (const chunk of result.textStream) {
-      callbacks.onStreamToken(chunk);
+    for await (const chunk of result.fullStream) {
+      switch (chunk.type) {
+        case 'text-delta':
+          callbacks.onStreamToken(chunk.text);
+          break;
+
+        case 'tool-input-start':
+          if (chunk.toolName === 'execute_code') {
+            codeStreamBuffers.set(chunk.id, '');
+            callbacks.onUpsertCodeBlock(chunk.id, { code: '', status: 'streaming' });
+          }
+          break;
+
+        case 'tool-input-delta': {
+          const buf = codeStreamBuffers.get(chunk.id);
+          if (buf === undefined) break;
+          const next = buf + chunk.delta;
+          codeStreamBuffers.set(chunk.id, next);
+          const code = extractPartialStringField(next, 'code');
+          if (code !== null) {
+            callbacks.onUpsertCodeBlock(chunk.id, { code });
+          }
+          break;
+        }
+
+        case 'tool-input-end':
+          codeStreamBuffers.delete(chunk.id);
+          break;
+      }
     }
   } catch (err) {
     const provider = settings.providers.find(p => p.id === settings.selectedProviderId)?.name;

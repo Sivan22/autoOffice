@@ -35,6 +35,24 @@ const useStyles = makeStyles({
     margin: 0,
     color: tokens.colorNeutralForeground1,
   },
+  caret: {
+    display: 'inline-block',
+    width: '7px',
+    height: '1em',
+    marginLeft: '1px',
+    verticalAlign: 'text-bottom',
+    backgroundColor: tokens.colorNeutralForeground2,
+    animationName: {
+      '0%, 49%': { opacity: 1 },
+      '50%, 100%': { opacity: 0 },
+    },
+    animationDuration: '1s',
+    animationIterationCount: 'infinite',
+  },
+  emptyHint: {
+    color: tokens.colorNeutralForeground3,
+    fontStyle: 'italic',
+  },
   actions: {
     display: 'flex',
     gap: '8px',
@@ -79,9 +97,10 @@ const useStyles = makeStyles({
   },
 });
 
-type CodeStatus = 'pending' | 'rejected' | 'running' | 'success' | 'error';
+type CodeStatus = 'streaming' | 'pending' | 'rejected' | 'running' | 'success' | 'error';
 
 const STATUS_LABELS: Record<CodeStatus, string> = {
+  streaming: 'Generating…',
   pending: 'Awaiting Approval',
   rejected: 'Rejected',
   running: 'Running...',
@@ -90,6 +109,7 @@ const STATUS_LABELS: Record<CodeStatus, string> = {
 };
 
 const STATUS_COLORS: Record<CodeStatus, 'informative' | 'success' | 'danger' | 'warning'> = {
+  streaming: 'informative',
   pending: 'informative',
   rejected: 'warning',
   running: 'informative',
@@ -120,7 +140,12 @@ export function CodeBlock({ code, status, result, onApprove, onReject }: CodeBlo
       </div>
 
       <div className={styles.codeArea}>
-        <pre className={styles.code}>{code}</pre>
+        <pre className={styles.code}>
+          {code === '' && status === 'streaming'
+            ? <span className={styles.emptyHint}>Generating code…</span>
+            : code}
+          {status === 'streaming' && <span className={styles.caret} aria-hidden />}
+        </pre>
       </div>
 
       {status === 'pending' && onApprove && onReject && (

@@ -195,6 +195,30 @@ export function App({ host }: AppProps) {
           return copy;
         });
       },
+      onUpsertCodeBlock: (toolCallId, patch) => {
+        setMessages(prev => {
+          const idx = prev.findIndex(m => m.codeBlock?.toolCallId === toolCallId);
+          if (idx === -1) {
+            return [...prev, {
+              role: 'assistant',
+              content: '',
+              codeBlock: {
+                toolCallId,
+                code: patch.code ?? '',
+                status: patch.status ?? 'streaming',
+                result: patch.result,
+              },
+            }];
+          }
+          const copy = [...prev];
+          const existing = copy[idx];
+          copy[idx] = {
+            ...existing,
+            codeBlock: { ...existing.codeBlock!, ...patch },
+          };
+          return copy;
+        });
+      },
       requestApproval: (code) => {
         setPendingApproval(code);
         return new Promise<boolean>((resolve) => {
