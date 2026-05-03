@@ -71,53 +71,59 @@ export async function runAgent(
       additionalProperties: false,
     }),
     execute: async ({ code }) => {
-      const approved = settings.autoApprove || await callbacks.requestApproval(code);
-      if (!approved) {
-        callbacks.onMessage({
-          role: 'assistant',
-          content: '',
-          codeBlock: { code, status: 'rejected' },
-        });
-        return 'User rejected the code. Ask what they would like changed.';
-      }
+      try {
+        const approved = settings.autoApprove || await callbacks.requestApproval(code);
+        if (!approved) {
+          callbacks.onMessage({
+            role: 'assistant',
+            content: '',
+            codeBlock: { code, status: 'rejected' },
+          });
+          return 'User rejected the code. Ask what they would like changed.';
+        }
 
-      const result = await sandbox.execute(code, settings.executionTimeout);
-      const logsStr = result.logs && result.logs.length ? `\nLogs:\n${result.logs.join('\n')}` : '';
+        const result = await sandbox.execute(code, settings.executionTimeout);
+        const logsStr = result.logs && result.logs.length ? `\nLogs:\n${result.logs.join('\n')}` : '';
 
-      if (result.success) {
-        const outputText = result.output === undefined
-          ? 'undefined'
-          : typeof result.output === 'string'
-            ? result.output
-            : JSON.stringify(result.output, null, 2);
+        if (result.success) {
+          const outputText = result.output === undefined
+            ? 'undefined'
+            : typeof result.output === 'string'
+              ? result.output
+              : JSON.stringify(result.output, null, 2);
+          const uiResult = [
+            `Output:\n${outputText}`,
+            result.logs && result.logs.length ? `Logs:\n${result.logs.join('\n')}` : '',
+          ].filter(Boolean).join('\n\n');
+          callbacks.onMessage({
+            role: 'assistant',
+            content: '',
+            codeBlock: { code, status: 'success', result: uiResult },
+          });
+          return `Code executed successfully. Output: ${JSON.stringify(result.output)}${logsStr}`;
+        }
+
         const uiResult = [
-          `Output:\n${outputText}`,
+          `Error: ${result.error}`,
+          result.stack || '',
           result.logs && result.logs.length ? `Logs:\n${result.logs.join('\n')}` : '',
         ].filter(Boolean).join('\n\n');
         callbacks.onMessage({
           role: 'assistant',
           content: '',
-          codeBlock: { code, status: 'success', result: uiResult },
+          codeBlock: { code, status: 'error', result: uiResult },
         });
-        return `Code executed successfully. Output: ${JSON.stringify(result.output)}${logsStr}`;
-      }
 
-      const uiResult = [
-        `Error: ${result.error}`,
-        result.stack || '',
-        result.logs && result.logs.length ? `Logs:\n${result.logs.join('\n')}` : '',
-      ].filter(Boolean).join('\n\n');
-      callbacks.onMessage({
-        role: 'assistant',
-        content: '',
-        codeBlock: { code, status: 'error', result: uiResult },
-      });
-
-      retryCount++;
-      if (retryCount >= settings.maxRetries) {
-        return `Failed after ${retryCount} attempts. Last error: ${result.error}${logsStr}`;
+        retryCount++;
+        if (retryCount >= settings.maxRetries) {
+          return `Failed after ${retryCount} attempts. Last error: ${result.error}${logsStr}`;
+        }
+        return `Execution failed: ${result.error}\n${result.stack || ''}${logsStr}\nPlease fix and try again.`;
+      } catch (err) {
+        const formatted = formatError(err, { phase: 'tool-execute', tool: 'execute_code' });
+        callbacks.onMessage({ role: 'assistant', content: '', error: formatted });
+        return `Tool failed: ${formatted.title}. ${formatted.detail}`;
       }
-      return `Execution failed: ${result.error}\n${result.stack || ''}${logsStr}\nPlease fix and try again.`;
     },
   });
 
