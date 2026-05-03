@@ -8,6 +8,7 @@ import { HistoryPanel } from './components/HistoryPanel.tsx';
 import { runAgent, type ChatMessage, type OrchestratorCallbacks } from './agent/orchestrator.ts';
 import { generateTitle } from './agent/title.ts';
 import { Sandbox } from './executor/sandbox.ts';
+import { formatError } from './agent/errors.ts';
 import { loadSettings, saveSettings, type AppSettings } from './store/settings.ts';
 import {
   saveConversation,
@@ -217,8 +218,8 @@ export function App({ host }: AppProps) {
       );
       conversationHistory.current = history;
     } catch (e) {
-      const errorMsg = e instanceof Error ? e.message : String(e);
-      setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${errorMsg}` }]);
+      const formatted = formatError(e, { phase: 'agent' });
+      setMessages(prev => [...prev, { role: 'assistant', content: '', error: formatted }]);
     } finally {
       setIsLoading(false);
       setPendingApproval(null);
