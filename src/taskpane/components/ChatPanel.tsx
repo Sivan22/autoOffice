@@ -163,7 +163,13 @@ export function ChatPanel({
             className={styles.logo}
           />
           <Text className={styles.title}>AutoOffice</Text>
-          <Badge appearance="outline" size="small">{host.displayName}</Badge>
+          <Badge
+            appearance="outline"
+            size="small"
+            color={host.kind === 'excel' ? 'success' : host.kind === 'powerpoint' ? 'danger' : 'brand'}
+          >
+            {host.displayName}
+          </Badge>
         </div>
         <div style={{ display: 'flex', gap: '4px' }}>
           <Tooltip content={t('chat.historyTooltip')} relationship="label">
