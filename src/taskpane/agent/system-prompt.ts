@@ -1,7 +1,12 @@
 // src/taskpane/agent/system-prompt.ts
 import type { HostKind } from '../host/context.ts';
+import { LOCALES, type LocaleId } from '../i18n/index.ts';
 
-export function buildSystemPrompt(host: HostKind, skills: readonly string[]): string {
+export function buildSystemPrompt(
+  host: HostKind,
+  skills: readonly string[],
+  locale: LocaleId,
+): string {
   const hostName =
     host === 'word' ? 'Microsoft Word' :
     host === 'excel' ? 'Microsoft Excel' :
@@ -16,6 +21,13 @@ export function buildSystemPrompt(host: HostKind, skills: readonly string[]): st
       : host === 'excel'
         ? '- For inserting/clearing ranges, prefer typed Excel APIs (e.g. range.values = [[...]], range.clear()) over string concatenation'
         : '- Most edits go through shapes; many things (inserting tables, complex charts, new slides with arbitrary layout) require OOXML round-trips via presentation.insertSlidesFromBase64';
+
+  const meta = LOCALES[locale];
+  const localeClause =
+`User language: respond to the user in **${meta.nativeName}** (${locale}).
+- Match the user's language for all explanations, status text, and error descriptions.
+- Skill documentation provided to you is in English; translate concepts into ${meta.nativeName} when explaining to the user.
+- Code identifiers (variable names, office.js API names) stay in English.`;
 
   return `You are AutoOffice, an AI assistant that controls ${hostName} by writing and executing office.js code.
 
@@ -36,5 +48,7 @@ When the user asks you to do something with the document:
 3. Generate the code and call execute_code
 4. If execution fails, analyze the error and try again (up to 3 attempts)
 
-Your code can be either a full ${apiRoot}.run() block or just the inner body — the executor handles both.`;
+Your code can be either a full ${apiRoot}.run() block or just the inner body — the executor handles both.
+
+${localeClause}`;
 }
