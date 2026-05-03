@@ -31,3 +31,74 @@ describe('formatError — ConfigError', () => {
     expect(out.detail).toBe('No API key configured for Anthropic.');
   });
 });
+
+describe('formatError — AI SDK APICallError', () => {
+  function makeApiError(extras: Record<string, unknown>): Error {
+    const e = new Error('API call failed');
+    e.name = 'AI_APICallError';
+    Object.assign(e, extras);
+    return e;
+  }
+
+  it('extracts statusCode and parsed responseBody.error.message', () => {
+    const err = makeApiError({
+      statusCode: 401,
+      url: 'https://api.anthropic.com/v1/messages',
+      responseBody: JSON.stringify({ error: { message: 'invalid x-api-key' } }),
+    });
+    const out = formatError(err, { provider: 'Anthropic' });
+    expect(out.kind).toBe('api');
+    expect(out.title).toBe('Anthropic API error (401)');
+    expect(out.detail).toBe('invalid x-api-key');
+    expect(out.raw).toContain('401');
+    expect(out.raw).toContain('invalid x-api-key');
+  });
+
+  it('falls back to raw responseBody when not JSON', () => {
+    const err = makeApiError({ statusCode: 500, responseBody: 'gateway down' });
+    const out = formatError(err, { provider: 'OpenAI' });
+    expect(out.title).toBe('OpenAI API error (500)');
+    expect(out.detail).toBe('gateway down');
+  });
+
+  it('omits provider name when ctx has none', () => {
+    const err = makeApiError({ statusCode: 429 });
+    const out = formatError(err);
+    expect(out.title).toBe('API error (429)');
+  });
+
+  it('detects via duck-typing when name is missing', () => {
+    const err = new Error('failed');
+    Object.assign(err, { statusCode: 403, responseBody: '{}' });
+    const out = formatError(err, { provider: 'Groq' });
+    expect(out.kind).toBe('api');
+    expect(out.title).toBe('Groq API error (403)');
+  });
+});
+
+describe('formatError — AI SDK config-shaped errors', () => {
+  it('classifies AI_LoadAPIKeyError as kind=config', () => {
+    const err = new Error('GROQ_API_KEY env var not set');
+    err.name = 'AI_LoadAPIKeyError';
+    const out = formatError(err);
+    expect(out.kind).toBe('config');
+    expect(out.title).toBe('Configuration error');
+  });
+
+  it('classifies AI_NoSuchModelError as kind=config', () => {
+    const err = new Error('Model bogus-1 not found');
+    err.name = 'AI_NoSuchModelError';
+    const out = formatError(err);
+    expect(out.kind).toBe('config');
+  });
+});
+
+describe('formatError — AI SDK API-shaped errors (non-call)', () => {
+  it('classifies AI_NoContentGeneratedError as kind=api', () => {
+    const err = new Error('No content generated');
+    err.name = 'AI_NoContentGeneratedError';
+    const out = formatError(err, { provider: 'OpenAI', model: 'gpt-5' });
+    expect(out.kind).toBe('api');
+    expect(out.title).toBe('OpenAI returned no content');
+  });
+});

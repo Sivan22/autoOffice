@@ -30,31 +30,103 @@ function safeStringify(value: unknown): string {
   }
 }
 
-export function formatError(err: unknown, _ctx: ErrorContext = {}): FormattedError {
+function tryParseJson(text: string): unknown {
+  try { return JSON.parse(text); } catch { return undefined; }
+}
+
+function extractApiDetail(responseBody: unknown): string | undefined {
+  if (typeof responseBody !== 'string') return undefined;
+  const parsed = tryParseJson(responseBody);
+  if (parsed && typeof parsed === 'object') {
+    const obj = parsed as Record<string, unknown>;
+    const errField = obj.error;
+    if (errField && typeof errField === 'object') {
+      const msg = (errField as Record<string, unknown>).message;
+      if (typeof msg === 'string' && msg.length > 0) return msg;
+    }
+    if (typeof obj.message === 'string' && obj.message.length > 0) return obj.message;
+  }
+  return responseBody;
+}
+
+function isApiCallError(err: Error & Record<string, unknown>): boolean {
+  if (err.name === 'AI_APICallError') return true;
+  return typeof err.statusCode === 'number' && 'responseBody' in err;
+}
+
+const CONFIG_ERROR_NAMES = new Set([
+  'ConfigError',
+  'AI_LoadAPIKeyError',
+  'AI_NoSuchModelError',
+  'AI_NoSuchProviderError',
+]);
+
+const API_ERROR_NAMES = new Set([
+  'AI_NoContentGeneratedError',
+  'AI_InvalidResponseDataError',
+]);
+
+export function formatError(err: unknown, ctx: ErrorContext = {}): FormattedError {
   if (err === null || err === undefined) {
     return { kind: 'unknown', title: 'Unexpected error', detail: 'Unknown error' };
   }
-
   if (typeof err === 'string') {
     return { kind: 'unknown', title: 'Unexpected error', detail: err };
   }
+  if (!(err instanceof Error)) {
+    return { kind: 'unknown', title: 'Unexpected error', detail: safeStringify(err) };
+  }
 
-  if (err instanceof Error) {
-    if (err.name === 'ConfigError') {
-      return {
-        kind: 'config',
-        title: 'Configuration error',
-        detail: err.message,
-        raw: err.stack,
-      };
-    }
+  const e = err as Error & Record<string, unknown>;
+
+  if (CONFIG_ERROR_NAMES.has(e.name)) {
     return {
-      kind: 'unknown',
-      title: 'Unexpected error',
-      detail: err.message || 'Unknown error',
-      raw: err.stack || safeStringify({ name: err.name, message: err.message }),
+      kind: 'config',
+      title: 'Configuration error',
+      detail: e.message,
+      raw: e.stack,
     };
   }
 
-  return { kind: 'unknown', title: 'Unexpected error', detail: safeStringify(err) };
+  if (isApiCallError(e)) {
+    const status = typeof e.statusCode === 'number' ? e.statusCode : undefined;
+    const providerPart = ctx.provider ? `${ctx.provider} ` : '';
+    const statusPart = status !== undefined ? ` (${status})` : '';
+    const detail = extractApiDetail(e.responseBody) ?? e.message;
+    return {
+      kind: 'api',
+      title: `${providerPart}API error${statusPart}`,
+      detail,
+      raw: safeStringify({
+        name: e.name,
+        message: e.message,
+        statusCode: status,
+        url: e.url,
+        responseBody: e.responseBody,
+        data: e.data,
+        provider: ctx.provider,
+        model: ctx.model,
+      }),
+    };
+  }
+
+  if (API_ERROR_NAMES.has(e.name)) {
+    const providerPart = ctx.provider ? `${ctx.provider} ` : '';
+    const title = e.name === 'AI_NoContentGeneratedError'
+      ? `${ctx.provider ? `${ctx.provider} returned no content` : 'API returned no content'}`
+      : `${providerPart}API error`.trim();
+    return {
+      kind: 'api',
+      title,
+      detail: e.message || 'No detail available',
+      raw: safeStringify({ name: e.name, message: e.message, model: ctx.model, provider: ctx.provider }),
+    };
+  }
+
+  return {
+    kind: 'unknown',
+    title: 'Unexpected error',
+    detail: e.message || 'Unknown error',
+    raw: e.stack || safeStringify({ name: e.name, message: e.message }),
+  };
 }
