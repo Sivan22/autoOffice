@@ -46,6 +46,26 @@ There is no curated wrapper API. The agent has exactly two built-in tools: look 
 | Native tracked-changes UX | ❌ | ❌ | ✅ | ❌ |
 | Cross-app context (Outlook, Teams, PPT…) | ❌ Word + Excel + PowerPoint, single-doc | ✅ all M365 | ✅ Word + Excel + PPT | ❌ |
 
+## Install
+
+Prebuilt Windows installer — no Node, no source build, no dev cert.
+
+1. Download **AutoOffice-Setup.exe** from the [latest release](https://github.com/Sivan22/autoOffice/releases/latest) and run it.
+2. If Windows shows **"Windows protected your PC"**, click **More info → Run anyway** (the installer is unsigned).
+3. Restart Word (or Excel / PowerPoint).
+4. In Word: **Home → Add-ins → Advanced → Shared Folder**, pick **AutoOffice**, and click **Add**.
+
+The installer just registers an Office add-in manifest. The task-pane assets themselves are served from **my** GitHub Pages site at `https://sivan22.github.io/autoOffice/`, which means you're loading code I deploy. If you'd rather not depend on that, host it yourself — see below.
+
+### Self-host on your own GitHub Pages
+
+1. **Fork** `Sivan22/autoOffice` on GitHub.
+2. In your fork: **Settings → Pages → Source: GitHub Actions**.
+3. If your fork's repo name isn't `autoOffice`, edit `.github/workflows/deploy.yml` and change `VITE_BASE: /autoOffice/` to `/<your-repo-name>/`.
+4. Push to `master` (or run **Deploy to GitHub Pages** manually). Your add-in will be served at `https://<your-username>.github.io/<your-repo-name>/`.
+5. Edit `manifest.production.xml`: replace every `https://sivan22.github.io/autoOffice/` with your fork's Pages URL, and change the `<Id>` GUID to a fresh one so it doesn't collide with the upstream add-in.
+6. Either rebuild the installer (`installer/setup.iss` via Inno Setup) so it ships your edited manifest, or sideload `manifest.production.xml` directly via **Insert → Add-ins → Upload My Add-in**.
+
 ## Tech Stack
 
 - **Framework:** React 19 + TypeScript
