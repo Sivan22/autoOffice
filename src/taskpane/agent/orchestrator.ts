@@ -38,7 +38,14 @@ export async function runAgent(
   callbacks: OrchestratorCallbacks,
 ): Promise<ModelMessage[]> {
   const model = createModel(settings);
-  const mcpTools = await getMcpTools(settings.mcpServers);
+  const { tools: mcpTools, failures: mcpFailures } = await getMcpTools(settings.mcpServers);
+  for (const f of mcpFailures) {
+    callbacks.onMessage({
+      role: 'assistant',
+      content: '',
+      error: formatError(f.error, { phase: 'mcp-connect', serverName: f.serverName }),
+    });
+  }
 
   const messages: ModelMessage[] = [
     ...conversationHistory,
