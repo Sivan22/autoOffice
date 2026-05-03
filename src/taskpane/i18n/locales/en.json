@@ -49,9 +49,7 @@
     "mcpNamePlaceholder": "Server name",
     "mcpUrlPlaceholder": "https://server-url/mcp",
     "languageSection": "Language",
-    "languageLabel": "Interface Language",
-    "languagePlaceholder": "Select a language...",
-    "languageDescription": "Select your preferred interface language. The interface updates immediately."
+    "languagePlaceholder": "Select a language..."
   },
   "code": {
     "approveButton": "Approve & Run",

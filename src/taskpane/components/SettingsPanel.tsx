@@ -331,18 +331,15 @@ export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProp
         {/* Language */}
         <div className={styles.section}>
           <Text weight="semibold" size={300}>{t('settings.languageSection')}</Text>
-          <Field label={t('settings.languageLabel')}>
-            <Select
-              value={locale}
-              aria-label={t('settings.languageLabel')}
-              onChange={(_, data) => { void setLocale(data.value as LocaleId); }}
-            >
-              {availableLocales().map(l => (
-                <option key={l.id} value={l.id}>{l.nativeName}</option>
-              ))}
-            </Select>
-          </Field>
-          <Text size={200} italic>{t('settings.languageDescription')}</Text>
+          <Select
+            value={locale}
+            aria-label={t('settings.languageSection')}
+            onChange={(_, data) => { void setLocale(data.value as LocaleId); }}
+          >
+            {availableLocales().map(l => (
+              <option key={l.id} value={l.id}>{l.nativeName}</option>
+            ))}
+          </Select>
         </div>
       </div>
     </div>

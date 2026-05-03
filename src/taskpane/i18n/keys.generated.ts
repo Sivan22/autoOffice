@@ -67,8 +67,6 @@ export type TranslationKey =
   | "settings.baseUrlLabel"
   | "settings.baseUrlPlaceholder"
   | "settings.executionSection"
-  | "settings.languageDescription"
-  | "settings.languageLabel"
   | "settings.languagePlaceholder"
   | "settings.languageSection"
   | "settings.maxRetriesLabel"
