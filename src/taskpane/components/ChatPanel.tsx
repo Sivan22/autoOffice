@@ -115,10 +115,16 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const styles = useStyles();
   const { t } = useTranslation();
-  const hostNoun =
-    host.kind === 'word' ? 'document' :
-    host.kind === 'excel' ? 'workbook' :
-    'presentation';
+  const hostDisplay = t(
+    host.kind === 'word' ? 'chat.hostWord' :
+    host.kind === 'excel' ? 'chat.hostExcel' :
+    'chat.hostPowerpoint',
+  );
+  const hostNoun = t(
+    host.kind === 'word' ? 'chat.hostNounWord' :
+    host.kind === 'excel' ? 'chat.hostNounExcel' :
+    'chat.hostNounPowerpoint',
+  );
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -180,7 +186,7 @@ export function ChatPanel({
         {messages.length === 0 && !pendingApproval ? (
           <div className={styles.empty}>
             <Text size={400} weight="semibold">{t('chat.welcomeTitle')}</Text>
-            <Text size={200}>{t('chat.welcomeMessage', { host: host.displayName })}</Text>
+            <Text size={200}>{t('chat.welcomeMessage', { host: hostDisplay, noun: hostNoun })}</Text>
             <Text size={200}>
               {host.kind === 'word'
                 ? t('chat.exampleWord')
@@ -212,7 +218,7 @@ export function ChatPanel({
         <Textarea
           className={styles.input}
           textarea={{ ref: textareaRef, className: styles.textarea }}
-          placeholder={t('chat.inputPlaceholder', { host: hostNoun })}
+          placeholder={t('chat.inputPlaceholder', { noun: hostNoun })}
           value={inputText}
           onChange={(_, data) => setInputText(data.value)}
           onKeyDown={handleKeyDown}
