@@ -458,16 +458,74 @@ Existing GH Action that built the SPA to Pages is replaced with one that builds 
 - **Office close mid-stream.** Mitigated by `result.consumeStream()` keeping the agent loop running on the server. Open question: if the user reopens the task pane while a turn is mid-flight, do they see the stream continue? AI SDK supports this only with resumable streams (out of scope for v1); v1 reload shows the final saved state once the turn finishes.
 - **Tool list staleness.** A long-running conversation may include tool calls for tools/servers the user later removes. `validateUIMessages` plus a generic "Tool no longer available" renderer prevent crashes; messages remain readable.
 
-## Phasing
+## Migration strategy
 
-The implementation plan will refine these into vertical slices, but the rough order is:
+**Single big-bang cutover on a dedicated branch.** No phased rollout, no compatibility shims, no half-migrated states on `master`. The reasons:
 
-1. **Monorepo scaffold.** Move `src/taskpane` → `apps/web`. No behavior change. Land green.
-2. **Bare server.** `apps/server` with Hono + bun, `/health`, static-serve. Manifest still points to Pages. Verifies build/compile path.
-3. **Server-side providers + DB + settings/conversations API.** Frontend still uses old in-browser code; new API exists and is tested.
-4. **`useChat` cutover.** Frontend switches to `useChat` + transport; in-browser orchestrator deleted; client-side `execute_code` via `onToolCall`.
-5. **MCP move.** `McpHub` on server, settings UI rewritten for tri-state policy, eager connect, status SSE.
-6. **Secrets, cert, bearer token, tray, scheduled task.** Production-grade endpoint security.
-7. **Installer extension.** Add bun binary, cert + token first-run init, scheduled task. Trusted Catalog logic untouched. Update `manifest.xml` to point at `https://localhost:47318/`.
-8. **GitHub Pages → landing.** Replace SPA build with marketing site build.
-9. **Legacy data import + cutover release.**
+- The browser-side architecture and the server-side architecture share almost no surface area. Trying to keep `master` shippable while the orchestrator and providers and MCP are in motion would mean writing throwaway compatibility code at every step.
+- The end-state is a fundamentally different product topology (manifest URL, install model, CORS posture). There is no useful "half-migrated" version a user could run.
+
+Workflow:
+
+1. Cut a new long-lived branch `feat/local-fullstack`.
+2. Build the whole thing on that branch — server, frontend cutover, MCP move, installer changes, landing site replacement, all of it.
+3. The branch is "done" only when an end-to-end run on a clean Windows VM works: install → Word/Excel/PowerPoint task pane loads from `https://localhost:47318` → chat with Anthropic + Claude Code provider works → stdio MCP server connects and a tool is callable with all three policies → conversation persists across pane close → uninstall cleans up.
+4. Merge to `master` as a single commit (or tight sequence) once the end-to-end checklist passes.
+
+### Definition of "done and connected"
+
+- [ ] All tests green: unit, integration, end-to-end (see Testing section below).
+- [ ] Bun-compiled `autoOffice-server.exe` runs on a clean Windows 10 + 11 VM without bun installed.
+- [ ] Cert + token + Scheduled Task created by installer; verified by reboot → log in → service is running → task pane opens.
+- [ ] Word, Excel, PowerPoint each load the SPA from `https://localhost:47318` without certificate or sideload errors.
+- [ ] A direct-API provider (Anthropic) and a CLI-bridge provider (Claude Code) both stream through the agent loop.
+- [ ] A stdio MCP server (e.g. `@modelcontextprotocol/server-filesystem`) connects on add, surfaces its tools with `default_policy: ask`, and one tool can be set to `allow`, one to `ask` (approve UI works), one to `deny` (model never sees it).
+- [ ] An HTTP MCP server that was CORS-blocked in the browser-only build now works.
+- [ ] `execute_code` still streams into the message bubble as the model emits, executes against the live document, and self-heals on error.
+- [ ] Conversation persists across task-pane close + reopen and across server restart.
+- [ ] Legacy `localStorage` / `roamingSettings` data imports cleanly on first launch after upgrade.
+- [ ] Uninstaller removes Scheduled Task, cert, manifest, and (with confirmation) the data folder.
+- [ ] GitHub Pages serves the new landing site, not the old SPA.
+
+## Testing
+
+Today the project uses `vitest` + `@testing-library/react` + `jsdom`. We extend that, and add new layers for the server and end-to-end paths.
+
+### Unit tests (`vitest`, both apps)
+
+- `apps/server/src/**`: pure functions, schema parsing, policy filtering, McpHub diff classification, DPAPI wrap/unwrap (Windows-only test, skipped on CI Linux), provider readiness probes, SQL query helpers. `bun test` and `vitest` both work for these — we standardize on `vitest` for parity with the web app.
+- `apps/web/src/**`: existing component and host-context tests carry over unchanged. Add tests for new parts renderers (`step-start`, `dynamic-tool`, approval-requested branches).
+- `packages/shared/src/**`: zod schema round-trips.
+
+**Coverage target:** 80% lines / 70% branches for `apps/server` and `packages/shared`. `apps/web` keeps its existing baseline (track but don't gate). Configured via `vitest --coverage` (V8 coverage); thresholds enforced in CI.
+
+### Integration tests (`vitest`, `apps/server`)
+
+- Spin up the Hono app in-process (no real network) using Hono's `app.request(...)` testing API.
+- Use a fresh `bun:sqlite` `:memory:` DB per test.
+- Stub providers with a fake AI SDK provider that emits a scripted UI message stream (text + tool-call + tool-result + finish).
+- Stub MCP servers with an in-process MCP server that registers known tools and asserts arguments.
+- Cover: full `/api/chat` round-trip with each tool-policy combination; eager connect / disable / reconnect lifecycle; settings CRUD; conversation persistence and replay; bearer-token enforcement; origin-gated `/bootstrap`; legacy import endpoint.
+
+### End-to-end tests (`playwright`, new)
+
+- Headed against a real `bun --watch apps/server` process bound to `127.0.0.1:47318`. Uses the dev cert (already trusted).
+- Drives the SPA in a Chromium context (not Office, but exercises the full client-server protocol).
+- Scripts: load chat, send message, render parts, approve/deny tool, settings → add MCP server → see tool list → toggle policy, conversation reload across page refresh.
+- One scenario uses the real `claude` CLI (via the CLI-bridge provider) gated behind an env flag — runs locally before release, skipped on CI.
+
+### Office task-pane smoke test (manual checklist)
+
+The Office WebView2 task pane is hard to automate. We document a manual checklist, run on a clean Windows VM as part of the "done" definition above. The checklist lives at `docs/superpowers/specs/2026-05-04-local-fullstack-migration-design-smoke-checklist.md` and is updated as part of the same branch.
+
+### CI
+
+GitHub Actions matrix:
+
+- **`vitest` job** on Ubuntu: unit + integration tests for `apps/server`, `apps/web`, `packages/shared`. Coverage reported, thresholds enforced.
+- **`vitest` Windows job**: re-runs `apps/server` tests on `windows-latest` so DPAPI / cert / Scheduled Task helpers actually exercise their Windows paths.
+- **`playwright` job** on Ubuntu (xvfb): runs the e2e scripts against a `bun` server.
+- **`build` job** on Windows: runs `bun build --compile`, then runs the binary's `--smoke` flag (which performs `/health` + `GET /` + a single `/api/chat` against a stub provider) to catch packaging regressions.
+- **`installer` job** on Windows: builds the Inno Setup installer, installs it on a fresh runner, runs `--smoke` again post-install, uninstalls, asserts cleanup.
+
+The branch cannot merge until all five jobs pass.
