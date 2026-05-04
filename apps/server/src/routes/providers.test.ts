@@ -75,6 +75,65 @@ describe('providers routes', () => {
     expect(r.status).toBe(400);
   });
 
+  it('PUT /:id returns 404 for unknown id', async () => {
+    const r = await app.request('/api/providers/p_nope', {
+      method: 'PUT',
+      headers: auth,
+      body: JSON.stringify({ label: 'Hi' }),
+    });
+    expect(r.status).toBe(404);
+  });
+
+  it('PUT /:id returns 400 on invalid JSON', async () => {
+    const id = (
+      await (
+        await app.request('/api/providers', {
+          method: 'POST',
+          headers: auth,
+          body: JSON.stringify({ kind: 'claude-code', label: 'X' }),
+        })
+      ).json()
+    ).id;
+    const r = await app.request(`/api/providers/${id}`, {
+      method: 'PUT',
+      headers: auth,
+      body: 'not-json',
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it('PUT /:id returns 400 on schema validation failure', async () => {
+    const id = (
+      await (
+        await app.request('/api/providers', {
+          method: 'POST',
+          headers: auth,
+          body: JSON.stringify({ kind: 'claude-code', label: 'X' }),
+        })
+      ).json()
+    ).id;
+    const r = await app.request(`/api/providers/${id}`, {
+      method: 'PUT',
+      headers: auth,
+      body: JSON.stringify({ label: '' }),
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it('POST /api/providers returns 400 on invalid JSON', async () => {
+    const r = await app.request('/api/providers', {
+      method: 'POST',
+      headers: auth,
+      body: 'not-json',
+    });
+    expect(r.status).toBe(400);
+  });
+
+  it('POST /:id/test returns 404 for unknown id', async () => {
+    const r = await app.request('/api/providers/p_nope/test', { method: 'POST', headers: auth });
+    expect(r.status).toBe(404);
+  });
+
   it('POST /:id/test returns the readiness status', async () => {
     const id = (
       await (
