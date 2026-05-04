@@ -6,7 +6,7 @@
 
 ## Goal
 
-Show the user how much each conversation has cost in USD, computed across **every** provider configured in the app: Anthropic, OpenAI, Google, Groq, xAI, DeepSeek, Vercel AI Gateway, and OpenAI-Compatible endpoints. Persist a running per-conversation total so it survives reloads and shows up in the history panel.
+Show the user how much each conversation has cost in USD, computed across **every** provider configured in the app: Anthropic, OpenAI, Google, Groq, xAI, DeepSeek, Vercel AI Gateway, OpenRouter, Ollama, and OpenAI-Compatible endpoints (10 providers in `agent/providers.ts`). Persist a running per-conversation total so it survives reloads and shows up in the history panel.
 
 ## Non-goals (YAGNI)
 
@@ -18,20 +18,38 @@ Show the user how much each conversation has cost in USD, computed across **ever
 - Reasoning-token line item in the breakdown (always 0 today; reasoning is already counted in `outputTokens` and billed at the output rate)
 - Cost tracking for the deferred CLI-bridge providers (Claude Code, Gemini CLI, OpenCode) — those are blocked on the server-backed migration and out of scope here
 
-## Per-provider cost source — verified against `node_modules/@ai-sdk/*`
+## Per-provider cost source — verified against `node_modules/@ai-sdk/*` and `node_modules/@openrouter/ai-sdk-provider`
 
-| Provider | USD source | Cache tokens (already normalized by AI SDK into `inputTokenDetails`) |
+| Provider | USD source | Cache tokens (normalized by adapter into `inputTokenDetails`) |
 |---|---|---|
-| `gateway` | **Exact** — `providerMetadata.gateway.cost` | passthrough |
+| `gateway` | **Exact** — `providerMetadata.gateway.cost` (Vercel server adds it) | passthrough |
+| `openrouter` | **Exact** — `providerMetadata.openrouter.usage.cost` (requires `usage: { include: true }` setting on the model factory) | OpenRouter fields normalized + duplicated in `providerMetadata.openrouter.usage` |
 | `anthropic` | Estimate from `PRICING` | `cache_read_input_tokens` → `cacheRead`, `cache_creation_input_tokens` → `cacheWrite` |
 | `openai` | Estimate | `prompt_tokens_details.cached_tokens` → `cacheRead`; no cacheWrite |
 | `google` | Estimate | `cachedContentTokenCount` → `cacheRead`; no cacheWrite |
 | `groq` | Estimate | `prompt_tokens_details.cached_tokens` → `cacheRead`; no cacheWrite |
-| `xai` | Estimate | `prompt_tokens_details.cached_tokens` → `cacheRead`; no cacheWrite |
+| `xai` | Estimate (chat); xAI image/video models expose `costInUsdTicks` but we don't use them | `prompt_tokens_details.cached_tokens` → `cacheRead`; no cacheWrite |
 | `deepseek` | Estimate | `prompt_cache_hit_tokens` → `cacheRead`; no cacheWrite |
-| `openai-compatible` | **Tokens-only** (unknown remote, unknown rates) | depends on remote — passed through but USD shown as 0 with `source: 'tokens-only'` |
+| `ollama` | **Tokens-only** (local, no $) — but display USD as `$0.00` is also acceptable; spec uses tokens-only | depends on Ollama version |
+| `openai-compatible` | **Tokens-only** (unknown remote, unknown rates) | depends on remote |
 
-This means a single `computeCallCost()` function with one branch (`providerId === 'gateway'` for the exact path) handles every provider. All non-gateway providers go through the same `estimate()` codepath because the AI SDK adapters already normalize cache tokens into the standard `LanguageModelUsage.inputTokenDetails` shape.
+`computeCallCost()` has two exact-USD branches (`gateway`, `openrouter`); everything else falls through to the same `estimate()` codepath because the AI SDK adapters normalize cache tokens into the standard `LanguageModelUsage.inputTokenDetails` shape. Ollama and openai-compatible take the tokens-only fallback because we don't know rates.
+
+### OpenRouter opt-in
+
+`agent/providers.ts` must enable usage accounting on the OpenRouter factory:
+
+```ts
+case 'openrouter': {
+  const openrouter = createOpenRouter({
+    apiKey: provider.apiKey,
+    ...(provider.baseUrl ? { baseURL: provider.baseUrl } : {}),
+  });
+  return openrouter(settings.selectedModel, { usage: { include: true } });
+}
+```
+
+Without this setting, `providerMetadata.openrouter.usage.cost` is undefined and we'd silently fall back to the estimate path with no PRICING entry → tokens-only. The opt-in is free (no extra request fields beyond a small JSON flag) and OpenRouter has no documented downside.
 
 ## Architecture
 
@@ -42,7 +60,8 @@ src/taskpane/
 ├── agent/
 │   ├── pricing.ts           [NEW]  PRICING table + computeCallCost + sumCallCosts
 │   ├── pricing.test.ts      [NEW]  unit tests
-│   └── orchestrator.ts      [EDIT] capture usage + emit onTurnCost callback
+│   ├── orchestrator.ts      [EDIT] capture usage + emit onTurnCost callback
+│   └── providers.ts         [EDIT] enable usage:{include:true} on OpenRouter factory
 ├── lib/
 │   ├── cost.ts              [NEW]  formatUsd + formatTokens helpers
 │   └── cost.test.ts         [NEW]  formatter tests
@@ -84,7 +103,7 @@ export const PRICING: Record<string, ModelRates> = {
 
 export const PRICING_VERSION = '2026-05';
 
-export type CostSource = 'gateway-exact' | 'estimated' | 'tokens-only';
+export type CostSource = 'gateway-exact' | 'openrouter-exact' | 'estimated' | 'tokens-only';
 
 export interface CallCost {
   inputUsd: number;
@@ -119,17 +138,17 @@ export function sumCallCosts(costs: CallCost[]): CallCost;
 
 1. Read tokens from `usage.inputTokenDetails` (cacheRead, cacheWrite) and `usage.outputTokenDetails.reasoningTokens`. Non-cached input is `inputTokenDetails.noCacheTokens ?? usage.inputTokens ?? 0`. Same shape as pdf_proofread.
 2. **Gateway exact path**: if `providerId === 'gateway'`, look up `providerMetadata?.gateway?.cost`. If it's a finite number, build a `CallCost` whose per-class breakdown is the *estimate* from rates (so the popover still has rows) but whose `totalUsd` is the exact gateway figure and `source: 'gateway-exact'`.
-3. **Known model**: if `PRICING[modelId]` exists, estimate. Long-context tier kicks in when `tokens.input + cachedRead + cacheWrite > rates.longContext.thresholdInputTokens`.
-4. **Unknown model** (any provider, including `openai-compatible` and any future model not yet in PRICING): return a `CallCost` with all USD = 0, tokens populated, `source: 'tokens-only'`.
+3. **OpenRouter exact path**: if `providerId === 'openrouter'`, look up `providerMetadata?.openrouter?.usage?.cost`. If it's a finite number, same treatment as gateway: per-class breakdown estimated, `totalUsd` overridden, `source: 'openrouter-exact'`. Tokens come from the standard `usage.inputTokenDetails` since the OpenRouter adapter normalizes them.
+4. **Known model**: if `PRICING[modelId]` exists, estimate. Long-context tier kicks in when `tokens.input + cachedRead + cacheWrite > rates.longContext.thresholdInputTokens`.
+5. **Unknown model** (`ollama`, `openai-compatible`, OpenRouter without the opt-in, or any future model not yet in PRICING): return a `CallCost` with all USD = 0, tokens populated, `source: 'tokens-only'`.
 
 ### Aggregation
 
-`sumCallCosts(costs)` sums every USD field and every token field. Source promotion rules:
-- Any `'tokens-only'` in the input list → result is `'tokens-only'`.
-- Else any `'estimated'` → `'estimated'`.
-- Else `'gateway-exact'`.
-
-This means a conversation that ever used an unknown model is honestly labeled tokens-only.
+`sumCallCosts(costs)` sums every USD field and every token field. Source promotion rules (worst case wins, so a mixed-source conversation is honestly labeled):
+1. Any `'tokens-only'` → `'tokens-only'`.
+2. Else any `'estimated'` → `'estimated'`.
+3. Else if all costs share the same exact source (`'gateway-exact'` or `'openrouter-exact'`) → that source.
+4. Else (mixed exact sources, e.g. user switched providers mid-conversation) → `'estimated'` — we can't claim "exact via X" if half the conversation went through Y.
 
 ## Orchestrator integration (`agent/orchestrator.ts`)
 
@@ -223,9 +242,10 @@ Click → Fluent UI `Popover` containing a 4-row table:
 | **Total**                 |           | **$0.1536** |
 
 Footer line under the table:
-- `gateway-exact` → "Exact via Vercel AI Gateway" / "סכום מדויק דרך Vercel AI Gateway"
-- `estimated`     → "Estimated · pricing v{PRICING_VERSION}" / "הערכה · מחירון v{PRICING_VERSION}"
-- `tokens-only`   → "Pricing not available for this model" / "אין מחירון זמין לדגם זה"
+- `gateway-exact`    → "Exact via Vercel AI Gateway" / "סכום מדויק דרך Vercel AI Gateway"
+- `openrouter-exact` → "Exact via OpenRouter" / "סכום מדויק דרך OpenRouter"
+- `estimated`        → "Estimated · pricing v{PRICING_VERSION}" / "הערכה · מחירון v{PRICING_VERSION}"
+- `tokens-only`      → "Pricing not available for this model" / "אין מחירון זמין לדגם זה"
 
 Rows where both tokens and USD are 0 are hidden so the popover stays tight.
 
@@ -256,7 +276,8 @@ Add to `en.json` and `he.json` under a new `cost` namespace:
     "cacheWrite": "Cache write",
     "output": "Output",
     "total": "Total",
-    "sourceExact": "Exact via Vercel AI Gateway",
+    "sourceGatewayExact": "Exact via Vercel AI Gateway",
+    "sourceOpenRouterExact": "Exact via OpenRouter",
     "sourceEstimated": "Estimated · pricing v{version}",
     "sourceTokensOnly": "Pricing not available for this model",
     "unknown": "—"
@@ -281,8 +302,10 @@ export function formatTokens(n: number): string;    // K/M suffixes
 - For each `PRICING` entry: synthetic `usage` with each token class (input, cachedRead, cacheWrite, output) → assert per-class USD = (tokens * rate / 1e6), total = sum.
 - Long-context tier: input above `thresholdInputTokens` switches to `longContext` rates.
 - Gateway-exact path: `providerId='gateway'` + `providerMetadata.gateway.cost = 0.42` → `totalUsd = 0.42`, `source = 'gateway-exact'`, breakdown rows still computed from rates.
+- OpenRouter-exact path: `providerId='openrouter'` + `providerMetadata.openrouter.usage.cost = 0.0123` → `totalUsd = 0.0123`, `source = 'openrouter-exact'`.
+- OpenRouter without usage accounting (`providerMetadata.openrouter` undefined) and unknown model → `source = 'tokens-only'`.
 - Tokens-only fallback: unknown `modelId` → all USD = 0, `source = 'tokens-only'`, tokens populated.
-- `sumCallCosts`: summation across mixed sources promotes correctly (any `tokens-only` → `tokens-only`; else any `estimated` → `estimated`; else `gateway-exact`).
+- `sumCallCosts`: summation across mixed sources — `tokens-only` dominates; mixed exact sources demotes to `estimated`; uniform exact source preserved.
 - Empty list → `emptyCallCost('estimated')`.
 
 ### `cost.test.ts`
@@ -301,10 +324,13 @@ export function formatTokens(n: number): string;    // K/M suffixes
 - Stub gateway path: `providerMetadata: { gateway: { cost: 0.42 } }` → asserted `source: 'gateway-exact'`, `totalUsd: 0.42`.
 - Stub stream-error path with no `totalUsage` → assert `onTurnCost` is NOT called.
 
-## Open question (resolved)
+## Open questions (resolved)
 
-Q: Do we need a per-provider extractor for cache tokens?
-A: **No.** Verified against `node_modules/@ai-sdk/{anthropic,openai,google,groq,xai,deepseek}/dist/index.js` that all six providers normalize cache hits into the standard `LanguageModelUsage.inputTokenDetails` shape. One `readTokens(usage)` function works universally.
+**Q: Do we need a per-provider extractor for cache tokens?**
+A: **No.** Verified against `node_modules/@ai-sdk/{anthropic,openai,google,groq,xai,deepseek}/dist/index.js` and `@openrouter/ai-sdk-provider` that all providers normalize cache hits into the standard `LanguageModelUsage.inputTokenDetails` shape. One `readTokens(usage)` function works universally.
+
+**Q: Which providers expose per-call USD in `providerMetadata`?**
+A: Two — Vercel AI Gateway (`providerMetadata.gateway.cost`, server-added) and OpenRouter (`providerMetadata.openrouter.usage.cost`, requires opting in to usage accounting). All other chat providers in our list expose only token counts. (xAI's image and video models surface `costInUsdTicks` in `providerMetadata.xai`, but we don't use them.)
 
 ## Migration / rollout
 
