@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { makeStyles, tokens } from '@fluentui/react-components';
 import { useChat } from '@ai-sdk/react';
 import {
@@ -7,6 +7,9 @@ import {
 } from 'ai';
 import type { HostContext } from './host/context.ts';
 import { ChatPanel } from './components/ChatPanel.tsx';
+import { SettingsPanel } from './components/SettingsPanel.tsx';
+import { HistoryPanel } from './components/HistoryPanel.tsx';
+import { useHighlightCode } from './components/CodeBlock.tsx';
 import { Sandbox } from './executor/sandbox.ts';
 import { bootstrap, apiGet, apiSend } from './api.ts';
 import { makeChatTransport } from './chat/transport.ts';
@@ -20,12 +23,21 @@ const useStyles = makeStyles({
     height: '100vh',
     backgroundColor: tokens.colorNeutralBackground1,
     overflow: 'hidden',
+    position: 'relative',
   },
   loading: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     height: '100%',
+  },
+  drawer: {
+    position: 'absolute',
+    inset: 0,
+    backgroundColor: tokens.colorNeutralBackground1,
+    zIndex: 10,
+    display: 'flex',
+    flexDirection: 'column',
   },
 });
 
@@ -40,6 +52,8 @@ export function App({ host }: AppProps) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [initialMessages, setInitialMessages] = useState<Message[]>([]);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,6 +88,19 @@ export function App({ host }: AppProps) {
     };
   }, [host.kind]);
 
+  const loadConversation = useCallback(async (id: string) => {
+    const conv = await apiGet<{ conversation: Conversation; messages: Message[] }>(
+      `/api/conversations/${id}`,
+    );
+    setConversationId(id);
+    setInitialMessages(conv.messages);
+  }, []);
+
+  const createConversation = useCallback(async () => {
+    const created = await apiSend<{ id: string }>('/api/conversations', { host: host.kind });
+    await loadConversation(created.id);
+  }, [host.kind, loadConversation]);
+
   if (error) {
     return (
       <div className={styles.root}>
@@ -92,11 +119,35 @@ export function App({ host }: AppProps) {
   return (
     <div className={styles.root}>
       <ChatScreen
+        key={conversationId}
         host={host}
         conversationId={conversationId}
         initialMessages={initialMessages}
         settings={settings}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenHistory={() => setHistoryOpen(true)}
+        onNewChat={() => {
+          void createConversation();
+        }}
       />
+      {settingsOpen && (
+        <div className={styles.drawer}>
+          <SettingsPanel onClose={() => setSettingsOpen(false)} />
+        </div>
+      )}
+      {historyOpen && (
+        <div className={styles.drawer}>
+          <HistoryPanel
+            currentHost={host.kind}
+            activeConversationId={conversationId}
+            onSelectConversation={(id) => {
+              void loadConversation(id);
+              setHistoryOpen(false);
+            }}
+            onClose={() => setHistoryOpen(false)}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -106,11 +157,17 @@ function ChatScreen({
   conversationId,
   initialMessages,
   settings,
+  onOpenSettings,
+  onOpenHistory,
+  onNewChat,
 }: {
   host: HostContext;
   conversationId: string;
   initialMessages: Message[];
   settings: Settings;
+  onOpenSettings: () => void;
+  onOpenHistory: () => void;
+  onNewChat: () => void;
 }) {
   const sandbox = useMemo(() => new Sandbox(host.kind), [host.kind]);
   useEffect(() => {
@@ -150,6 +207,8 @@ function ChatScreen({
     }),
   });
 
+  const highlightCode = useHighlightCode();
+
   return (
     <ChatPanel
       host={host}
@@ -178,7 +237,10 @@ function ChatScreen({
         } as any)
       }
       onApprovalResponse={(id, approved) => addToolApprovalResponse({ id, approved })}
-      highlightCode={(code) => code}
+      highlightCode={highlightCode}
+      onOpenSettings={onOpenSettings}
+      onOpenHistory={onOpenHistory}
+      onNewChat={onNewChat}
     />
   );
 }
