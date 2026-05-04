@@ -1,9 +1,11 @@
 import React from 'react';
-import { makeStyles, tokens, Text } from '@fluentui/react-components';
-import type { ChatMessage } from '../agent/orchestrator.ts';
-import { CodeBlock } from './CodeBlock.tsx';
-import { ToolActivity } from './ToolActivity.tsx';
-import { ErrorBubble } from './ErrorBubble.tsx';
+import { makeStyles, tokens } from '@fluentui/react-components';
+import { TextPart } from './parts/TextPart';
+import { StepStartPart } from './parts/StepStartPart';
+import { ExecuteCodePart } from './parts/ExecuteCodePart';
+import { LookupSkillPart } from './parts/LookupSkillPart';
+import { DynamicToolPart } from './parts/DynamicToolPart';
+import { ApprovalRequestedPart } from './parts/ApprovalRequestedPart';
 
 const useStyles = makeStyles({
   container: {
@@ -30,48 +32,76 @@ const useStyles = makeStyles({
     maxWidth: '85%',
     wordBreak: 'break-word',
   },
-  messageText: {
-    whiteSpace: 'pre-wrap',
-    lineHeight: '1.4',
-    fontSize: '13px',
-  },
 });
 
-export function MessageBubble({ message }: { message: ChatMessage }) {
+export type UIMessageLike = {
+  id?: string;
+  role: 'user' | 'assistant' | 'system';
+  parts: Array<Record<string, unknown> & { type: string }>;
+};
+
+export type MessageBubbleProps = {
+  message: UIMessageLike;
+  onApproveCode: (toolCallId: string, code: string) => void;
+  onRejectCode: (toolCallId: string) => void;
+  onApprovalResponse: (id: string, approved: boolean) => void;
+  highlightCode: (code: string) => React.ReactNode;
+};
+
+export function MessageBubble({
+  message,
+  onApproveCode,
+  onRejectCode,
+  onApprovalResponse,
+  highlightCode,
+}: MessageBubbleProps) {
   const styles = useStyles();
-
-  if (message.error) {
-    return (
-      <div className={styles.container}>
-        <ErrorBubble {...message.error} />
-      </div>
-    );
-  }
-
-  if (message.toolActivity) {
-    return <ToolActivity toolName={message.toolActivity.toolName} />;
-  }
-
-  if (message.codeBlock) {
-    return (
-      <div className={styles.container}>
-        <CodeBlock
-          code={message.codeBlock.code}
-          status={message.codeBlock.status}
-          result={message.codeBlock.result}
-        />
-      </div>
-    );
-  }
-
-  if (!message.content) return null;
-
   const bubbleClass = message.role === 'user' ? styles.userBubble : styles.assistantBubble;
 
   return (
     <div className={styles.container}>
       <div className={bubbleClass}>
-        <Text className={styles.messageText}>{message.content}</Text>
+        {message.parts.map((part, idx) => {
+          switch (part.type) {
+            case 'text':
+              return <TextPart key={idx} part={part as unknown as { text: string }} />;
+            case 'step-start':
+              return idx > 0 ? <StepStartPart key={idx} /> : null;
+            case 'tool-execute_code':
+              return (
+                <ExecuteCodePart
+                  key={idx}
+                  part={part as any}
+                  onApprove={onApproveCode}
+                  onReject={onRejectCode}
+                  highlight={highlightCode}
+                />
+              );
+            case 'tool-lookup_skill':
+              return <LookupSkillPart key={idx} part={part as any} />;
+            case 'dynamic-tool':
+              return <DynamicToolPart key={idx} part={part as any} />;
+            default:
+              if (typeof part.type === 'string' && part.type.startsWith('tool-')) {
+                if ((part as any).state === 'approval-requested') {
+                  return (
+                    <ApprovalRequestedPart
+                      key={idx}
+                      part={part as any}
+                      onResponse={onApprovalResponse}
+                    />
+                  );
+                }
+                return (
+                  <DynamicToolPart
+                    key={idx}
+                    part={{ ...(part as any), toolName: part.type.slice(5) }}
+                  />
+                );
+              }
+              return null;
+          }
+        })}
       </div>
     </div>
   );
