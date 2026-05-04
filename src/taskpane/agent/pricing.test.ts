@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LanguageModelUsage } from 'ai';
-import { computeCallCost, emptyCallCost, PRICING, sumCallCosts } from './pricing.ts';
+import { computeCallCost, emptyCallCost, isCallCostEmpty, PRICING, sumCallCosts } from './pricing.ts';
 
 function usage(parts: {
   input?: number; cachedRead?: number; cacheWrite?: number;
@@ -290,5 +290,33 @@ describe('sumCallCosts', () => {
       providerMetadata: undefined,
     });
     expect(sumCallCosts([exact, estimated]).source).toBe('estimated');
+  });
+});
+
+describe('isCallCostEmpty', () => {
+  it('treats emptyCallCost() as empty regardless of source', () => {
+    expect(isCallCostEmpty(emptyCallCost('estimated'))).toBe(true);
+    expect(isCallCostEmpty(emptyCallCost('gateway-exact'))).toBe(true);
+    expect(isCallCostEmpty(emptyCallCost('tokens-only'))).toBe(true);
+  });
+
+  it('returns false when any token field is non-zero', () => {
+    const c = computeCallCost({
+      providerId: 'ollama',
+      modelId: 'llama3',
+      usage: usage({ input: 1 }),
+      providerMetadata: undefined,
+    });
+    expect(isCallCostEmpty(c)).toBe(false);
+  });
+
+  it('returns false when totalUsd is non-zero', () => {
+    const c = computeCallCost({
+      providerId: 'gateway',
+      modelId: 'claude-opus-4-7',
+      usage: usage({}),
+      providerMetadata: { gateway: { cost: 0.01 } },
+    });
+    expect(isCallCostEmpty(c)).toBe(false);
   });
 });

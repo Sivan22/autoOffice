@@ -104,6 +104,15 @@ export function emptyCallCost(source: CostSource = 'estimated'): CallCost {
   };
 }
 
+export function isCallCostEmpty(cost: CallCost): boolean {
+  return cost.totalUsd === 0
+    && cost.tokens.input === 0
+    && cost.tokens.cachedRead === 0
+    && cost.tokens.cacheWrite === 0
+    && cost.tokens.output === 0
+    && cost.tokens.reasoning === 0;
+}
+
 export interface ComputeCostArgs {
   providerId: string;
   modelId: string;
