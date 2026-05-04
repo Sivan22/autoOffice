@@ -31,16 +31,19 @@ export function makeTestProvider(): (providerId: string, modelId: string) => Lan
             controller.enqueue({ type: 'text-delta', id: 't0', delta: `Echo: ${userText}` });
             controller.enqueue({ type: 'text-end', id: 't0' });
             if (wantsCode) {
+              // AI SDK v5 expects `input` as a serialized JSON string for v2
+              // tool-call parts, then parses it server-side against the
+              // tool's input schema.
               controller.enqueue({
                 type: 'tool-call',
                 toolCallId: 'tc0',
                 toolName: 'execute_code',
-                input: { code: 'await context.sync()' },
+                input: JSON.stringify({ code: 'await context.sync()' }),
               });
             }
             controller.enqueue({
               type: 'finish',
-              finishReason: 'stop',
+              finishReason: wantsCode ? 'tool-calls' : 'stop',
               usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
             });
             controller.close();

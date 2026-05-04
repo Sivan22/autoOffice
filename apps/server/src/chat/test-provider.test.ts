@@ -26,6 +26,7 @@ describe('makeTestProvider', () => {
       .join('');
     expect(text).toBe('Echo: hello');
     expect(events.at(-1)?.type).toBe('finish');
+    expect((events.at(-1) as any).finishReason).toBe('stop');
     expect(events.find((e) => e.type === 'tool-call')).toBeUndefined();
   });
 
@@ -39,6 +40,10 @@ describe('makeTestProvider', () => {
     const toolCall = events.find((e) => e.type === 'tool-call');
     expect(toolCall).toBeDefined();
     expect(toolCall.toolName).toBe('execute_code');
+    // AI SDK expects a JSON string here, not a structured object.
+    expect(typeof toolCall.input).toBe('string');
+    expect(JSON.parse(toolCall.input)).toMatchObject({ code: expect.any(String) });
+    expect((events.at(-1) as any).finishReason).toBe('tool-calls');
   });
 
   it('returns a model with provider id "autooffice-test"', () => {
