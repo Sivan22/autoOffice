@@ -161,23 +161,23 @@ export interface OrchestratorCallbacks {
 }
 ```
 
-After the `for await (chunk of result.fullStream)` loop completes successfully (and `capturedStreamError` is null), `await result.totalUsage` and `await result.providerMetadata`, compute the cost, and emit:
+After the `for await (chunk of result.fullStream)` loop completes successfully (and `capturedStreamError` is null), `await result.steps` and compute a `CallCost` for **each step**, then sum them:
 
 ```ts
-const usage = await result.totalUsage;
-const meta = await result.providerMetadata;
-const cost = computeCallCost({
+const steps = await result.steps;
+const stepCosts = steps.map(step => computeCallCost({
   providerId: settings.selectedProviderId,
   modelId: settings.selectedModel,
-  usage,
-  providerMetadata: meta,
-});
+  usage: step.usage,
+  providerMetadata: step.providerMetadata,
+}));
+const cost = sumCallCosts(stepCosts);
 callbacks.onTurnCost(cost);
 ```
 
-`totalUsage` is the AI SDK's aggregate across **every step** in the agent loop (the initial reply plus every continuation after a `lookup_skill` / `execute_code` / MCP tool call), so a single emit per `runAgent` call is correct.
+**Why per-step, not `result.totalUsage`/`result.providerMetadata`:** `result.totalUsage` aggregates token usage across all steps, but `result.providerMetadata` exposes only the **last step's** metadata. For a typical agent turn (initial reply → `execute_code` tool call → continuation), the gateway/openrouter cost from the first step would be silently dropped if we used `result.providerMetadata`. Summing per-step `CallCost`s preserves exact-cost data from every step. For the `estimated` path the answer is identical to computing once on totals because rates are linear.
 
-**Error path**: if the stream errored, attempt to compute cost from whatever partial usage is available; if `result.totalUsage` rejects or returns nothing, skip the emit. Tool-call failures inside the agent loop don't count as stream errors and still result in valid `totalUsage`.
+**Error path**: if the stream errored (`capturedStreamError` set), attempt `await result.steps` inside a try/catch; if it rejects, skip the emit. Tool-call failures inside the agent loop don't count as stream errors and still yield valid steps. If `steps` resolves to an empty array, emit `emptyCallCost('estimated')` so the UI still updates the badge to show the conversation has been touched.
 
 ## Persistence (`store/history.ts`)
 
@@ -319,10 +319,11 @@ export function formatTokens(n: number): string;    // K/M suffixes
 - Index `summarize()` carries `totalUsd` and `costSource` to `ConversationSummary`.
 
 ### Orchestrator integration test
-- Stub `streamText` to return `totalUsage` with known token counts and `providerMetadata` empty.
-- Assert `onTurnCost` is called exactly once with the expected `CallCost`.
-- Stub gateway path: `providerMetadata: { gateway: { cost: 0.42 } }` → asserted `source: 'gateway-exact'`, `totalUsd: 0.42`.
-- Stub stream-error path with no `totalUsage` → assert `onTurnCost` is NOT called.
+- Stub `streamText` to return `steps` with one step (known token counts, empty providerMetadata) → assert `onTurnCost` called once with the expected `CallCost`.
+- Multi-step gateway path: stub two steps each with `providerMetadata: { gateway: { cost: 0.20 } }` → assert emitted `totalUsd === 0.40`, `source === 'gateway-exact'` (per-step costs summed, not last-step-only).
+- Multi-step OpenRouter path: stub two steps with `providerMetadata: { openrouter: { usage: { cost: 0.05 } } }` → assert summed.
+- Stub stream-error path where `result.steps` rejects → assert `onTurnCost` is NOT called.
+- Stub stream-error path where `result.steps` resolves to `[]` → assert `onTurnCost` called once with `emptyCallCost('estimated')`.
 
 ## Open questions (resolved)
 
