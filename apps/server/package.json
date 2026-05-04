@@ -13,12 +13,13 @@
   },
   "dependencies": {
     "@autooffice/shared": "*",
+    "@hono/node-server": "^1.13.0",
     "hono": "^4.6.0",
-    "zod": "^4.3.6",
-    "@hono/node-server": "^1.13.0"
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/bun": "^1.1.0",
+    "@vitest/coverage-v8": "^3.2.4",
     "vite": "^8.0.9",
     "vitest": "^3.2.4"
   }

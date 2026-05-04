@@ -4,6 +4,15 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['src/**/*.test.ts'],
+    // bun:sqlite + bun:ffi modules misbehave under vitest's default worker pool
+    // when run via `bun --bun run vitest`. Forks single-fork keeps the bun runtime
+    // happy and is fast enough for this codebase.
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
     coverage: {
       provider: 'v8',
       reporter: ['text', 'lcov', 'html'],
