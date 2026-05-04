@@ -84,7 +84,9 @@ export function createModel(settings: AppSettings): LanguageModel {
         apiKey: provider.apiKey,
         ...(provider.baseUrl ? { baseURL: provider.baseUrl } : {}),
       });
-      return openrouter(settings.selectedModel);
+      // usage:{include:true} makes OpenRouter return per-call USD in
+      // providerMetadata.openrouter.usage.cost. See cost-tracking spec.
+      return openrouter(settings.selectedModel, { usage: { include: true } });
     }
     case 'ollama': {
       const ollama = createOllama({
