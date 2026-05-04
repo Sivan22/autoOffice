@@ -18,6 +18,7 @@ import { ProviderRegistry } from './providers';
 import { McpServersRepo, McpToolPoliciesRepo } from './db/mcp';
 import { McpHub, type CreateClientFn } from './mcp/hub';
 import { createDefaultClient } from './mcp/default-client';
+import { makeTestProvider } from './chat/test-provider';
 
 export type AppConfig = {
   version: string;
@@ -40,6 +41,13 @@ export function createApp(config: AppConfig) {
     createClient: config.mcpClientFactory ?? createDefaultClient,
   });
 
+  // E2E hook: when AUTOOFFICE_TEST_PROVIDER=fake is set, use a deterministic
+  // in-server LanguageModel so Playwright can drive the chat flow without a
+  // real upstream provider.
+  const modelOverride =
+    config.modelOverride ??
+    (process.env.AUTOOFFICE_TEST_PROVIDER === 'fake' ? makeTestProvider() : undefined);
+
   app.route('/', healthRouter(config.version));
   app.route(
     '/bootstrap',
@@ -57,7 +65,7 @@ export function createApp(config: AppConfig) {
       messages,
       registry,
       hub,
-      modelOverride: config.modelOverride,
+      modelOverride,
     }),
   );
   app.route('/api/import-legacy', importLegacyRouter({ settings, conversations, messages }));
