@@ -1,0 +1,30 @@
+name: installer
+
+on:
+  push:
+    branches: [feat/local-fullstack]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - run: npm ci
+      - run: npm --workspace @autooffice/web run build
+      - run: npm --workspace @autooffice/server run build
+      - name: Install Inno Setup
+        run: choco install -y innosetup
+      - name: Build installer
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\setup.iss'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AutoOffice-Setup
+          path: installer/output/AutoOffice-Setup.exe
