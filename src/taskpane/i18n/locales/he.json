@@ -65,6 +65,19 @@
     "generatingCode": "יוצר קוד...",
     "toolActivity": "חיפש: {{toolName}}"
   },
+  "cost": {
+    "title": "עלות הריצה",
+    "input": "קלט",
+    "cachedRead": "קריאה מ-cache",
+    "cacheWrite": "כתיבה ל-cache",
+    "output": "פלט",
+    "total": "סה\"כ",
+    "sourceGatewayExact": "סכום מדויק דרך Vercel AI Gateway",
+    "sourceOpenRouterExact": "סכום מדויק דרך OpenRouter",
+    "sourceEstimated": "הערכה · מחירון v{{version}}",
+    "sourceTokensOnly": "אין מחירון זמין לדגם זה",
+    "unknown": "—"
+  },
   "fatal": {
     "cannotStart": "לא ניתן להפעיל את AutoOffice"
   },

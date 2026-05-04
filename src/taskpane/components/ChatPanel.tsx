@@ -21,6 +21,8 @@ import type { HostKind } from '../host/context.ts';
 import { useTranslation } from '../i18n/index.ts';
 import { MessageBubble } from './MessageBubble.tsx';
 import { CodeBlock } from './CodeBlock.tsx';
+import { CostBadge } from './CostBadge.tsx';
+import type { CallCost } from '../agent/pricing.ts';
 
 const useStyles = makeStyles({
   container: {
@@ -102,6 +104,8 @@ interface ChatPanelProps {
   pendingApproval: string | null;
   /** Host of the currently-loaded conversation; null = no active conversation. */
   activeChatHost: HostKind | null;
+  /** Running total cost for the active conversation. */
+  cost: CallCost | undefined;
   onSend: (text: string) => void;
   onApprove: (approved: boolean) => void;
   onOpenSettings: () => void;
@@ -110,7 +114,7 @@ interface ChatPanelProps {
 }
 
 export function ChatPanel({
-  host, messages, isLoading, pendingApproval, activeChatHost,
+  host, messages, isLoading, pendingApproval, activeChatHost, cost,
   onSend, onApprove, onOpenSettings, onOpenHistory, onNewChat,
 }: ChatPanelProps) {
   const styles = useStyles();
@@ -170,6 +174,7 @@ export function ChatPanel({
           >
             {host.displayName}
           </Badge>
+          <CostBadge cost={cost} />
         </div>
         <div style={{ display: 'flex', gap: '4px' }}>
           <Tooltip content={t('chat.historyTooltip')} relationship="label">

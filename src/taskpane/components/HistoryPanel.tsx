@@ -20,6 +20,7 @@ import {
 import type { ConversationSummary } from '../store/history.ts';
 import type { HostKind } from '../host/context.ts';
 import { useTranslation, useFormatters } from '../i18n/index.ts';
+import { formatUsd } from '../lib/cost.ts';
 
 const useStyles = makeStyles({
   container: {
@@ -233,6 +234,12 @@ export function HistoryPanel({
                     one: t('history.messageCount_one'),
                     other: t('history.messageCount_other'),
                   })}</span>
+                  {c.totalUsd != null && c.totalUsd > 0 && c.costSource !== 'tokens-only' && (
+                    <>
+                      <span>·</span>
+                      <span>{formatUsd(c.totalUsd)}</span>
+                    </>
+                  )}
                 </div>
               </div>
               <div className={styles.rowActions} data-row-action="">

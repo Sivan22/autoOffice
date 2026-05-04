@@ -10,6 +10,7 @@ import type { Sandbox } from '../executor/sandbox.ts';
 import { getMcpTools } from '../mcp/client.ts';
 import { formatError, type FormattedError } from './errors.ts';
 import { extractPartialStringField } from './partial-json.ts';
+import { computeCallCost, sumCallCosts, emptyCallCost, type CallCost } from './pricing.ts';
 
 export type CodeBlockStatus = 'streaming' | 'pending' | 'rejected' | 'running' | 'success' | 'error';
 
@@ -41,6 +42,12 @@ export interface OrchestratorCallbacks {
     patch: { code?: string; status?: CodeBlockStatus; result?: string },
   ) => void;
   requestApproval: (code: string) => Promise<boolean>;
+  /**
+   * Emitted once per runAgent call after the stream settles, with the
+   * summed cost across all steps. Optional so that existing callsites
+   * (e.g. App.tsx) compile without changes until Task 10 wires it up.
+   */
+  onTurnCost?: (cost: CallCost) => void;
 }
 
 export async function runAgent(
@@ -223,6 +230,24 @@ export async function runAgent(
     });
     callbacks.onMessage({ role: 'assistant', content: '', error: formatted });
     return messages;
+  }
+
+  // Compute the per-turn cost from per-step usage and metadata, then emit.
+  // We sum per-step (rather than reading result.totalUsage + providerMetadata)
+  // because result.providerMetadata only exposes the LAST step's metadata,
+  // which would silently drop gateway/openrouter exact cost from earlier
+  // steps in a multi-step agent loop.
+  try {
+    const steps = await result.steps;
+    const stepCosts = steps.map(step => computeCallCost({
+      providerId: settings.selectedProviderId,
+      modelId: settings.selectedModel,
+      usage: step.usage,
+      providerMetadata: step.providerMetadata,
+    }));
+    callbacks.onTurnCost?.(stepCosts.length > 0 ? sumCallCosts(stepCosts) : emptyCallCost('estimated'));
+  } catch {
+    // steps rejected — skip the cost emit so the UI keeps the last known total.
   }
 
   const response = await result.response;

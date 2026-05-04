@@ -1,6 +1,7 @@
 import type { ModelMessage } from 'ai';
 import type { ChatMessage } from '../agent/orchestrator.ts';
 import type { HostKind } from '../host/context.ts';
+import type { CallCost, CostSource } from '../agent/pricing.ts';
 
 export const INDEX_KEY = 'autooffice_history_index';
 const BLOB_KEY_PREFIX = 'autooffice_history_conv_';
@@ -37,12 +38,18 @@ export interface ConversationSummary {
   createdAt: number;
   updatedAt: number;
   messageCount: number;
+  /** Running total in USD. Undefined for pre-cost-tracking conversations. */
+  totalUsd?: number;
+  /** Source of `totalUsd`. Used by HistoryPanel to suppress $ when tokens-only. */
+  costSource?: CostSource;
 }
 
 export interface Conversation extends ConversationSummary {
   v: ConversationVersion;
   uiMessages: ChatMessage[];
   modelMessages: ModelMessage[];
+  /** Aggregated per-call cost across every turn. Undefined for pre-cost-tracking conversations. */
+  cost?: CallCost;
 }
 
 function readIndex(): ConversationSummary[] {
@@ -78,6 +85,8 @@ function summarize(c: Conversation): ConversationSummary {
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
     messageCount: c.messageCount,
+    totalUsd: c.totalUsd,
+    costSource: c.costSource,
   };
 }
 

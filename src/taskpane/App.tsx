@@ -22,6 +22,7 @@ import {
   type ConversationSummary,
 } from './store/history.ts';
 import { translationService } from './i18n/index.ts';
+import { sumCallCosts, emptyCallCost, isCallCostEmpty, type CallCost } from './agent/pricing.ts';
 
 const useStyles = makeStyles({
   root: {
@@ -56,6 +57,7 @@ export function App({ host }: AppProps) {
   const [pendingApproval, setPendingApproval] = useState<string | null>(null);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [activeChatHost, setActiveChatHost] = useState<HostKind | null>(null);
+  const [activeCost, setActiveCost] = useState<CallCost | undefined>(undefined);
   const [historySummaries, setHistorySummaries] = useState<ConversationSummary[]>(() => listConversations());
 
   const conversationHistory = useRef<ModelMessage[]>([]);
@@ -73,6 +75,7 @@ export function App({ host }: AppProps) {
     conversationHistory.current = conv.modelMessages;
     setActiveConversationId(conv.id);
     setActiveChatHost(conv.host);
+    setActiveCost(conv.cost);
   }, [host.kind]);
 
   useEffect(() => {
@@ -133,6 +136,7 @@ export function App({ host }: AppProps) {
     conversationHistory.current = [];
     setActiveConversationId(null);
     setActiveChatHost(null);
+    setActiveCost(undefined);
   }, [isLoading, cancelPendingSave]);
 
   const handleLoadConversation = useCallback((id: string) => {
@@ -144,6 +148,7 @@ export function App({ host }: AppProps) {
     conversationHistory.current = conv.modelMessages;
     setActiveConversationId(conv.id);
     setActiveChatHost(conv.host);
+    setActiveCost(conv.cost);
     setShowHistory(false);
   }, [isLoading, cancelPendingSave]);
 
@@ -160,6 +165,7 @@ export function App({ host }: AppProps) {
       conversationHistory.current = [];
       setActiveConversationId(null);
       setActiveChatHost(null);
+      setActiveCost(undefined);
     }
     refreshSummaries();
   }, [activeConversationId, cancelPendingSave, refreshSummaries]);
@@ -184,8 +190,11 @@ export function App({ host }: AppProps) {
     setMessages(prev => [...prev, { role: 'user', content: text }]);
     setIsLoading(true);
 
+    let turnCost: CallCost | null = null;
+
     const callbacks: OrchestratorCallbacks = {
       onMessage: (msg) => setMessages(prev => [...prev, msg]),
+      onTurnCost: (cost) => { turnCost = cost; },
       onStreamToken: (token) => {
         setMessages(prev => {
           const copy = [...prev];
@@ -256,6 +265,13 @@ export function App({ host }: AppProps) {
     setMessages(currentMessages => {
       const now = Date.now();
       const existing = isFirstTurn ? null : getConversation(convId!);
+      // Use the in-memory activeCost as the running total rather than reading
+      // from disk: the previous turn's save may still be inside its debounce
+      // window. Skip the merge when the new turn-cost is empty (no tokens, no
+      // $) so the source label isn't demoted by a no-op turn.
+      const accumulatedCost = turnCost && !isCallCostEmpty(turnCost)
+        ? sumCallCosts([activeCost ?? emptyCallCost('estimated'), turnCost])
+        : activeCost;
       const conv: Conversation = {
         id: convId!,
         v: CURRENT_VERSION,
@@ -266,7 +282,11 @@ export function App({ host }: AppProps) {
         messageCount: currentMessages.length,
         uiMessages: currentMessages,
         modelMessages: conversationHistory.current,
+        cost: accumulatedCost,
+        totalUsd: accumulatedCost?.totalUsd,
+        costSource: accumulatedCost?.source,
       };
+      setActiveCost(accumulatedCost);
       if (isFirstTurn) persistImmediate(conv);
       else persistDebounced(conv);
       return currentMessages;
@@ -322,6 +342,7 @@ export function App({ host }: AppProps) {
         isLoading={isLoading}
         pendingApproval={pendingApproval}
         activeChatHost={activeChatHost}
+        cost={activeCost}
         onSend={handleSend}
         onApprove={handleApprove}
         onOpenSettings={() => setShowSettings(true)}

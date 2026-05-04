@@ -65,6 +65,19 @@
     "generatingCode": "Generating code…",
     "toolActivity": "looked up: {{toolName}}"
   },
+  "cost": {
+    "title": "Run cost",
+    "input": "Input",
+    "cachedRead": "Cached read",
+    "cacheWrite": "Cache write",
+    "output": "Output",
+    "total": "Total",
+    "sourceGatewayExact": "Exact via Vercel AI Gateway",
+    "sourceOpenRouterExact": "Exact via OpenRouter",
+    "sourceEstimated": "Estimated · pricing v{{version}}",
+    "sourceTokensOnly": "Pricing not available for this model",
+    "unknown": "—"
+  },
   "fatal": {
     "cannotStart": "AutoOffice cannot start"
   },
