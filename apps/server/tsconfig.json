@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["bun"],
+    "jsx": "react-jsx",
+    "outDir": "dist",
+    "paths": {
+      "@shared/*": ["../../packages/shared/src/*"]
+    }
+  },
+  "include": ["src", "build.ts", "vitest.config.ts"]
+}
