@@ -13,9 +13,10 @@ export class UnsupportedHostError extends Error {
 }
 
 export function detectHost(): HostContext {
-  if (typeof Office === 'undefined' || !Office.context) {
-    // Dev mode (vite preview, no Office). Default to Word so the existing
-    // Word-only dev experience keeps working when you visit the URL directly.
+  if (typeof Office === 'undefined' || !Office.context || !Office.context.host) {
+    // Dev mode (vite preview, no Office, or Office.js loaded but not inside
+    // an Office host). Default to Word so the existing Word-only dev
+    // experience keeps working when you visit the URL directly.
     return { kind: 'word', displayName: 'Word' };
   }
   switch (Office.context.host) {

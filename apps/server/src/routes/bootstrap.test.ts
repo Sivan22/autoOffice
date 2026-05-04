@@ -34,4 +34,12 @@ describe('GET /bootstrap', () => {
     });
     expect(r.status).toBe(200);
   });
+
+  it('accepts requests with no Origin header (same-origin GET)', async () => {
+    const app = mk('tok');
+    const r = await app.request('/bootstrap');
+    expect(r.status).toBe(200);
+    const body = await r.json();
+    expect(body.token).toBe('tok');
+  });
 });

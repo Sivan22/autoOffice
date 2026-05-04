@@ -21,13 +21,31 @@ export async function makeViteMiddleware(): Promise<MiddlewareHandler> {
       const chunks: Buffer[] = [];
       const fakeRes = {
         statusCode: 200,
-        headers: {} as Record<string, string>,
-        setHeader(k: string, v: string) { this.headers[k.toLowerCase()] = v; },
+        headers: {} as Record<string, string | string[]>,
+        setHeader(k: string, v: string | string[]) { this.headers[k.toLowerCase()] = v; },
         getHeader(k: string) { return this.headers[k.toLowerCase()]; },
+        appendHeader(k: string, v: string | string[]) {
+          const key = k.toLowerCase();
+          const cur = this.headers[key];
+          if (cur === undefined) this.headers[key] = v;
+          else if (Array.isArray(cur)) (cur as string[]).push(...(Array.isArray(v) ? v : [v]));
+          else this.headers[key] = [cur as string, ...(Array.isArray(v) ? v : [v])];
+        },
+        removeHeader(k: string) { delete this.headers[k.toLowerCase()]; },
+        writeHead(status: number, headers?: Record<string, string | string[]>) {
+          this.statusCode = status;
+          if (headers) for (const [k, v] of Object.entries(headers)) this.setHeader(k, v);
+          return this;
+        },
         write(chunk: Buffer | string) { chunks.push(Buffer.from(chunk)); return true; },
         end(chunk?: Buffer | string) {
           if (chunk) chunks.push(Buffer.from(chunk));
-          resolve(new Response(Buffer.concat(chunks), { status: this.statusCode, headers: this.headers }));
+          const respHeaders = new Headers();
+          for (const [k, v] of Object.entries(this.headers)) {
+            if (Array.isArray(v)) for (const item of v) respHeaders.append(k, String(item));
+            else respHeaders.set(k, String(v));
+          }
+          resolve(new Response(Buffer.concat(chunks), { status: this.statusCode, headers: respHeaders }));
         },
       } as any;
       vite.middlewares(fakeReq, fakeRes, (err: unknown) => {

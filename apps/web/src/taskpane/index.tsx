@@ -60,7 +60,17 @@ function start() {
 }
 
 if (typeof Office !== 'undefined') {
-  Office.onReady(() => start());
+  // Office.onReady never fires when the SPA is loaded outside an Office host
+  // (regular browser, Playwright). Race it against a timeout so the dev /
+  // E2E flow still bootstraps quickly into the Word fallback.
+  let started = false;
+  const safeStart = () => {
+    if (started) return;
+    started = true;
+    start();
+  };
+  Office.onReady(() => safeStart());
+  setTimeout(safeStart, 1500);
 } else {
   start();
 }
