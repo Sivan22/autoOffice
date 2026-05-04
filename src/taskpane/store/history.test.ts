@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest';
 import {
   HISTORY_LIMITS,
   INDEX_KEY,
+  CURRENT_VERSION,
   blobKeyFor,
   saveConversation,
   getConversation,
@@ -13,6 +14,7 @@ import {
   type ConversationSummary,
   type Conversation,
 } from './history.ts';
+import { emptyCallCost } from '../agent/pricing.ts';
 
 describe('history.ts — constants and key helpers', () => {
   beforeEach(() => localStorage.clear());
@@ -348,5 +350,51 @@ describe('history.ts — schema versioning', () => {
     saveConversation(makeConv({ id: 'bad', title: 'new' }));
     // Type guard means non-numeric v is treated as "no future version" — overwrite proceeds.
     expect(getConversation('bad')?.title).toBe('new');
+  });
+});
+
+describe('history — cost persistence', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('round-trips cost on a conversation', () => {
+    const conv: Conversation = {
+      id: 'c1', v: CURRENT_VERSION, title: 't', host: 'word',
+      createdAt: 1, updatedAt: 1, messageCount: 0,
+      uiMessages: [], modelMessages: [],
+      cost: { ...emptyCallCost('estimated'), totalUsd: 0.42, source: 'estimated' },
+      totalUsd: 0.42, costSource: 'estimated',
+    };
+    saveConversation(conv);
+    expect(getConversation('c1')?.cost?.totalUsd).toBe(0.42);
+    expect(getConversation('c1')?.cost?.source).toBe('estimated');
+  });
+
+  it('writes totalUsd and costSource to ConversationSummary index', () => {
+    const conv: Conversation = {
+      id: 'c2', v: CURRENT_VERSION, title: 't', host: 'word',
+      createdAt: 1, updatedAt: 1, messageCount: 0,
+      uiMessages: [], modelMessages: [],
+      cost: { ...emptyCallCost('gateway-exact'), totalUsd: 1.23, source: 'gateway-exact' },
+      totalUsd: 1.23, costSource: 'gateway-exact',
+    };
+    saveConversation(conv);
+    const summary = listConversations().find(s => s.id === 'c2');
+    expect(summary?.totalUsd).toBe(1.23);
+    expect(summary?.costSource).toBe('gateway-exact');
+  });
+
+  it('loads a legacy v1 blob without cost fields', () => {
+    // Hand-write a legacy blob (no cost / totalUsd / costSource).
+    const legacy = {
+      id: 'legacy', v: 1, title: 't', host: 'word',
+      createdAt: 1, updatedAt: 1, messageCount: 0,
+      uiMessages: [], modelMessages: [],
+    };
+    localStorage.setItem(blobKeyFor('legacy'), JSON.stringify(legacy));
+    const loaded = getConversation('legacy');
+    expect(loaded).not.toBeNull();
+    expect(loaded?.cost).toBeUndefined();
+    expect(loaded?.totalUsd).toBeUndefined();
+    expect(loaded?.costSource).toBeUndefined();
   });
 });
