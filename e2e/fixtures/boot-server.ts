@@ -12,9 +12,9 @@ const __dirname = dirname(__filename);
 const REPO_ROOT = resolve(__dirname, '..', '..');
 
 export const test = base.extend<Fixtures>({
-  // `auto: true` so the fixture runs even when individual tests destructure
-  // only `{ page }` — the chat/reload specs don't reference `server` directly
-  // but still need the bun server running before navigation.
+  // Worker-scoped + auto so the bun server boots once per worker, persists
+  // across the worker's tests, and the chat/reload specs (which only
+  // destructure `{ page }`) still get the server running before navigation.
   server: [
     async ({}, use) => {
       const dataDir = mkdtempSync(join(tmpdir(), 'autoo-e2e-'));
@@ -27,7 +27,7 @@ export const test = base.extend<Fixtures>({
         NODE_ENV: 'development',
       };
       const bunBin = process.env.AUTOOFFICE_BUN_BIN ?? 'bun';
-      const proc = spawn(bunBin, ['--watch', 'apps/server/src/index.ts'], {
+      const proc = spawn(bunBin, ['apps/server/src/index.ts'], {
         cwd: REPO_ROOT,
         env,
         stdio: 'inherit',
@@ -39,9 +39,11 @@ export const test = base.extend<Fixtures>({
       await use({ proc, token, dataDir });
 
       proc.kill('SIGINT');
+      // Give bun a beat to release the port before the next worker boots.
+      await new Promise((r) => setTimeout(r, 500));
       rmSync(dataDir, { recursive: true, force: true });
     },
-    { auto: true },
+    { auto: true, scope: 'worker' },
   ],
 });
 
