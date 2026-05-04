@@ -6,14 +6,5 @@ const out = './dist/autoOffice-server.exe';
 await $`mkdir -p dist`;
 
 console.log('Building autoOffice-server.exe …');
-await Bun.build({
-  entrypoints: ['./src/index.ts'],
-  outdir: './dist',
-  target: 'bun',
-  minify: true,
-  // `--compile` is bun's CLI flag; surface via Bun.build is `compile: { target: 'bun-windows-x64', outfile }`.
-  // Older bun versions support only the CLI form. We exec it directly:
-});
-
-await $`bun build ./src/index.ts --compile --target=bun-windows-x64 --outfile=${out} --minify`;
+await $`bun build ./src/index.ts --compile --target=bun-windows-x64 --outfile=${out} --minify --external @google/gemini-cli-core`;
 console.log(`OK → ${out}`);
