@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AutoOffice — Self-host</title>
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="icon" href="../assets/icon-32.png" type="image/png" />
+</head>
+<body>
+  <header>
+    <a href="../"><img src="../assets/icon-256.png" alt="AutoOffice" /></a>
+    <h1>Build your own installer</h1>
+  </header>
+  <main>
+    <nav class="crumbs"><a href="../">Home</a> · Self-host</nav>
+    <p>Don't trust a binary built by someone else? Build the installer yourself and ship it to your team.</p>
+    <h2>Prerequisites</h2>
+    <ul>
+      <li>Node.js 22+</li>
+      <li><a href="https://bun.sh/">bun</a> (any recent version)</li>
+      <li>Inno Setup 6 (free, <a href="https://jrsoftware.org/isinfo.php">jrsoftware.org/isinfo.php</a>)</li>
+    </ul>
+    <h2>Build steps</h2>
+    <pre>git clone https://github.com/Sivan22/autoOffice
+cd autoOffice
+git checkout master
+npm install
+npm run build
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\setup.iss</pre>
+    <p>Output: <code>installer/output/AutoOffice-Setup.exe</code>.</p>
+    <h2>Re-brand it (optional)</h2>
+    <ol>
+      <li>Edit <code>installer/setup.iss</code> — change <code>MyAppName</code>, <code>MyAppPublisher</code>, the <code>{B2C3D4E5-…}</code> AppId GUIDs.</li>
+      <li>Edit <code>manifest.production.xml</code> — change the top-level <code>&lt;Id&gt;</code> GUID, <code>DisplayName</code>, and <code>ProviderName</code>.</li>
+      <li>Replace <code>apps/web/public/assets/icon-*.png</code> with your own.</li>
+      <li>Rebuild.</li>
+    </ol>
+    <p>If you push to a fork and want CI to build the installer for you, the workflow at <code>.github/workflows/installer.yml</code> already does that on push to <code>feat/local-fullstack</code>; adapt the trigger to suit.</p>
+  </main>
+</body>
+</html>
