@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AutoOffice — Install guide</title>
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="icon" href="../assets/icon-32.png" type="image/png" />
+</head>
+<body>
+  <header>
+    <a href="../"><img src="../assets/icon-256.png" alt="AutoOffice" /></a>
+    <h1>Install guide</h1>
+  </header>
+  <main>
+    <nav class="crumbs"><a href="../">Home</a> · Install guide · <a href="troubleshooting.html">Troubleshooting</a></nav>
+    <h2>1. Download and run the installer</h2>
+    <p>Grab <a href="https://github.com/Sivan22/autoOffice/releases/latest"><code>AutoOffice-Setup.exe</code></a> from the latest release and run it. It needs admin so it can register the add-in for Word.</p>
+    <p>If Windows shows <b>"Windows protected your PC"</b>, click <b>More info → Run anyway</b>. The installer is unsigned right now.</p>
+    <h2>2. Approve the certificate prompt (one-time)</h2>
+    <div class="note">
+      During install, Windows asks you to trust a self-signed certificate for <code>localhost</code>. Click <b>Yes</b>. The cert is unique to your install, never leaves your machine, and is removed automatically when you uninstall.
+    </div>
+    <p>This step is what lets the AutoOffice task pane load from <code>https://localhost:47318</code> without scary cert warnings inside Word.</p>
+    <h2>3. Restart Word and add the add-in</h2>
+    <ol>
+      <li>Close and reopen Word.</li>
+      <li>Home → Add-ins → Advanced → Shared Folder.</li>
+      <li>Pick <b>AutoOffice</b> from the list, click <b>Add</b>.</li>
+    </ol>
+    <h2>4. Configure a provider</h2>
+    <p>Open the AutoOffice task pane, click the gear icon, and either:</p>
+    <ul>
+      <li>Add a direct API provider (Anthropic, OpenAI, etc.) and paste your key.</li>
+      <li>Or add a CLI-bridge provider (Claude Code, Gemini CLI, OpenCode) — no key needed; the local server will use the CLI's existing auth in your home directory.</li>
+    </ul>
+    <p>Done. Type a request and watch the agent generate code, run it, and self-heal.</p>
+    <p style="margin-top: 2rem;"><a href="troubleshooting.html">→ Troubleshooting</a></p>
+  </main>
+</body>
+</html>
