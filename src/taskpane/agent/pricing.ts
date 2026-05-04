@@ -111,9 +111,49 @@ export interface ComputeCostArgs {
   providerMetadata: ProviderMetadata | undefined;
 }
 
-// Implementations land in Tasks 3-5.
-export function computeCallCost(_args: ComputeCostArgs): CallCost {
+export function computeCallCost(args: ComputeCostArgs): CallCost {
+  const tokens = readTokens(args.usage);
+  const rates = PRICING[args.modelId];
+  if (rates) {
+    return estimate(rates, tokens, 'estimated');
+  }
+  // Tokens-only fallback comes in Task 5.
   throw new Error('not yet implemented');
+}
+
+function readTokens(usage: LanguageModelUsage | undefined): CallCost['tokens'] {
+  if (!usage) return { input: 0, cachedRead: 0, cacheWrite: 0, output: 0, reasoning: 0 };
+  const details = usage.inputTokenDetails;
+  const input = details?.noCacheTokens ?? usage.inputTokens ?? 0;
+  const cachedRead = details?.cacheReadTokens ?? 0;
+  const cacheWrite = details?.cacheWriteTokens ?? 0;
+  const output = usage.outputTokens ?? 0;
+  const reasoning = usage.outputTokenDetails?.reasoningTokens ?? 0;
+  return { input, cachedRead, cacheWrite, output, reasoning };
+}
+
+function estimate(rates: ModelRates, tokens: CallCost['tokens'], source: CostSource): CallCost {
+  const inputTotal = tokens.input + tokens.cachedRead + tokens.cacheWrite;
+  const useLong =
+    !!rates.longContext && inputTotal > rates.longContext.thresholdInputTokens;
+  const inputRate = useLong ? rates.longContext!.input : rates.input;
+  const outputRate = useLong ? rates.longContext!.output : rates.output;
+
+  const inputUsd = (tokens.input * inputRate) / 1_000_000;
+  const cachedReadUsd = (tokens.cachedRead * rates.cachedRead) / 1_000_000;
+  const cacheWriteUsd = (tokens.cacheWrite * rates.cacheWrite) / 1_000_000;
+  const outputUsd = (tokens.output * outputRate) / 1_000_000;
+  const totalUsd = inputUsd + cachedReadUsd + cacheWriteUsd + outputUsd;
+  return {
+    inputUsd,
+    cachedReadUsd,
+    cacheWriteUsd,
+    outputUsd,
+    reasoningUsd: 0,
+    totalUsd,
+    source,
+    tokens,
+  };
 }
 
 export function sumCallCosts(_costs: CallCost[]): CallCost {
