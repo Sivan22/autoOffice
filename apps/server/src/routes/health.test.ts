@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import { createApp } from '../app';
+import { openDb } from '../db';
 
 describe('GET /health', () => {
-  const app = createApp({ version: '0.0.0-test' });
+  const db = openDb({ url: ':memory:' });
+  const app = createApp({ version: '0.0.0-test', db, authToken: 't' });
 
   it('returns 200 with ok=true and the configured version', async () => {
     const res = await app.request('/health');
