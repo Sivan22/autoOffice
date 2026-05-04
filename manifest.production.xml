@@ -23,7 +23,7 @@
   </Hosts>
 
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://sivan22.github.io/autoOffice/" />
+    <SourceLocation DefaultValue="https://localhost:47318/" />
   </DefaultSettings>
 
   <Permissions>ReadWriteDocument</Permissions>
@@ -150,7 +150,7 @@
         <bt:Image id="Icon.80x80" DefaultValue="https://sivan22.github.io/autoOffice/assets/icon-80.png" />
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="Taskpane.Url" DefaultValue="https://sivan22.github.io/autoOffice/" />
+        <bt:Url id="Taskpane.Url" DefaultValue="https://localhost:47318/" />
         <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://github.com/Sivan22/autoOffice" />
       </bt:Urls>
       <bt:ShortStrings>
