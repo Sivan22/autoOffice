@@ -1,3 +1,6 @@
+// Invoked by the installer once at install time:
+//   "{app}\autoOffice-server.exe" --first-run-init
+// Idempotent: if config.json already exists, exits 0 with no changes.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { generateCert } from '../tls/generate';
