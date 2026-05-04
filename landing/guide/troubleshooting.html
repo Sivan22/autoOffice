@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AutoOffice — Troubleshooting</title>
+  <link rel="stylesheet" href="../style.css" />
+  <link rel="icon" href="../assets/icon-32.png" type="image/png" />
+</head>
+<body>
+  <header>
+    <a href="../"><img src="../assets/icon-256.png" alt="AutoOffice" /></a>
+    <h1>Troubleshooting</h1>
+  </header>
+  <main>
+    <nav class="crumbs"><a href="../">Home</a> · <a href="install.html">Install</a> · Troubleshooting</nav>
+
+    <h2>The task pane is blank or shows "page can't be loaded"</h2>
+    <p>The local AutoOffice service may not be running. Check Task Scheduler for <code>AutoOffice\Service</code>; if its status isn't <b>Running</b>, right-click → <b>Run</b>. As a quick fix you can also log out and back in — the service auto-starts at logon.</p>
+    <p>Confirm the server replies:</p>
+    <pre>curl https://localhost:47318/health</pre>
+    <p>If <code>curl</code> can reach it but Word can't, the cert may not be trusted in your user store; re-run the installer.</p>
+
+    <h2>Cert prompt didn't appear, or I clicked "No"</h2>
+    <p>Re-run <code>AutoOffice-Setup.exe</code> and accept the prompt this time. The installer is idempotent.</p>
+
+    <h2>Port 47318 is already in use</h2>
+    <p>Some other tool is listening on the same port. Stop the other tool, or set a different port: edit <code>%LOCALAPPDATA%\AutoOffice\config\config.json</code> and change <code>port</code>, then restart Task Scheduler's <code>AutoOffice\Service</code>. You'll also need to update <code>SourceLocation</code> in <code>{install dir}\manifest.xml</code> to match — and re-add the add-in via Insert → Add-ins → Upload My Add-in.</p>
+
+    <h2>CLI provider says "claude not found"</h2>
+    <p>The local service runs as your user, so it inherits your <code>%PATH%</code>. Confirm <code>claude --version</code> works from a fresh PowerShell. If it doesn't, the CLI isn't installed for your user — install it and try again.</p>
+
+    <h2>How do I rotate the bearer token?</h2>
+    <p>Right-click the AutoOffice tray icon → <b>Rotate token</b>. The service restarts and the next page load picks up the new token.</p>
+
+    <h2>How do I uninstall everything cleanly?</h2>
+    <p>Settings → Apps → AutoOffice → Uninstall. The uninstaller removes the scheduled task, removes the cert from your trust store, and (with confirmation) wipes <code>%LOCALAPPDATA%\AutoOffice</code>.</p>
+  </main>
+</body>
+</html>
