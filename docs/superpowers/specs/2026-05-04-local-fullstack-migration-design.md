@@ -261,14 +261,14 @@ The renderer in `MessageBubble.tsx` handles:
 
 ### Conversation reload — no strict schema validation
 
-We deliberately **do not** call `validateUIMessages` on load. The current tool registry is unstable by design — every time a user toggles a policy, removes an MCP server, or adds one, strict validation against "current tools" would reject otherwise-fine historical messages. Conversations must remain readable across all those edits.
+We deliberately **do not** call `validateUIMessages` on load. Strict validation against the *current* tool registry would reject messages whenever the user toggles a policy or removes an MCP server, even though the persisted message itself is perfectly fine. Conversations must remain readable across all those edits.
 
-Instead:
+This works because the persisted `UIMessage` parts are self-contained — each part has the data it needs to render (tool name, input JSON, output JSON, state). The renderer never consults the live tool registry:
 
 1. **Load:** `GET /api/conversations/:id` returns the raw `UIMessage[]` JSON straight from SQLite. The frontend passes it into `useChat({ messages })` untouched.
-2. **Defensive rendering.** The parts switch in `MessageBubble.tsx` has a default branch that handles any unknown `part.type` — including `tool-<name>` for tools that are no longer registered, and any future part types from a newer AI SDK version we haven't rendered for yet. The fallback renders the part as a `dynamic-tool`-style block: tool name + input JSON + output JSON, no interactive controls.
+2. **Renderer.** MCP tool calls are emitted by the AI SDK as `dynamic-tool` parts (the client doesn't know MCP tool names statically anyway), so they render the same way whether the MCP server is still configured or has been removed — full fidelity, same UI as when the message was first produced. Built-in tools (`execute_code`, `lookup_skill`) live in the codebase permanently, so their typed renderers always exist.
 3. **Continuation safety.** When the server reconstructs history for the next `streamText` call, it sweeps for orphan tool calls — a tool-call part with no matching tool-result part (e.g. the server crashed mid-tool, the user removed the MCP server while a call was pending, or the previous turn was aborted). Each orphan gets a synthetic `{ output: { error: 'Tool result was not recorded' } }` injected before `convertToModelMessages(history)` runs, so the SDK never chokes on a dangling call.
-4. **Forward-compat.** If a future AI SDK breaking change makes our persisted JSON unreadable by the current renderer, we ship a one-time migration script in that release rather than gating every conversation load on schema parity.
+4. **Forward-compat guard.** The parts switch has a default branch that returns `null` for any future AI SDK part type we haven't implemented yet, so a newer SDK can never crash the renderer. Not a fallback for "missing tools" — that case doesn't exist — just a future-proofing safety net.
 
 ### Legacy data import
 
@@ -463,7 +463,7 @@ Existing GH Action that built the SPA to Pages is replaced with one that builds 
 - **CLI bridge stability.** The CLI-bridge AI SDK packages are young; pin versions; surface "this provider failed, fall back to direct API" guidance in the UI.
 - **Lock screen / fast user switching.** Scheduled task at logon should handle both; verify on a Windows multi-user machine before release.
 - **Office close mid-stream.** Mitigated by `result.consumeStream()` keeping the agent loop running on the server. Open question: if the user reopens the task pane while a turn is mid-flight, do they see the stream continue? AI SDK supports this only with resumable streams (out of scope for v1); v1 reload shows the final saved state once the turn finishes.
-- **Tool list staleness.** A long-running conversation may include tool calls for tools/servers the user later removes. We skip `validateUIMessages` on load; the message bubble's default-branch renderer handles unknown tool part types, and the server's orphan-tool-call sweep prevents `convertToModelMessages` from choking when continuing such a conversation. See "Conversation reload — no strict schema validation".
+- **Tool list staleness.** Not actually a rendering problem — MCP tool parts are `dynamic-tool` and self-contained, so they render the same whether or not the server is still configured. The only real concern is *continuing* a conversation with dangling tool calls, which the server's orphan-call sweep handles. See "Conversation reload — no strict schema validation".
 
 ## Migration strategy
 
