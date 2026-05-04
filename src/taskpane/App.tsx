@@ -57,6 +57,7 @@ export function App({ host }: AppProps) {
   const [pendingApproval, setPendingApproval] = useState<string | null>(null);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [activeChatHost, setActiveChatHost] = useState<HostKind | null>(null);
+  const [activeCost, setActiveCost] = useState<CallCost | undefined>(undefined);
   const [historySummaries, setHistorySummaries] = useState<ConversationSummary[]>(() => listConversations());
 
   const conversationHistory = useRef<ModelMessage[]>([]);
@@ -74,6 +75,7 @@ export function App({ host }: AppProps) {
     conversationHistory.current = conv.modelMessages;
     setActiveConversationId(conv.id);
     setActiveChatHost(conv.host);
+    setActiveCost(conv.cost);
   }, [host.kind]);
 
   useEffect(() => {
@@ -134,6 +136,7 @@ export function App({ host }: AppProps) {
     conversationHistory.current = [];
     setActiveConversationId(null);
     setActiveChatHost(null);
+    setActiveCost(undefined);
   }, [isLoading, cancelPendingSave]);
 
   const handleLoadConversation = useCallback((id: string) => {
@@ -145,6 +148,7 @@ export function App({ host }: AppProps) {
     conversationHistory.current = conv.modelMessages;
     setActiveConversationId(conv.id);
     setActiveChatHost(conv.host);
+    setActiveCost(conv.cost);
     setShowHistory(false);
   }, [isLoading, cancelPendingSave]);
 
@@ -161,6 +165,7 @@ export function App({ host }: AppProps) {
       conversationHistory.current = [];
       setActiveConversationId(null);
       setActiveChatHost(null);
+      setActiveCost(undefined);
     }
     refreshSummaries();
   }, [activeConversationId, cancelPendingSave, refreshSummaries]);
@@ -277,6 +282,7 @@ export function App({ host }: AppProps) {
         totalUsd: accumulatedCost?.totalUsd,
         costSource: accumulatedCost?.source,
       };
+      setActiveCost(accumulatedCost);
       if (isFirstTurn) persistImmediate(conv);
       else persistDebounced(conv);
       return currentMessages;
@@ -332,6 +338,7 @@ export function App({ host }: AppProps) {
         isLoading={isLoading}
         pendingApproval={pendingApproval}
         activeChatHost={activeChatHost}
+        cost={activeCost}
         onSend={handleSend}
         onApprove={handleApprove}
         onOpenSettings={() => setShowSettings(true)}
