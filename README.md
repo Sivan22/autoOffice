@@ -271,6 +271,14 @@ That's it — the locale appears in the Settings → Language dropdown automatic
 - **Code highlighting:** Shiki
 - **Schemas:** Zod
 
+## Monorepo layout
+
+- `apps/web` — React task pane (Vite + Fluent UI). Same code as before, just relocated.
+- `apps/server` — Hono server on bun runtime. In dev, serves the task pane via Vite middleware; in production it serves the built SPA from `apps/web/dist/`.
+- `packages/shared` — zod schemas + types shared between web and server.
+
+`npm run dev` starts the server (which delegates non-`/api` routes to Vite for HMR). `npm run sideload` then loads the manifest into Word as before.
+
 ## Architecture
 
 ```
