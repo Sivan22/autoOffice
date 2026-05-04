@@ -15,6 +15,9 @@ import { bootstrap, apiGet, apiSend } from './api.ts';
 import { makeChatTransport } from './chat/transport.ts';
 import { makeOnToolCall } from './chat/on-tool-call.ts';
 import type { Settings, Conversation, Message } from '@autooffice/shared';
+import { detectLegacy } from './legacy/detect.ts';
+import { pack } from './legacy/pack.ts';
+import { LegacyImportModal } from './components/LegacyImportModal.tsx';
 
 const useStyles = makeStyles({
   root: {
@@ -54,6 +57,12 @@ export function App({ host }: AppProps) {
   const [initialMessages, setInitialMessages] = useState<Message[]>([]);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [pendingLegacy, setPendingLegacy] = useState<ReturnType<typeof pack> | null>(null);
+
+  useEffect(() => {
+    const blob = detectLegacy();
+    setPendingLegacy(pack(blob));
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -114,6 +123,10 @@ export function App({ host }: AppProps) {
         <div className={styles.loading}>Loading…</div>
       </div>
     );
+  }
+
+  if (pendingLegacy) {
+    return <LegacyImportModal payload={pendingLegacy} onDone={() => setPendingLegacy(null)} />;
   }
 
   return (
