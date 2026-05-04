@@ -77,7 +77,8 @@
 - **Per-user auto-start at logon** via Scheduled Task `\AutoOffice\Service` (Run only when user is logged on). Falls back to `HKCU\…\Run` if Task Scheduler is unavailable.
 - **Single instance** enforced by a named mutex. Second launch foregrounds the first via the tray menu.
 - **System tray** in the same bun process, showing status and offering "Open guide", "Restart service", "Open log file", "Quit".
-- **No admin required for installer** — drop the Trusted Catalog approach; sideload via `HKCU\Software\Microsoft\Office\16.0\WEF\Developer\<guid>` registry-based per-user manifest registration.
+- **Installer requires admin** — same as today. Office add-in registration for end users still needs Trusted Catalog (a network-shared folder containing the manifest XML), and creating a Windows file share requires admin. The Developer registry path (`WEF\Developer\<guid>`) only works in Office's developer mode and is not suitable for end-user install. Trusted Catalog stays.
+- **Service runs as the user, not as admin.** The Scheduled Task that auto-starts the bun binary runs in the user's session at logon — admin is only needed at install time, not at run time. This is what lets CLI providers (`claude`, `gemini`) read auth from `~/.claude/`, `~/.gemini/` etc.
 
 ### Endpoint security
 
@@ -403,19 +404,24 @@ Self-healing on iframe error retains current shape: the `output-error` text incl
 
 ## Installer (Inno Setup)
 
-Significant rewrite of `installer/setup.iss`:
+`installer/setup.iss` is extended, not rewritten. The existing Trusted Catalog logic — including the "host catalog already present, drop our manifest into it" branch that prevents Office's TrustedCatalogs parser from breaking with multiple GUID subkeys — stays as-is. We add the new pieces (bun binary, cert, token, scheduled task) on top.
 
-- `PrivilegesRequired=lowest`. No admin.
-- Drop Trusted Catalog entirely. Drop network share. Drop `LocalSystem`.
-- Files: `autoOffice-server.exe`, `manifest.xml`, tray icon resources, uninstaller.
-- Install steps:
-  1. Copy files to `%LOCALAPPDATA%\AutoOffice\bin\`.
-  2. Generate per-install cert and bearer token via the binary itself: `autoOffice-server.exe --first-run-init`. Store under `%LOCALAPPDATA%\AutoOffice\config\`.
-  3. Add cert to `CurrentUser\Root` (Windows shows a one-time confirmation prompt — documented in the guide).
-  4. Register sideload via `HKCU\Software\Microsoft\Office\16.0\WEF\Developer\<addin-guid>` pointing at the installed `manifest.xml`.
-  5. Create Scheduled Task `\AutoOffice\Service` (At log on of [user], Run only when user logged on).
-  6. Start the task once.
-- Uninstall: stop scheduled task, remove task, remove cert from store, remove sideload registry entry. Optionally keep the SQLite DB and config folder (default: keep, with checkbox to wipe).
+- `PrivilegesRequired=admin` stays. Network share creation and (optionally) cert install to `LocalMachine\Root` need it.
+- **Files added** to `[Files]`:
+  - `autoOffice-server.exe` (bun-compiled) → `{app}\autoOffice-server.exe`.
+  - Tray icon assets, license, README → `{app}\resources\`.
+- **Trusted Catalog + manifest** — kept. The existing `ShouldCreateOwnCatalog` / host-catalog-detection / network-share logic is preserved. The shipped `manifest.xml` is updated only in that its `SourceLocation` points at `https://localhost:47318/` instead of GitHub Pages.
+- **First-run init.** During `ssPostInstall`, run `autoOffice-server.exe --first-run-init` once. The binary:
+  1. Generates a self-signed cert (SAN `localhost`, 10y) and writes it under `%LOCALAPPDATA%\AutoOffice\config\`.
+  2. Adds the cert to the Windows trust store. Default target: `CurrentUser\Root` for the install user (silent — Windows prompts only on `LocalMachine\Root` in some configurations). Documented in the guide.
+  3. Generates the per-install bearer token and writes `%LOCALAPPDATA%\AutoOffice\config\config.json`.
+  4. Initializes the SQLite DB schema.
+- **Scheduled Task.** Create `\AutoOffice\Service` (At log on of [user that ran installer], Run only when user logged on, no admin token at runtime). Start it once after install.
+- **Uninstall** — extends the existing uninstaller:
+  - Stop and remove the Scheduled Task.
+  - Remove the cert from the trust store.
+  - Existing manifest-removal branch stays untouched (only deletes the manifest we placed; never touches a host catalog).
+  - Prompt to wipe `%LOCALAPPDATA%\AutoOffice\` (DB + config). Default: keep, so reinstall preserves chat history and provider config.
 
 ## Dev workflow
 
@@ -444,7 +450,7 @@ Existing GH Action that built the SPA to Pages is replaced with one that builds 
 
 ## Risks and open items
 
-- **Cert install prompt UX.** Adding to `CurrentUser\Root` shows a Windows confirmation dialog the first time. Some users will be confused. Documented in the guide; the alternative (no localhost HTTPS) is forbidden by Office manifest validation.
+- **Cert install prompt UX.** Depending on Windows version and policy, adding the cert to `CurrentUser\Root` may show a confirmation dialog. Documented in the guide; the alternative (no localhost HTTPS) is forbidden by Office manifest validation.
 - **WebView2 caching.** Office WebView2 caches aggressively. Bundle assets must use content-hashed filenames (Vite does this by default) and the SPA shell must be served with `Cache-Control: no-store`. Otherwise upgrades won't take effect after re-running the installer.
 - **bun + native deps.** `bun:sqlite` is built in (good), and DPAPI access via `bun:ffi` is straightforward. Avoid `better-sqlite3` (native, awkward to compile into a single binary).
 - **CLI bridge stability.** The CLI-bridge AI SDK packages are young; pin versions; surface "this provider failed, fall back to direct API" guidance in the UI.
@@ -462,6 +468,6 @@ The implementation plan will refine these into vertical slices, but the rough or
 4. **`useChat` cutover.** Frontend switches to `useChat` + transport; in-browser orchestrator deleted; client-side `execute_code` via `onToolCall`.
 5. **MCP move.** `McpHub` on server, settings UI rewritten for tri-state policy, eager connect, status SSE.
 6. **Secrets, cert, bearer token, tray, scheduled task.** Production-grade endpoint security.
-7. **Installer rewrite.** Drop admin, drop Trusted Catalog, ship single .exe.
+7. **Installer extension.** Add bun binary, cert + token first-run init, scheduled task. Trusted Catalog logic untouched. Update `manifest.xml` to point at `https://localhost:47318/`.
 8. **GitHub Pages → landing.** Replace SPA build with marketing site build.
 9. **Legacy data import + cutover release.**
