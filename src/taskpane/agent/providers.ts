@@ -6,6 +6,8 @@ import { createXai } from '@ai-sdk/xai';
 import { createDeepSeek } from '@ai-sdk/deepseek';
 import { createGateway } from '@ai-sdk/gateway';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { createOllama } from 'ollama-ai-provider-v2';
 import type { LanguageModel } from 'ai';
 import type { AppSettings } from '../store/settings.ts';
 import { ConfigError } from './errors.ts';
@@ -15,7 +17,7 @@ export function createModel(settings: AppSettings): LanguageModel {
   if (!provider) {
     throw new ConfigError('No AI provider selected. Please configure a provider in settings.');
   }
-  if (!provider.apiKey) {
+  if (!provider.apiKey && provider.id !== 'ollama') {
     throw new ConfigError(`No API key configured for ${provider.name}. Please add one in settings.`);
   }
   if (!settings.selectedModel) {
@@ -76,6 +78,19 @@ export function createModel(settings: AppSettings): LanguageModel {
         baseURL: provider.baseUrl,
       });
       return compat(settings.selectedModel);
+    }
+    case 'openrouter': {
+      const openrouter = createOpenRouter({
+        apiKey: provider.apiKey,
+        ...(provider.baseUrl ? { baseURL: provider.baseUrl } : {}),
+      });
+      return openrouter(settings.selectedModel);
+    }
+    case 'ollama': {
+      const ollama = createOllama({
+        ...(provider.baseUrl ? { baseURL: provider.baseUrl } : {}),
+      });
+      return ollama(settings.selectedModel);
     }
     default:
       throw new ConfigError(`Unknown provider: ${provider.id}`);

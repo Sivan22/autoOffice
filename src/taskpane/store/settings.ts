@@ -33,6 +33,8 @@ const DEFAULT_SETTINGS: AppSettings = {
     { id: 'xai', name: 'xAI', apiKey: '' },
     { id: 'deepseek', name: 'DeepSeek', apiKey: '' },
     { id: 'gateway', name: 'Vercel AI Gateway', apiKey: '' },
+    { id: 'openrouter', name: 'OpenRouter', apiKey: '' },
+    { id: 'ollama', name: 'Ollama', apiKey: '', baseUrl: '' },
     { id: 'openai-compatible', name: 'OpenAI-Compatible', apiKey: '', baseUrl: '' },
   ],
   autoApprove: false,

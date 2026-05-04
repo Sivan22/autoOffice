@@ -120,8 +120,13 @@ const PROVIDER_MODELS: Record<string, string[]> = {
     'deepseek-reasoner',
   ],
   gateway: [],
+  openrouter: [],
+  ollama: [],
   'openai-compatible': [],
 };
+
+const PROVIDERS_WITH_BASE_URL = new Set(['openai-compatible', 'openrouter', 'ollama']);
+const PROVIDERS_WITHOUT_API_KEY = new Set(['ollama']);
 
 export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProps) {
   const styles = useStyles();
@@ -188,24 +193,26 @@ export function SettingsPanel({ settings, onChange, onClose }: SettingsPanelProp
 
           {selectedProvider && (
             <>
-              <Field label={t('settings.apiKeyLabel')}>
-                <div className={styles.row}>
-                  <Input
-                    className={styles.keyInput}
-                    type={showKeys[selectedProvider.id] ? 'text' : 'password'}
-                    value={selectedProvider.apiKey}
-                    onChange={(_, data) => updateProvider(selectedProvider.id, 'apiKey', data.value)}
-                    placeholder={t('settings.apiKeyPlaceholder')}
-                  />
-                  <Button
-                    appearance="subtle"
-                    icon={showKeys[selectedProvider.id] ? <EyeOff24Regular /> : <Eye24Regular />}
-                    onClick={() => setShowKeys(prev => ({ ...prev, [selectedProvider.id]: !prev[selectedProvider.id] }))}
-                  />
-                </div>
-              </Field>
+              {!PROVIDERS_WITHOUT_API_KEY.has(selectedProvider.id) && (
+                <Field label={t('settings.apiKeyLabel')}>
+                  <div className={styles.row}>
+                    <Input
+                      className={styles.keyInput}
+                      type={showKeys[selectedProvider.id] ? 'text' : 'password'}
+                      value={selectedProvider.apiKey}
+                      onChange={(_, data) => updateProvider(selectedProvider.id, 'apiKey', data.value)}
+                      placeholder={t('settings.apiKeyPlaceholder')}
+                    />
+                    <Button
+                      appearance="subtle"
+                      icon={showKeys[selectedProvider.id] ? <EyeOff24Regular /> : <Eye24Regular />}
+                      onClick={() => setShowKeys(prev => ({ ...prev, [selectedProvider.id]: !prev[selectedProvider.id] }))}
+                    />
+                  </div>
+                </Field>
+              )}
 
-              {selectedProvider.id === 'openai-compatible' && (
+              {PROVIDERS_WITH_BASE_URL.has(selectedProvider.id) && (
                 <Field label={t('settings.baseUrlLabel')}>
                   <Input
                     value={selectedProvider.baseUrl || ''}
