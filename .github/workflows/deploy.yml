@@ -1,5 +1,4 @@
-# TODO(plan-09): repoint to landing/ instead of apps/web/dist/.
-name: Deploy to GitHub Pages
+name: Deploy Pages
 
 on:
   push:
@@ -20,22 +19,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - name: Prepare landing/
+        run: |
+          mkdir -p _site
+          cp -r landing/* _site/
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          node-version: '22'
-          cache: 'npm'
-
-      - run: npm ci
-
-      - run: npm run build
-        env:
-          VITE_BASE: /autoOffice/
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
+          path: _site
   deploy:
     needs: build
     runs-on: ubuntu-latest
@@ -43,5 +36,5 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/deploy-pages@v4
-        id: deployment
+      - id: deployment
+        uses: actions/deploy-pages@v4
