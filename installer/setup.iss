@@ -33,6 +33,7 @@ Name: "hebrew"; MessagesFile: "compiler:Languages\Hebrew.isl"
 
 [Files]
 Source: "..\manifest.production.xml"; DestDir: "{app}"; DestName: "manifest.xml"; Flags: ignoreversion
+Source: "..\apps\server\dist\autoOffice-server.exe"; DestDir: "{app}"; Flags: ignoreversion
 
 [Registry]
 ; Only register our own trusted catalog when none already exists. Office's
@@ -174,8 +175,18 @@ begin
   end;
 end;
 
+[Run]
+Filename: "{app}\autoOffice-server.exe"; Parameters: "--first-run-init"; Flags: runhidden waituntilterminated; StatusMsg: "Initializing AutoOffice (cert + token) ..."
+Filename: "schtasks.exe"; Parameters: "/Create /F /SC ONLOGON /TN ""AutoOffice\Service"" /TR ""\""{app}\autoOffice-server.exe\"""" /RL LIMITED"; Flags: runhidden waituntilterminated; StatusMsg: "Registering AutoOffice Service ..."
+Filename: "schtasks.exe"; Parameters: "/Run /TN ""AutoOffice\Service"""; Flags: runhidden waituntilterminated; StatusMsg: "Starting AutoOffice Service ..."
+
 [Messages]
 FinishedLabel=ההתקנה הסתיימה בהצלחה.%n%nכדי להשתמש בתוסף ב-Word, Excel או PowerPoint:%n%n1. פתח את Microsoft Word, Excel או PowerPoint%n2. עבור לעמוד הבית > תוספות%n3. לחץ על "תיקייה משותפת" בחלק התחתון%n4. בחר "AutoOffice" והקלק הוסף
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}"
+
+[UninstallRun]
+Filename: "schtasks.exe"; Parameters: "/End /TN ""AutoOffice\Service"""; Flags: runhidden; RunOnceId: "stoptask"
+Filename: "schtasks.exe"; Parameters: "/Delete /F /TN ""AutoOffice\Service"""; Flags: runhidden; RunOnceId: "deltask"
+Filename: "{app}\autoOffice-server.exe"; Parameters: "--cert-uninstall"; Flags: runhidden; RunOnceId: "certrm"
