@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AutoOffice — AI for Word, Excel, and PowerPoint, locally</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" href="assets/icon-32.png" type="image/png" />
+  <meta name="description" content="AutoOffice is a private, open-source AI add-in for Word, Excel, and PowerPoint. The agent and your data live entirely on your machine." />
+</head>
+<body>
+  <header>
+    <img src="assets/icon-256.png" alt="AutoOffice icon" />
+    <div>
+      <h1>AutoOffice</h1>
+      <p>AI for Microsoft Word, Excel, and PowerPoint — running entirely on your machine.</p>
+    </div>
+  </header>
+  <main>
+    <section>
+      <h2>Private. Open-source. Local.</h2>
+      <p>AutoOffice is a task pane that chats with you, generates real <code>office.js</code> code, runs it against your live document, and self-heals on errors. After the move to a local server, the AI loop, MCP tools, and your conversation history all run inside a small bundled service on your computer — no cloud, no Microsoft account, no third-party server in the middle.</p>
+      <p><a class="cta" href="https://github.com/Sivan22/autoOffice/releases/latest">Download for Windows</a></p>
+      <p style="opacity: 0.8;">Requires Microsoft 365 (Word, Excel, or PowerPoint, desktop). Windows 10 / 11.</p>
+    </section>
+    <section>
+      <h2>What's new in the local version</h2>
+      <ul>
+        <li><b>Use your own CLI subscriptions</b> — Claude Code, Gemini CLI, OpenCode. The agent runs in a local server that can spawn the CLI you already have logged in, so a Pro subscription replaces per-token billing.</li>
+        <li><b>stdio MCP servers work</b> — the browser couldn't spawn processes; the local server can. CORS-blocked HTTP MCP servers also work because the server proxies them.</li>
+        <li><b>Provider keys never leave your machine</b> — they're encrypted with Windows DPAPI tied to your user.</li>
+        <li><b>Allow / Ask / Deny per tool</b> — every MCP tool gets a per-tool permission you can flip from the settings panel. Denied tools are invisible to the model.</li>
+      </ul>
+    </section>
+    <section>
+      <h2>How it stacks up</h2>
+      <table>
+        <tr><th></th><th>AutoOffice</th><th>Microsoft Copilot</th><th>Claude for Word</th><th>Word GPT Plus</th></tr>
+        <tr><td>Open source</td><td>✅ MIT</td><td>❌</td><td>❌</td><td>✅ MIT</td></tr>
+        <tr><td>Self-hostable</td><td>✅</td><td>❌</td><td>❌</td><td>✅</td></tr>
+        <tr><td>Local model support</td><td>✅</td><td>❌</td><td>❌</td><td>✅</td></tr>
+        <tr><td>Executes real <code>office.js</code></td><td>✅</td><td>❌</td><td>❌</td><td>⚠</td></tr>
+        <tr><td>MCP support</td><td>✅ (stdio + HTTP)</td><td>via Copilot Studio</td><td>❌</td><td>❌</td></tr>
+        <tr><td>Cost</td><td>Free + your provider usage</td><td>M365 Copilot license</td><td>Claude paid plan</td><td>Free</td></tr>
+      </table>
+    </section>
+    <section>
+      <h2>Get started</h2>
+      <ol>
+        <li><a href="https://github.com/Sivan22/autoOffice/releases/latest">Download AutoOffice-Setup.exe</a> and run it.</li>
+        <li>Restart Word (or Excel / PowerPoint).</li>
+        <li>Home → Add-ins → Advanced → Shared Folder → AutoOffice → Add.</li>
+      </ol>
+      <p>See the <a href="guide/install.html">install guide</a> for screenshots and the <a href="guide/troubleshooting.html">troubleshooting page</a> if anything doesn't go smoothly. Want to build the installer yourself? See <a href="self-host/">self-host</a>.</p>
+    </section>
+  </main>
+  <footer>
+    <p>Source: <a href="https://github.com/Sivan22/autoOffice">github.com/Sivan22/autoOffice</a> · MIT licensed.</p>
+  </footer>
+</body>
+</html>
