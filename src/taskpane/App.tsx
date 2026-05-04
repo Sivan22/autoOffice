@@ -22,6 +22,7 @@ import {
   type ConversationSummary,
 } from './store/history.ts';
 import { translationService } from './i18n/index.ts';
+import { sumCallCosts, emptyCallCost, type CallCost } from './agent/pricing.ts';
 
 const useStyles = makeStyles({
   root: {
@@ -184,8 +185,11 @@ export function App({ host }: AppProps) {
     setMessages(prev => [...prev, { role: 'user', content: text }]);
     setIsLoading(true);
 
+    let turnCost: CallCost | null = null;
+
     const callbacks: OrchestratorCallbacks = {
       onMessage: (msg) => setMessages(prev => [...prev, msg]),
+      onTurnCost: (cost) => { turnCost = cost; },
       onStreamToken: (token) => {
         setMessages(prev => {
           const copy = [...prev];
@@ -256,6 +260,9 @@ export function App({ host }: AppProps) {
     setMessages(currentMessages => {
       const now = Date.now();
       const existing = isFirstTurn ? null : getConversation(convId!);
+      const accumulatedCost = turnCost
+        ? sumCallCosts([existing?.cost ?? emptyCallCost('estimated'), turnCost])
+        : existing?.cost;
       const conv: Conversation = {
         id: convId!,
         v: CURRENT_VERSION,
@@ -266,6 +273,9 @@ export function App({ host }: AppProps) {
         messageCount: currentMessages.length,
         uiMessages: currentMessages,
         modelMessages: conversationHistory.current,
+        cost: accumulatedCost,
+        totalUsd: accumulatedCost?.totalUsd,
+        costSource: accumulatedCost?.source,
       };
       if (isFirstTurn) persistImmediate(conv);
       else persistDebounced(conv);
