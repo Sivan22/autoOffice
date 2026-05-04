@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import * as z from 'zod';
 
 export const HostSchema = z.enum(['word', 'excel', 'powerpoint']);
 export type Host = z.infer<typeof HostSchema>;
