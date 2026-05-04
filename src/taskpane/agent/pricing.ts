@@ -135,8 +135,7 @@ export function computeCallCost(args: ComputeCostArgs): CallCost {
     return estimate(rates, tokens, 'estimated');
   }
 
-  // Tokens-only fallback comes in Task 5.
-  throw new Error('not yet implemented');
+  return { ...emptyCallCost('tokens-only'), tokens };
 }
 
 function readTokens(usage: LanguageModelUsage | undefined): CallCost['tokens'] {

@@ -164,3 +164,40 @@ describe('computeCallCost — openrouter exact path', () => {
     expect(cost.source).toBe('estimated');
   });
 });
+
+describe('computeCallCost — tokens-only fallback', () => {
+  it('returns zeros and tokens-only source when modelId is not in PRICING', () => {
+    const cost = computeCallCost({
+      providerId: 'openai-compatible',
+      modelId: 'some/unknown-model',
+      usage: usage({ input: 100, output: 50 }),
+      providerMetadata: undefined,
+    });
+    expect(cost.source).toBe('tokens-only');
+    expect(cost.totalUsd).toBe(0);
+    expect(cost.inputUsd).toBe(0);
+    expect(cost.outputUsd).toBe(0);
+    expect(cost.tokens.input).toBe(100);
+    expect(cost.tokens.output).toBe(50);
+  });
+
+  it('falls back to tokens-only for ollama (no PRICING entry)', () => {
+    const cost = computeCallCost({
+      providerId: 'ollama',
+      modelId: 'llama3',
+      usage: usage({ input: 100, output: 50 }),
+      providerMetadata: undefined,
+    });
+    expect(cost.source).toBe('tokens-only');
+  });
+
+  it('falls back to tokens-only for openrouter without usage accounting', () => {
+    const cost = computeCallCost({
+      providerId: 'openrouter',
+      modelId: 'some-model-not-in-pricing',
+      usage: usage({ input: 100, output: 50 }),
+      providerMetadata: undefined,
+    });
+    expect(cost.source).toBe('tokens-only');
+  });
+});
