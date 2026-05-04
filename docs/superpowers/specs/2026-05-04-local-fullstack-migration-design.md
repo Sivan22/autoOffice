@@ -259,9 +259,16 @@ The renderer in `MessageBubble.tsx` handles:
 - `tool-<mcpToolName>` (statically-known MCP tools) — input/output JSON, with Approve/Reject if `state === 'approval-requested'` (server-driven via `needsApproval`); calls `addToolApprovalResponse({ id: part.approval.id, approved })`.
 - `dynamic-tool` — generic input/output JSON for MCP tools whose schemas are not statically known on the client. Approve/Reject identical to above when in approval-requested state.
 
-### Schema validation on load
+### Conversation reload — no strict schema validation
 
-When fetching `/api/conversations/:id`, validate with `validateUIMessages({ messages, tools, metadataSchema })` against the **current** tool list before passing to `useChat`. Stale tool calls from a removed MCP server become a generic "Tool no longer available" placeholder rather than crashing the renderer.
+We deliberately **do not** call `validateUIMessages` on load. The current tool registry is unstable by design — every time a user toggles a policy, removes an MCP server, or adds one, strict validation against "current tools" would reject otherwise-fine historical messages. Conversations must remain readable across all those edits.
+
+Instead:
+
+1. **Load:** `GET /api/conversations/:id` returns the raw `UIMessage[]` JSON straight from SQLite. The frontend passes it into `useChat({ messages })` untouched.
+2. **Defensive rendering.** The parts switch in `MessageBubble.tsx` has a default branch that handles any unknown `part.type` — including `tool-<name>` for tools that are no longer registered, and any future part types from a newer AI SDK version we haven't rendered for yet. The fallback renders the part as a `dynamic-tool`-style block: tool name + input JSON + output JSON, no interactive controls.
+3. **Continuation safety.** When the server reconstructs history for the next `streamText` call, it sweeps for orphan tool calls — a tool-call part with no matching tool-result part (e.g. the server crashed mid-tool, the user removed the MCP server while a call was pending, or the previous turn was aborted). Each orphan gets a synthetic `{ output: { error: 'Tool result was not recorded' } }` injected before `convertToModelMessages(history)` runs, so the SDK never chokes on a dangling call.
+4. **Forward-compat.** If a future AI SDK breaking change makes our persisted JSON unreadable by the current renderer, we ship a one-time migration script in that release rather than gating every conversation load on schema parity.
 
 ### Legacy data import
 
@@ -456,7 +463,7 @@ Existing GH Action that built the SPA to Pages is replaced with one that builds 
 - **CLI bridge stability.** The CLI-bridge AI SDK packages are young; pin versions; surface "this provider failed, fall back to direct API" guidance in the UI.
 - **Lock screen / fast user switching.** Scheduled task at logon should handle both; verify on a Windows multi-user machine before release.
 - **Office close mid-stream.** Mitigated by `result.consumeStream()` keeping the agent loop running on the server. Open question: if the user reopens the task pane while a turn is mid-flight, do they see the stream continue? AI SDK supports this only with resumable streams (out of scope for v1); v1 reload shows the final saved state once the turn finishes.
-- **Tool list staleness.** A long-running conversation may include tool calls for tools/servers the user later removes. `validateUIMessages` plus a generic "Tool no longer available" renderer prevent crashes; messages remain readable.
+- **Tool list staleness.** A long-running conversation may include tool calls for tools/servers the user later removes. We skip `validateUIMessages` on load; the message bubble's default-branch renderer handles unknown tool part types, and the server's orphan-tool-call sweep prevents `convertToModelMessages` from choking when continuing such a conversation. See "Conversation reload — no strict schema validation".
 
 ## Migration strategy
 
