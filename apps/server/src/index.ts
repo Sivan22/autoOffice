@@ -22,6 +22,12 @@ if (cmd === 'rotate-token') {
   process.exit(0);
 }
 
+if (cmd === 'cert-uninstall') {
+  const { certUninstall } = await import('./cli/cert-uninstall');
+  await certUninstall();
+  process.exit(0);
+}
+
 // --- normal serve path ---
 const dataDir = resolveDataDir();
 const cfg = loadConfig(dataDir);
