@@ -130,8 +130,14 @@ export default defineConfig({
       },
     },
   },
+  resolve: {
+    alias: {
+      '@shared': path.resolve(__dirname, '../../packages/shared/src'),
+    },
+  },
   build: {
     outDir: 'dist',
     sourcemap: true,
+    emptyOutDir: true,
   },
 });
