@@ -192,6 +192,31 @@ function readOpenRouterCost(meta: ProviderMetadata | undefined): number | null {
   return null;
 }
 
-export function sumCallCosts(_costs: CallCost[]): CallCost {
-  throw new Error('not yet implemented');
+export function sumCallCosts(costs: CallCost[]): CallCost {
+  if (costs.length === 0) return emptyCallCost('estimated');
+  const out = emptyCallCost('estimated');
+  let hasTokensOnly = false;
+  let hasEstimated = false;
+  let exactSources = new Set<CostSource>();
+  for (const c of costs) {
+    out.inputUsd += c.inputUsd;
+    out.cachedReadUsd += c.cachedReadUsd;
+    out.cacheWriteUsd += c.cacheWriteUsd;
+    out.outputUsd += c.outputUsd;
+    out.reasoningUsd += c.reasoningUsd;
+    out.totalUsd += c.totalUsd;
+    out.tokens.input += c.tokens.input;
+    out.tokens.cachedRead += c.tokens.cachedRead;
+    out.tokens.cacheWrite += c.tokens.cacheWrite;
+    out.tokens.output += c.tokens.output;
+    out.tokens.reasoning += c.tokens.reasoning;
+    if (c.source === 'tokens-only') hasTokensOnly = true;
+    else if (c.source === 'estimated') hasEstimated = true;
+    else exactSources.add(c.source);
+  }
+  if (hasTokensOnly) out.source = 'tokens-only';
+  else if (hasEstimated) out.source = 'estimated';
+  else if (exactSources.size === 1) out.source = exactSources.values().next().value as CostSource;
+  else out.source = 'estimated'; // mixed exact sources
+  return out;
 }

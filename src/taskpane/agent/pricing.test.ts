@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { LanguageModelUsage } from 'ai';
-import { computeCallCost, PRICING } from './pricing.ts';
+import { computeCallCost, emptyCallCost, PRICING, sumCallCosts } from './pricing.ts';
 
 function usage(parts: {
   input?: number; cachedRead?: number; cacheWrite?: number;
@@ -199,5 +199,96 @@ describe('computeCallCost — tokens-only fallback', () => {
       providerMetadata: undefined,
     });
     expect(cost.source).toBe('tokens-only');
+  });
+});
+
+describe('sumCallCosts', () => {
+  it('returns emptyCallCost("estimated") for an empty list', () => {
+    expect(sumCallCosts([])).toEqual(emptyCallCost('estimated'));
+  });
+
+  it('sums every USD field and every token field', () => {
+    const a = computeCallCost({
+      providerId: 'anthropic',
+      modelId: 'claude-opus-4-7',
+      usage: usage({ input: 100, output: 50 }),
+      providerMetadata: undefined,
+    });
+    const b = computeCallCost({
+      providerId: 'anthropic',
+      modelId: 'claude-opus-4-7',
+      usage: usage({ input: 200, output: 100 }),
+      providerMetadata: undefined,
+    });
+    const sum = sumCallCosts([a, b]);
+    expect(sum.totalUsd).toBeCloseTo(a.totalUsd + b.totalUsd, 6);
+    expect(sum.tokens.input).toBe(300);
+    expect(sum.tokens.output).toBe(150);
+  });
+
+  it('promotes any tokens-only to tokens-only', () => {
+    const tokensOnly = computeCallCost({
+      providerId: 'ollama',
+      modelId: 'llama3',
+      usage: usage({ input: 10, output: 5 }),
+      providerMetadata: undefined,
+    });
+    const estimated = computeCallCost({
+      providerId: 'anthropic',
+      modelId: 'claude-opus-4-7',
+      usage: usage({ input: 10, output: 5 }),
+      providerMetadata: undefined,
+    });
+    expect(sumCallCosts([estimated, tokensOnly]).source).toBe('tokens-only');
+  });
+
+  it('promotes mixed exact sources to estimated', () => {
+    const gateway = computeCallCost({
+      providerId: 'gateway',
+      modelId: 'claude-opus-4-7',
+      usage: usage({ input: 10 }),
+      providerMetadata: { gateway: { cost: 0.01 } },
+    });
+    const openrouter = computeCallCost({
+      providerId: 'openrouter',
+      modelId: 'claude-opus-4-7',
+      usage: usage({ input: 10 }),
+      providerMetadata: { openrouter: { usage: { cost: 0.02 } } },
+    });
+    expect(sumCallCosts([gateway, openrouter]).source).toBe('estimated');
+  });
+
+  it('preserves a uniform exact source', () => {
+    const a = computeCallCost({
+      providerId: 'gateway',
+      modelId: 'claude-opus-4-7',
+      usage: usage({ input: 10 }),
+      providerMetadata: { gateway: { cost: 0.01 } },
+    });
+    const b = computeCallCost({
+      providerId: 'gateway',
+      modelId: 'claude-opus-4-7',
+      usage: usage({ input: 10 }),
+      providerMetadata: { gateway: { cost: 0.02 } },
+    });
+    const sum = sumCallCosts([a, b]);
+    expect(sum.source).toBe('gateway-exact');
+    expect(sum.totalUsd).toBeCloseTo(0.03, 6);
+  });
+
+  it('promotes estimated + exact mixture to estimated', () => {
+    const exact = computeCallCost({
+      providerId: 'gateway',
+      modelId: 'claude-opus-4-7',
+      usage: usage({ input: 10 }),
+      providerMetadata: { gateway: { cost: 0.01 } },
+    });
+    const estimated = computeCallCost({
+      providerId: 'anthropic',
+      modelId: 'claude-opus-4-7',
+      usage: usage({ input: 10 }),
+      providerMetadata: undefined,
+    });
+    expect(sumCallCosts([exact, estimated]).source).toBe('estimated');
   });
 });
