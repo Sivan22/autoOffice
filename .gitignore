@@ -4,3 +4,4 @@ installer/files
 installer/AutoOffice-Setup.exe
 .worktrees/
 .a5c/
+apps/server/dist/
