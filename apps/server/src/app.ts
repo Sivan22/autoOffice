@@ -1,11 +1,13 @@
 import { Hono } from 'hono';
 import type { Database } from 'bun:sqlite';
+import type { LanguageModel } from 'ai';
 import { healthRouter } from './routes/health';
 import { bearerAuth } from './middleware/auth';
 import { settingsRouter } from './routes/settings';
 import { conversationsRouter } from './routes/conversations';
 import { providersRouter } from './routes/providers';
 import { mcpRouter } from './routes/mcp';
+import { chatRouter } from './routes/chat';
 import { SettingsRepo } from './db/settings';
 import { ConversationsRepo } from './db/conversations';
 import { MessagesRepo } from './db/messages';
@@ -20,6 +22,7 @@ export type AppConfig = {
   db: Database;
   authToken: string;
   mcpClientFactory?: CreateClientFn;
+  modelOverride?: (providerId: string, modelId: string) => LanguageModel;
 };
 
 export function createApp(config: AppConfig) {
@@ -41,6 +44,16 @@ export function createApp(config: AppConfig) {
   app.route('/api/conversations', conversationsRouter(conversations, messages));
   app.route('/api/providers', providersRouter(providers, registry));
   app.route('/api/mcp', mcpRouter(hub, mcpServers, mcpPolicies));
+  app.route(
+    '/api/chat',
+    chatRouter({
+      conversations,
+      messages,
+      registry,
+      hub,
+      modelOverride: config.modelOverride,
+    }),
+  );
 
   // Connect existing MCP servers in the background.
   hub.startAll().catch((err) => console.error('mcp startAll failed', err));
