@@ -4,6 +4,7 @@ installer/files
 installer/AutoOffice-Setup.exe
 .worktrees/
 .a5c/
+artifacts/
 apps/server/dist/
 apps/server/coverage/
 coverage/
