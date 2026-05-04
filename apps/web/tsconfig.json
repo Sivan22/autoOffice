@@ -2,10 +2,14 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "noUncheckedIndexedAccess": false,
+    "exactOptionalPropertyTypes": false,
     "types": ["office-js", "vite/client"],
     "paths": {
       "@shared/*": ["../../packages/shared/src/*"]
     }
   },
-  "include": ["src", "vite.config.ts", "vitest.config.ts"]
+  "include": ["src"]
 }
