@@ -1,3 +1,4 @@
+# TODO(plan-09): repoint to landing/ instead of apps/web/dist/.
 name: Deploy to GitHub Pages
 
 on:
