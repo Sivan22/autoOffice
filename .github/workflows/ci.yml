@@ -11,16 +11,83 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
+        with: { node-version: '22', cache: npm }
       - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+        with: { bun-version: latest }
       - run: npm ci
       - run: npm run lint:i18n
-      - run: npm --workspace @autooffice/shared run test -- --coverage || true
+      - run: npm --workspace @autooffice/shared run test
       - run: npm --workspace @autooffice/server run test -- --coverage
       - run: npm --workspace @autooffice/web run test
       - run: npm --workspace @autooffice/web run build
       - run: npm --workspace @autooffice/server run build
+
+  vitest-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm }
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
+      - run: npm ci
+      - run: npm --workspace @autooffice/server run test
+        # Exercises DPAPI + cert + scheduled-task helpers on real Windows.
+
+  playwright:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm }
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
+      - run: npm ci
+      - run: npx --workspace @autooffice/e2e playwright install --with-deps chromium
+      - run: npm --workspace @autooffice/e2e run test
+
+  build-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm }
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
+      - run: npm ci
+      - run: npm --workspace @autooffice/web run build
+      - run: npm --workspace @autooffice/server run build
+      - name: Smoke /health on the compiled binary
+        shell: pwsh
+        run: |
+          Start-Process -FilePath "apps/server/dist/autoOffice-server.exe" -ArgumentList "" -PassThru | Out-Null
+          Start-Sleep -Seconds 4
+          $r = Invoke-WebRequest -Uri "http://localhost:47318/health" -UseBasicParsing
+          if ($r.StatusCode -ne 200) { exit 1 }
+
+  installer-smoke:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm }
+      - uses: oven-sh/setup-bun@v2
+        with: { bun-version: latest }
+      - run: npm ci
+      - run: npm --workspace @autooffice/web run build
+      - run: npm --workspace @autooffice/server run build
+      - name: Install Inno Setup
+        run: choco install -y innosetup
+      - name: Build installer
+        run: '& "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\setup.iss'
+      - name: Run installer silently
+        run: '& installer/output/AutoOffice-Setup.exe /VERYSILENT /NORESTART'
+      - name: /health after install
+        shell: pwsh
+        run: |
+          Start-Sleep -Seconds 8
+          $r = Invoke-WebRequest -Uri "https://localhost:47318/health" -UseBasicParsing -SkipCertificateCheck
+          if ($r.StatusCode -ne 200) { exit 1 }
+      - name: Uninstall
+        run: |
+          Get-WmiObject -Query "SELECT * FROM Win32_Product WHERE Name LIKE 'AutoOffice%'" | ForEach-Object { $_.Uninstall() }
