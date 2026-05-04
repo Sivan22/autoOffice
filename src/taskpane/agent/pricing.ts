@@ -114,9 +114,27 @@ export interface ComputeCostArgs {
 export function computeCallCost(args: ComputeCostArgs): CallCost {
   const tokens = readTokens(args.usage);
   const rates = PRICING[args.modelId];
+
+  if (args.providerId === 'gateway') {
+    const exact = readGatewayCost(args.providerMetadata);
+    if (exact !== null) {
+      const base = rates ? estimate(rates, tokens, 'gateway-exact') : { ...emptyCallCost('gateway-exact'), tokens };
+      return { ...base, totalUsd: exact, source: 'gateway-exact' };
+    }
+  }
+
+  if (args.providerId === 'openrouter') {
+    const exact = readOpenRouterCost(args.providerMetadata);
+    if (exact !== null) {
+      const base = rates ? estimate(rates, tokens, 'openrouter-exact') : { ...emptyCallCost('openrouter-exact'), tokens };
+      return { ...base, totalUsd: exact, source: 'openrouter-exact' };
+    }
+  }
+
   if (rates) {
     return estimate(rates, tokens, 'estimated');
   }
+
   // Tokens-only fallback comes in Task 5.
   throw new Error('not yet implemented');
 }
@@ -154,6 +172,25 @@ function estimate(rates: ModelRates, tokens: CallCost['tokens'], source: CostSou
     source,
     tokens,
   };
+}
+
+function readGatewayCost(meta: ProviderMetadata | undefined): number | null {
+  const gateway = meta?.gateway as Record<string, unknown> | undefined;
+  if (!gateway) return null;
+  const raw = gateway.cost;
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  if (typeof raw === 'string') {
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
+function readOpenRouterCost(meta: ProviderMetadata | undefined): number | null {
+  const openrouter = meta?.openrouter as { usage?: { cost?: unknown } } | undefined;
+  const raw = openrouter?.usage?.cost;
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+  return null;
 }
 
 export function sumCallCosts(_costs: CallCost[]): CallCost {

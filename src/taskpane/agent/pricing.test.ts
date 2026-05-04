@@ -104,3 +104,63 @@ describe('computeCallCost — estimate path', () => {
     }
   });
 });
+
+describe('computeCallCost — gateway exact path', () => {
+  it('uses gateway.cost when providerId is gateway', () => {
+    const cost = computeCallCost({
+      providerId: 'gateway',
+      modelId: 'claude-opus-4-7',
+      usage: usage({ input: 1000, output: 500 }),
+      providerMetadata: { gateway: { cost: 0.42 } },
+    });
+    expect(cost.source).toBe('gateway-exact');
+    expect(cost.totalUsd).toBe(0.42);
+    // breakdown rows still computed from rates so the popover has data
+    expect(cost.inputUsd).toBeGreaterThan(0);
+    expect(cost.outputUsd).toBeGreaterThan(0);
+  });
+
+  it('falls back to estimate when providerId is gateway but cost is missing', () => {
+    const cost = computeCallCost({
+      providerId: 'gateway',
+      modelId: 'claude-opus-4-7',
+      usage: usage({ input: 1000, output: 500 }),
+      providerMetadata: { gateway: {} },
+    });
+    expect(cost.source).toBe('estimated');
+  });
+
+  it('falls back to estimate when providerId is gateway but providerMetadata is undefined', () => {
+    const cost = computeCallCost({
+      providerId: 'gateway',
+      modelId: 'claude-opus-4-7',
+      usage: usage({ input: 1000, output: 500 }),
+      providerMetadata: undefined,
+    });
+    expect(cost.source).toBe('estimated');
+  });
+});
+
+describe('computeCallCost — openrouter exact path', () => {
+  it('uses openrouter.usage.cost when providerId is openrouter', () => {
+    const cost = computeCallCost({
+      providerId: 'openrouter',
+      modelId: 'anthropic/claude-opus-4-7',
+      usage: usage({ input: 1000, output: 500 }),
+      providerMetadata: { openrouter: { usage: { cost: 0.0123 } } },
+    });
+    expect(cost.source).toBe('openrouter-exact');
+    expect(cost.totalUsd).toBe(0.0123);
+  });
+
+  it('ignores non-finite openrouter cost', () => {
+    const cost = computeCallCost({
+      providerId: 'openrouter',
+      modelId: 'claude-opus-4-7',
+      usage: usage({ input: 1000, output: 500 }),
+      providerMetadata: { openrouter: { usage: { cost: Number.NaN } } },
+    });
+    // Falls through to estimate (which works because the modelId happens to be in PRICING).
+    expect(cost.source).toBe('estimated');
+  });
+});
