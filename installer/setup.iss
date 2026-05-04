@@ -172,6 +172,10 @@ begin
       if MsgBox('Remove the shared folder ({#OwnSharePath})?', mbConfirmation, MB_YESNO) = IDYES then
         DelTree('{#OwnSharePath}', True, True, True);
     end;
+    if MsgBox('Also remove your AutoOffice data folder (chat history, settings, provider keys)?', mbConfirmation, MB_YESNO) = IDYES then
+    begin
+      DelTree(ExpandConstant('{localappdata}\AutoOffice'), True, True, True);
+    end;
   end;
 end;
 
