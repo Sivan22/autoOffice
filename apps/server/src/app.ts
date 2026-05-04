@@ -5,16 +5,21 @@ import { bearerAuth } from './middleware/auth';
 import { settingsRouter } from './routes/settings';
 import { conversationsRouter } from './routes/conversations';
 import { providersRouter } from './routes/providers';
+import { mcpRouter } from './routes/mcp';
 import { SettingsRepo } from './db/settings';
 import { ConversationsRepo } from './db/conversations';
 import { MessagesRepo } from './db/messages';
 import { ProvidersRepo } from './db/providers';
 import { ProviderRegistry } from './providers';
+import { McpServersRepo, McpToolPoliciesRepo } from './db/mcp';
+import { McpHub, type CreateClientFn } from './mcp/hub';
+import { createDefaultClient } from './mcp/default-client';
 
 export type AppConfig = {
   version: string;
   db: Database;
   authToken: string;
+  mcpClientFactory?: CreateClientFn;
 };
 
 export function createApp(config: AppConfig) {
@@ -24,11 +29,21 @@ export function createApp(config: AppConfig) {
   const messages = new MessagesRepo(config.db);
   const providers = new ProvidersRepo(config.db);
   const registry = new ProviderRegistry(providers);
+  const mcpServers = new McpServersRepo(config.db);
+  const mcpPolicies = new McpToolPoliciesRepo(config.db);
+  const hub = new McpHub(mcpServers, mcpPolicies, {
+    createClient: config.mcpClientFactory ?? createDefaultClient,
+  });
 
   app.route('/', healthRouter(config.version));
   app.use('/api/*', bearerAuth(config.authToken));
   app.route('/api/settings', settingsRouter(settings));
   app.route('/api/conversations', conversationsRouter(conversations, messages));
   app.route('/api/providers', providersRouter(providers, registry));
-  return app;
+  app.route('/api/mcp', mcpRouter(hub, mcpServers, mcpPolicies));
+
+  // Connect existing MCP servers in the background.
+  hub.startAll().catch((err) => console.error('mcp startAll failed', err));
+
+  return Object.assign(app, { __hub: hub });
 }
