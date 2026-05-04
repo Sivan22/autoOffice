@@ -8,6 +8,7 @@ import { conversationsRouter } from './routes/conversations';
 import { providersRouter } from './routes/providers';
 import { mcpRouter } from './routes/mcp';
 import { chatRouter } from './routes/chat';
+import { bootstrapRouter } from './routes/bootstrap';
 import { SettingsRepo } from './db/settings';
 import { ConversationsRepo } from './db/conversations';
 import { MessagesRepo } from './db/messages';
@@ -39,6 +40,10 @@ export function createApp(config: AppConfig) {
   });
 
   app.route('/', healthRouter(config.version));
+  app.route(
+    '/bootstrap',
+    bootstrapRouter({ token: config.authToken, version: config.version }),
+  );
   app.use('/api/*', bearerAuth(config.authToken));
   app.route('/api/settings', settingsRouter(settings));
   app.route('/api/conversations', conversationsRouter(conversations, messages));
