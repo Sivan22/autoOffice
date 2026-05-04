@@ -14,13 +14,9 @@ import {
   History24Regular,
   Add24Regular,
 } from '@fluentui/react-icons';
-import type { ChatMessage } from '../agent/orchestrator.ts';
 import type { HostContext } from '../host/context.ts';
-import { CrossHostBanner } from './CrossHostBanner.tsx';
-import type { HostKind } from '../host/context.ts';
 import { useTranslation } from '../i18n/index.ts';
-import { MessageBubble } from './MessageBubble.tsx';
-import { CodeBlock } from './CodeBlock.tsx';
+import { MessageBubble, type UIMessageLike } from './MessageBubble.tsx';
 
 const useStyles = makeStyles({
   container: {
@@ -70,11 +66,6 @@ const useStyles = makeStyles({
     padding: '24px',
     textAlign: 'center',
   },
-  approvalArea: {
-    padding: '8px 12px',
-    borderTop: `1px solid ${tokens.colorNeutralStroke1}`,
-    flexShrink: 0,
-  },
   inputArea: {
     display: 'flex',
     alignItems: 'flex-end',
@@ -95,35 +86,49 @@ const useStyles = makeStyles({
   },
 });
 
-interface ChatPanelProps {
+export interface ChatPanelProps {
   host: HostContext;
-  messages: ChatMessage[];
-  isLoading: boolean;
-  pendingApproval: string | null;
-  /** Host of the currently-loaded conversation; null = no active conversation. */
-  activeChatHost: HostKind | null;
-  onSend: (text: string) => void;
-  onApprove: (approved: boolean) => void;
-  onOpenSettings: () => void;
-  onOpenHistory: () => void;
-  onNewChat: () => void;
+  messages: UIMessageLike[];
+  status: 'submitted' | 'streaming' | 'ready' | 'error' | string;
+  onSubmit: (text: string) => void;
+  onApproveCode: (toolCallId: string, code: string) => Promise<void> | void;
+  onRejectCode: (toolCallId: string) => void;
+  onApprovalResponse: (id: string, approved: boolean) => void;
+  highlightCode: (code: string) => React.ReactNode;
+  onOpenSettings?: () => void;
+  onOpenHistory?: () => void;
+  onNewChat?: () => void;
 }
 
 export function ChatPanel({
-  host, messages, isLoading, pendingApproval, activeChatHost,
-  onSend, onApprove, onOpenSettings, onOpenHistory, onNewChat,
+  host,
+  messages,
+  status,
+  onSubmit,
+  onApproveCode,
+  onRejectCode,
+  onApprovalResponse,
+  highlightCode,
+  onOpenSettings,
+  onOpenHistory,
+  onNewChat,
 }: ChatPanelProps) {
   const styles = useStyles();
   const { t } = useTranslation();
+  const isLoading = status === 'submitted' || status === 'streaming';
   const hostDisplay = t(
-    host.kind === 'word' ? 'chat.hostWord' :
-    host.kind === 'excel' ? 'chat.hostExcel' :
-    'chat.hostPowerpoint',
+    host.kind === 'word'
+      ? 'chat.hostWord'
+      : host.kind === 'excel'
+        ? 'chat.hostExcel'
+        : 'chat.hostPowerpoint',
   );
   const hostNoun = t(
-    host.kind === 'word' ? 'chat.hostNounWord' :
-    host.kind === 'excel' ? 'chat.hostNounExcel' :
-    'chat.hostNounPowerpoint',
+    host.kind === 'word'
+      ? 'chat.hostNounWord'
+      : host.kind === 'excel'
+        ? 'chat.hostNounExcel'
+        : 'chat.hostNounPowerpoint',
   );
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -131,7 +136,7 @@ export function ChatPanel({
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, pendingApproval]);
+  }, [messages]);
 
   useLayoutEffect(() => {
     const el = textareaRef.current;
@@ -142,7 +147,7 @@ export function ChatPanel({
 
   const handleSubmit = () => {
     if (!inputText.trim() || isLoading) return;
-    onSend(inputText);
+    onSubmit(inputText);
     setInputText('');
   };
 
@@ -172,27 +177,43 @@ export function ChatPanel({
           </Badge>
         </div>
         <div style={{ display: 'flex', gap: '4px' }}>
-          <Tooltip content={t('chat.historyTooltip')} relationship="label">
-            <Button appearance="subtle" icon={<History24Regular />} onClick={onOpenHistory} disabled={isLoading} />
-          </Tooltip>
-          <Tooltip content={t('chat.newChatTooltip')} relationship="label">
-            <Button appearance="subtle" icon={<Add24Regular />} onClick={onNewChat} disabled={isLoading} />
-          </Tooltip>
-          <Tooltip content={t('chat.settingsTooltip')} relationship="label">
-            <Button appearance="subtle" icon={<Settings24Regular />} onClick={onOpenSettings} />
-          </Tooltip>
+          {onOpenHistory && (
+            <Tooltip content={t('chat.historyTooltip')} relationship="label">
+              <Button
+                appearance="subtle"
+                icon={<History24Regular />}
+                onClick={onOpenHistory}
+                disabled={isLoading}
+              />
+            </Tooltip>
+          )}
+          {onNewChat && (
+            <Tooltip content={t('chat.newChatTooltip')} relationship="label">
+              <Button
+                appearance="subtle"
+                icon={<Add24Regular />}
+                onClick={onNewChat}
+                disabled={isLoading}
+              />
+            </Tooltip>
+          )}
+          {onOpenSettings && (
+            <Tooltip content={t('chat.settingsTooltip')} relationship="label">
+              <Button appearance="subtle" icon={<Settings24Regular />} onClick={onOpenSettings} />
+            </Tooltip>
+          )}
         </div>
       </div>
 
-      {activeChatHost && activeChatHost !== host.kind && (
-        <CrossHostBanner chatHost={activeChatHost} currentHost={host.kind} />
-      )}
-
       <div className={styles.messageList}>
-        {messages.length === 0 && !pendingApproval ? (
+        {messages.length === 0 ? (
           <div className={styles.empty}>
-            <Text size={400} weight="semibold">{t('chat.welcomeTitle')}</Text>
-            <Text size={200}>{t('chat.welcomeMessage', { host: hostDisplay, noun: hostNoun })}</Text>
+            <Text size={400} weight="semibold">
+              {t('chat.welcomeTitle')}
+            </Text>
+            <Text size={200}>
+              {t('chat.welcomeMessage', { host: hostDisplay, noun: hostNoun })}
+            </Text>
             <Text size={200}>
               {host.kind === 'word'
                 ? t('chat.exampleWord')
@@ -203,22 +224,18 @@ export function ChatPanel({
           </div>
         ) : (
           messages.map((msg, i) => (
-            <MessageBubble key={i} message={msg} />
+            <MessageBubble
+              key={msg.id ?? i}
+              message={msg}
+              onApproveCode={onApproveCode}
+              onRejectCode={onRejectCode}
+              onApprovalResponse={onApprovalResponse}
+              highlightCode={highlightCode}
+            />
           ))
         )}
         <div ref={messagesEndRef} />
       </div>
-
-      {pendingApproval && (
-        <div className={styles.approvalArea}>
-          <CodeBlock
-            code={pendingApproval}
-            status="pending"
-            onApprove={() => onApprove(true)}
-            onReject={() => onApprove(false)}
-          />
-        </div>
-      )}
 
       <div className={styles.inputArea}>
         <Textarea

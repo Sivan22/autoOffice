@@ -69,7 +69,7 @@ describe('POST /api/chat', () => {
         host: 'word',
         providerId: 'p_unused',
         modelId: 'fake-1',
-        trigger: 'submit-user-message',
+        trigger: 'submit-message',
         message: { id: 'msg_user_1', role: 'user', parts: [{ type: 'text', text: 'hi' }] },
       }),
     });
@@ -105,7 +105,7 @@ describe('POST /api/chat', () => {
         host: 'word',
         providerId: 'p',
         modelId: 'fake-1',
-        trigger: 'submit-user-message',
+        trigger: 'submit-message',
         message: { id: 'msg_x', role: 'user', parts: [{ type: 'text', text: 'x' }] },
       }),
     });

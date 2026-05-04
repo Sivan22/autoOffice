@@ -3,7 +3,7 @@ type ToolCall = {
     toolName: string;
     toolCallId: string;
     input: unknown;
-    dynamic: boolean;
+    dynamic?: boolean;
   };
 };
 

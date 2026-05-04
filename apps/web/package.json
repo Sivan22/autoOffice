@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@ai-sdk/react": "^3.0.0",
+    "@autooffice/shared": "*",
     "@fluentui/react-components": "^9.73.7",
     "@fluentui/react-icons": "^2.0.324",
     "ai": "^6.0.168",

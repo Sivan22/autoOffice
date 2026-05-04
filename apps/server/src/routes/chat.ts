@@ -21,7 +21,7 @@ const Body = z.object({
   host: HostSchema,
   providerId: z.string(),
   modelId: z.string(),
-  trigger: z.enum(['submit-user-message', 'regenerate-assistant-message']),
+  trigger: z.enum(['submit-message', 'regenerate-message']),
   message: z.any().optional(),
   messageId: z.string().optional(),
 });
@@ -72,7 +72,7 @@ export function chatRouter(deps: ChatDeps) {
       conversationId: string;
     };
     let merged: Merged[];
-    if (trigger === 'submit-user-message' && message) {
+    if (trigger === 'submit-message' && message) {
       merged = [
         ...history,
         {
@@ -83,7 +83,7 @@ export function chatRouter(deps: ChatDeps) {
           conversationId: id,
         },
       ];
-    } else if (trigger === 'regenerate-assistant-message' && messageId) {
+    } else if (trigger === 'regenerate-message' && messageId) {
       const idx = history.findIndex((m) => m.id === messageId);
       merged = idx >= 0 ? history.slice(0, idx) : history;
     } else {

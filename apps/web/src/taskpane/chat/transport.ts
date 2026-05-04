@@ -1,13 +1,13 @@
 import { DefaultChatTransport } from 'ai';
 import { getToken } from '../api';
-import type { Host } from '@shared/schemas/conversation';
+import type { Host } from '@autooffice/shared';
 
 export function makeChatTransport(args: { host: Host; providerId: string; modelId: string }) {
   return new DefaultChatTransport({
     api: '/api/chat',
     headers: () => ({ Authorization: `Bearer ${getToken()}` }),
     prepareSendMessagesRequest: ({ id, messages, trigger, messageId }) => {
-      if (trigger === 'submit-user-message') {
+      if (trigger === 'submit-message') {
         return {
           body: {
             id,
