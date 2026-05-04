@@ -9,6 +9,7 @@ import { providersRouter } from './routes/providers';
 import { mcpRouter } from './routes/mcp';
 import { chatRouter } from './routes/chat';
 import { bootstrapRouter } from './routes/bootstrap';
+import { importLegacyRouter } from './routes/import-legacy';
 import { SettingsRepo } from './db/settings';
 import { ConversationsRepo } from './db/conversations';
 import { MessagesRepo } from './db/messages';
@@ -59,6 +60,7 @@ export function createApp(config: AppConfig) {
       modelOverride: config.modelOverride,
     }),
   );
+  app.route('/api/import-legacy', importLegacyRouter({ settings, conversations, messages }));
 
   // Connect existing MCP servers in the background.
   hub.startAll().catch((err) => console.error('mcp startAll failed', err));
