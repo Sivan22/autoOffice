@@ -22,7 +22,7 @@ import {
   type ConversationSummary,
 } from './store/history.ts';
 import { translationService } from './i18n/index.ts';
-import { sumCallCosts, emptyCallCost, type CallCost } from './agent/pricing.ts';
+import { sumCallCosts, emptyCallCost, isCallCostEmpty, type CallCost } from './agent/pricing.ts';
 
 const useStyles = makeStyles({
   root: {
@@ -265,9 +265,13 @@ export function App({ host }: AppProps) {
     setMessages(currentMessages => {
       const now = Date.now();
       const existing = isFirstTurn ? null : getConversation(convId!);
-      const accumulatedCost = turnCost
-        ? sumCallCosts([existing?.cost ?? emptyCallCost('estimated'), turnCost])
-        : existing?.cost;
+      // Use the in-memory activeCost as the running total rather than reading
+      // from disk: the previous turn's save may still be inside its debounce
+      // window. Skip the merge when the new turn-cost is empty (no tokens, no
+      // $) so the source label isn't demoted by a no-op turn.
+      const accumulatedCost = turnCost && !isCallCostEmpty(turnCost)
+        ? sumCallCosts([activeCost ?? emptyCallCost('estimated'), turnCost])
+        : activeCost;
       const conv: Conversation = {
         id: convId!,
         v: CURRENT_VERSION,
