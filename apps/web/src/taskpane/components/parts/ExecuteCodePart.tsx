@@ -1,6 +1,6 @@
 import React from 'react';
-import { makeStyles, tokens, Button, Badge, Text } from '@fluentui/react-components';
-import { DismissCircle24Regular, Play24Regular } from '@fluentui/react-icons';
+import { makeStyles, tokens, Button, Badge, Text, Tooltip } from '@fluentui/react-components';
+import { Dismiss20Regular, Play20Filled } from '@fluentui/react-icons';
 
 const useStyles = makeStyles({
   container: {
@@ -19,13 +19,19 @@ const useStyles = makeStyles({
     borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
   },
   codeArea: {
-    padding: '12px',
     overflow: 'auto',
     maxHeight: '300px',
     fontFamily: 'Consolas, "Courier New", monospace',
     fontSize: '12px',
     lineHeight: '1.5',
     color: tokens.colorNeutralForeground1,
+    '& pre': {
+      margin: 0,
+      padding: '12px',
+      display: 'block',
+      minWidth: 'max-content',
+      boxSizing: 'border-box',
+    },
   },
   actions: {
     display: 'flex',
@@ -143,22 +149,26 @@ export function ExecuteCodePart({ part, onApprove, onReject, highlight }: Props)
 
       {status === 'pending' && (
         <div className={styles.actions}>
-          <Button
-            appearance="primary"
-            icon={<Play24Regular />}
-            size="small"
-            onClick={() => onApprove(part.toolCallId, code)}
-          >
-            Approve &amp; Run
-          </Button>
-          <Button
-            appearance="subtle"
-            icon={<DismissCircle24Regular />}
-            size="small"
-            onClick={() => onReject(part.toolCallId)}
-          >
-            Reject
-          </Button>
+          <Tooltip content="Approve & Run" relationship="label" withArrow>
+            <Button
+              appearance="primary"
+              icon={<Play20Filled />}
+              size="small"
+              shape="circular"
+              aria-label="Approve & Run"
+              onClick={() => onApprove(part.toolCallId, code)}
+            />
+          </Tooltip>
+          <Tooltip content="Reject" relationship="label" withArrow>
+            <Button
+              appearance="subtle"
+              icon={<Dismiss20Regular />}
+              size="small"
+              shape="circular"
+              aria-label="Reject"
+              onClick={() => onReject(part.toolCallId)}
+            />
+          </Tooltip>
         </div>
       )}
 

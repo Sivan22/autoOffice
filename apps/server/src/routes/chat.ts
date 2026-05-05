@@ -14,6 +14,7 @@ import type { ProviderRegistry } from '../providers';
 import type { McpHub } from '../mcp/hub';
 import { sweepOrphans } from '../chat/orphan-sweep';
 import { systemPromptForHost } from '../chat/system-prompt';
+import { generateTitle } from '../chat/title';
 import { assembleTools } from '../tools';
 
 const Body = z.object({
@@ -50,6 +51,7 @@ export function chatRouter(deps: ChatDeps) {
 
     const conv = deps.conversations.get(id);
     if (!conv) return c.json({ error: 'not found' }, 404);
+    const needsAutoTitle = conv.title == null || conv.title.trim() === '';
 
     if (!providerId.trim()) return c.json({ error: 'no provider picked' }, 400);
     if (!modelId.trim()) return c.json({ error: 'no model picked' }, 400);
@@ -133,6 +135,22 @@ export function chatRouter(deps: ChatDeps) {
           })),
         );
         deps.conversations.touch(id);
+
+        // Fire-and-forget LLM title generation on the first turn.
+        // Race-safe: only writes if the title is still empty when we resolve.
+        if (needsAutoTitle) {
+          const hasUser = (finalMessages as any[]).some((m) => m.role === 'user');
+          const hasAssistant = (finalMessages as any[]).some((m) => m.role === 'assistant');
+          if (hasUser && hasAssistant) {
+            void generateTitle(finalMessages as any, model).then((newTitle) => {
+              if (!newTitle) return;
+              const current = deps.conversations.get(id);
+              if (!current) return;
+              if (current.title != null && current.title.trim() !== '') return;
+              deps.conversations.rename(id, newTitle);
+            }).catch(() => {});
+          }
+        }
       },
     });
   });

@@ -14,7 +14,7 @@ import { Sandbox } from './executor/sandbox.ts';
 import { bootstrap, apiGet, apiSend } from './api.ts';
 import { makeChatTransport } from './chat/transport.ts';
 import { makeOnToolCall } from './chat/on-tool-call.ts';
-import type { Settings, Conversation, Message } from '@autooffice/shared';
+import type { Settings, Message } from '@autooffice/shared';
 import { detectLegacy } from './legacy/detect.ts';
 import { pack } from './legacy/pack.ts';
 import { LegacyImportModal } from './components/LegacyImportModal.tsx';
@@ -71,22 +71,14 @@ export function App({ host }: AppProps) {
       try {
         await bootstrap();
         const s = await apiGet<Settings>('/api/settings');
-        const list = await apiGet<Conversation[]>('/api/conversations');
-        let id: string;
-        const existing = list.find((c) => c.host === host.kind);
-        if (!existing) {
-          const created = await apiSend<{ id: string }>('/api/conversations', { host: host.kind });
-          id = created.id;
-        } else {
-          id = existing.id;
-        }
-        const conv = await apiGet<{ conversation: Conversation; messages: Message[] }>(
-          `/api/conversations/${id}`,
-        );
+        // Always start with a fresh, empty chat when the task pane opens —
+        // we don't want chats from other documents to leak in. Older
+        // conversations are still reachable via the History panel.
+        const created = await apiSend<{ id: string }>('/api/conversations', { host: host.kind });
         if (cancelled) return;
         setSettings(s);
-        setConversationId(id);
-        setInitialMessages(conv.messages);
+        setConversationId(created.id);
+        setInitialMessages([]);
         setReady(true);
       } catch (err) {
         if (cancelled) return;
@@ -99,7 +91,7 @@ export function App({ host }: AppProps) {
   }, [host.kind]);
 
   const loadConversation = useCallback(async (id: string) => {
-    const conv = await apiGet<{ conversation: Conversation; messages: Message[] }>(
+    const conv = await apiGet<{ conversation: { id: string }; messages: Message[] }>(
       `/api/conversations/${id}`,
     );
     setConversationId(id);

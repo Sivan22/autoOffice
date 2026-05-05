@@ -24,6 +24,13 @@ export class MessagesRepo {
   }
 
   replaceAll(conversationId: string, messages: AppendInput[]): void {
+    // Dedupe by id, last-wins. The AI SDK's onFinish can hand back the same
+    // message id twice across multi-step tool-call rounds; the later copy is
+    // the one with tool-result state populated.
+    const byId = new Map<string, AppendInput>();
+    for (const m of messages) byId.set(m.id, m);
+    const deduped = Array.from(byId.values());
+
     const tx = this.db.transaction((items: AppendInput[]) => {
       this.db
         .prepare('DELETE FROM messages WHERE conversation_id = ?')
@@ -44,7 +51,7 @@ export class MessagesRepo {
         );
       }
     });
-    tx(messages);
+    tx(deduped);
   }
 
   listByConversation(conversationId: string): Message[] {

@@ -7,7 +7,8 @@ const TOKEN = 'tok';
 const auth = { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' };
 
 // A toy LanguageModel that always emits a single text response.
-function fakeModel(text: string): LanguageModel {
+// Supports both doStream (chat) and doGenerate (title generation).
+function fakeModel(text: string, titleText = 'Auto Title'): LanguageModel {
   return {
     specificationVersion: 'v2',
     provider: 'fake',
@@ -27,6 +28,15 @@ function fakeModel(text: string): LanguageModel {
             controller.close();
           },
         }),
+        rawCall: { rawPrompt: null, rawSettings: {} },
+      };
+    },
+    async doGenerate() {
+      return {
+        content: [{ type: 'text', text: titleText }],
+        finishReason: 'stop',
+        usage: { inputTokens: 1, outputTokens: 1, totalTokens: 2 },
+        warnings: [],
         rawCall: { rawPrompt: null, rawSettings: {} },
       };
     },
@@ -111,6 +121,81 @@ describe('POST /api/chat', () => {
     });
     expect(res.status).toBe(400);
     expect((await res.json()).error).toBe('no model picked');
+  });
+
+  it('auto-titles a conversation that starts with no title', async () => {
+    const res = await app.request('/api/chat', {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({
+        id: convId,
+        host: 'word',
+        providerId: 'p_unused',
+        modelId: 'fake-1',
+        trigger: 'submit-message',
+        message: {
+          id: 'msg_user_1',
+          role: 'user',
+          parts: [{ type: 'text', text: 'help me build a chart' }],
+        },
+      }),
+    });
+    expect(res.status).toBe(200);
+    const reader = res.body!.getReader();
+    while (true) {
+      const { done } = await reader.read();
+      if (done) break;
+    }
+
+    // Title generation runs after onFinish — give it a few ticks to settle.
+    for (let i = 0; i < 20; i++) {
+      const conv = await (
+        await app.request(`/api/conversations/${convId}`, { headers: auth })
+      ).json();
+      if (conv.conversation.title) {
+        expect(conv.conversation.title).toBe('Auto Title');
+        return;
+      }
+      await new Promise((r) => setTimeout(r, 25));
+    }
+    throw new Error('title was never set');
+  });
+
+  it('does not overwrite an existing conversation title', async () => {
+    // Pre-name the conversation.
+    await app.request(`/api/conversations/${convId}`, {
+      method: 'PATCH',
+      headers: auth,
+      body: JSON.stringify({ title: 'My Custom Title' }),
+    });
+
+    const res = await app.request('/api/chat', {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({
+        id: convId,
+        host: 'word',
+        providerId: 'p_unused',
+        modelId: 'fake-1',
+        trigger: 'submit-message',
+        message: {
+          id: 'msg_user_2',
+          role: 'user',
+          parts: [{ type: 'text', text: 'hi' }],
+        },
+      }),
+    });
+    const reader = res.body!.getReader();
+    while (true) {
+      const { done } = await reader.read();
+      if (done) break;
+    }
+    await new Promise((r) => setTimeout(r, 100));
+
+    const conv = await (
+      await app.request(`/api/conversations/${convId}`, { headers: auth })
+    ).json();
+    expect(conv.conversation.title).toBe('My Custom Title');
   });
 
   it('returns 404 for unknown conversation', async () => {
