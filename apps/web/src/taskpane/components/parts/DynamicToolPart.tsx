@@ -87,7 +87,7 @@ export function DynamicToolPart({
   const styles = useStyles();
   const { label, color, spinning } = stateBadge(part.state);
 
-  const toolName = part.toolName ?? 'tool';
+  const toolName = (part.toolName ?? 'tool').replace(/^mcp_[^_]+_/, '');
   const hasInput = part.input != null && Object.keys(part.input as object).length > 0;
   const hasOutput = part.state === 'output-available' && part.output !== undefined;
   const hasError = part.state === 'output-error' && !!part.errorText;
