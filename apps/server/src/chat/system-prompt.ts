@@ -16,6 +16,7 @@ Guidelines:
 - Look up skills before generating code for any office.js domain you're unsure about.
 - Generate minimal, correct code. Self-heal on errors.
 - Show user the code before running it (the UI handles approval).
+- When you write comments in generated code, write them in the same language the user is using in the conversation, unless the user asks for a different language. Identifiers (variable/function names, office.js APIs) stay in English.
 `;
 
 export function systemPromptForHost(host: Host): string {

@@ -232,6 +232,62 @@ describe('SettingsPanel — Providers', () => {
     });
   });
 
+  it('restores the last-used model when the user switches to a provider whose model is still in the catalog', async () => {
+    const p1 = makeProvider({
+      id: 'p1',
+      kind: 'anthropic',
+      label: 'Anthropic',
+      config: { lastModelId: 'claude-opus-4-7' },
+    });
+    const p2 = makeProvider({ id: 'p2', kind: 'openai', label: 'OpenAI' });
+    let settingsPut: any = null;
+    installFetchRouter({
+      '/bootstrap': () => new Response(JSON.stringify({ token: 't', version: 'v' })),
+      '/api/settings GET': () =>
+        new Response(
+          JSON.stringify({
+            ...settingsPayload,
+            selectedProviderId: 'p2',
+            selectedModelId: 'gpt-4o',
+          }),
+        ),
+      '/api/providers GET': () => new Response(JSON.stringify([p1, p2])),
+      '/api/providers/p1/models GET': () =>
+        new Response(
+          JSON.stringify({ models: ['claude-opus-4-7', 'claude-haiku-4-5'], source: 'live' }),
+        ),
+      '/api/providers/p2/models GET': () =>
+        new Response(JSON.stringify({ models: ['gpt-4o'], source: 'live' })),
+      '/api/settings PUT': (_u, init) => {
+        settingsPut = JSON.parse((init?.body as string) ?? '{}');
+        return new Response(
+          JSON.stringify({
+            ...settingsPayload,
+            selectedProviderId: 'p1',
+            selectedModelId: 'claude-opus-4-7',
+          }),
+        );
+      },
+    });
+    await bootstrap();
+
+    wrap(<SettingsPanel onClose={() => {}} />);
+
+    // Wait until the picker reflects the loaded selection (OpenAI), then
+    // switch to Anthropic to trigger the restore logic.
+    const select = (await screen.findByLabelText('Provider')) as HTMLSelectElement;
+    await waitFor(() => expect(select.value).toBe('openai'));
+
+    fireEvent.change(select, { target: { value: 'anthropic' } });
+
+    await waitFor(() => {
+      expect(settingsPut).toEqual({
+        selectedProviderId: 'p1',
+        selectedModelId: 'claude-opus-4-7',
+      });
+    });
+  });
+
   it('surfaces server error message body when key save fails (e.g. DPAPI unavailable)', async () => {
     installFetchRouter({
       '/bootstrap': () => new Response(JSON.stringify({ token: 't', version: 'v' })),

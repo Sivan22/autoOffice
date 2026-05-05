@@ -286,6 +286,9 @@ export function ChatPanel({
               onRejectCode={onRejectCode}
               onApprovalResponse={onApprovalResponse}
               highlightCode={highlightCode}
+              streaming={
+                isLoading && i === messages.length - 1 && msg.role === 'assistant'
+              }
             />
           ))
         )}

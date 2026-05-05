@@ -84,7 +84,7 @@ describe('generateTitle', () => {
       ],
       FAKE_MODEL,
     );
-    const prompt = mocks.generateText.mock.calls[0][0].prompt as string;
+    const prompt = (mocks.generateText.mock.calls[0]?.[0] as { prompt: string }).prompt;
     expect(prompt).toContain('USER: hello world');
   });
 });

@@ -263,38 +263,59 @@ function GeneralSection() {
   const findByKind = (kind: ProviderKind): ProviderConfig | null =>
     providers.find((p) => p.kind === kind) ?? null;
 
+  // Returns the stored model id only if it's still in the provider's live
+  // catalog. Open-ended providers (empty catalog) trust the prior choice;
+  // catalog fetch failures also trust it rather than discarding silently.
+  const resolveLastModel = async (
+    providerId: string,
+    hint: unknown,
+  ): Promise<string | null> => {
+    if (typeof hint !== 'string' || !hint) return null;
+    try {
+      const r = await apiGet<{ models: string[] }>(`/api/providers/${providerId}/models`);
+      if (r.models.length === 0 || r.models.includes(hint)) return hint;
+      return null;
+    } catch {
+      return hint;
+    }
+  };
+
   const ensureSelected = async (
     kind: ProviderKind,
     extra?: { apiKey?: string; config?: Record<string, unknown> },
   ): Promise<string> => {
     const existing = findByKind(kind);
+    let providerId: string;
+    let priorConfig: Record<string, unknown> | null = null;
     if (existing) {
+      priorConfig = (existing.config ?? {}) as Record<string, unknown>;
       if (extra && (extra.apiKey || extra.config)) {
         await apiSend(`/api/providers/${existing.id}`, extra, 'PUT');
       }
-      if (settings.selectedProviderId !== existing.id) {
-        const next = await apiSend<Settings>(
-          '/api/settings',
-          { selectedProviderId: existing.id, selectedModelId: null },
-          'PUT',
-        );
-        setSettings(next);
-      }
-      return existing.id;
+      providerId = existing.id;
+    } else {
+      const r = await apiSend<{ id: string }>('/api/providers', {
+        kind,
+        label: labelForKind(kind),
+        ...(extra?.apiKey ? { apiKey: extra.apiKey } : {}),
+        ...(extra?.config ? { config: extra.config } : {}),
+      });
+      providerId = r.id;
     }
-    const r = await apiSend<{ id: string }>('/api/providers', {
-      kind,
-      label: labelForKind(kind),
-      ...(extra?.apiKey ? { apiKey: extra.apiKey } : {}),
-      ...(extra?.config ? { config: extra.config } : {}),
-    });
-    const next = await apiSend<Settings>(
-      '/api/settings',
-      { selectedProviderId: r.id, selectedModelId: null },
-      'PUT',
-    );
-    setSettings(next);
-    return r.id;
+    if (settings.selectedProviderId !== providerId) {
+      // Switching providers: try to restore the last-used model for this
+      // provider, dropping it if it's no longer in the catalog.
+      const restored = priorConfig
+        ? await resolveLastModel(providerId, priorConfig.lastModelId)
+        : null;
+      const next = await apiSend<Settings>(
+        '/api/settings',
+        { selectedProviderId: providerId, selectedModelId: restored },
+        'PUT',
+      );
+      setSettings(next);
+    }
+    return providerId;
   };
 
   const pickKind = async (kind: ProviderKind) => {
@@ -324,6 +345,23 @@ function GeneralSection() {
 
   const saveModel = async (modelId: string) => {
     await updateSettings({ selectedModelId: modelId || null });
+    // Stash on the provider so switching away and back restores this choice.
+    if (active && modelId) {
+      const cfg = (active.config ?? {}) as Record<string, unknown>;
+      if (cfg.lastModelId === modelId) return;
+      try {
+        await apiSend(
+          `/api/providers/${active.id}`,
+          { config: { ...cfg, lastModelId: modelId } },
+          'PUT',
+        );
+        await reload();
+      } catch (e) {
+        // Non-fatal: the active selection is already saved on settings; this
+        // only affects the next provider switch.
+        setError((e as Error).message);
+      }
+    }
   };
 
   const test = async () => {

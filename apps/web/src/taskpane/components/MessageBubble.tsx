@@ -1,5 +1,5 @@
 import React from 'react';
-import { makeStyles, tokens } from '@fluentui/react-components';
+import { makeStyles, tokens, Spinner } from '@fluentui/react-components';
 import { TextPart } from './parts/TextPart';
 import { StepStartPart } from './parts/StepStartPart';
 import { ExecuteCodePart } from './parts/ExecuteCodePart';
@@ -51,6 +51,10 @@ const useStyles = makeStyles({
   metaModel: {
     fontWeight: 500,
   },
+  metaSpinner: {
+    display: 'inline-flex',
+    alignItems: 'center',
+  },
 });
 
 function formatMessageTime(ts: number): string {
@@ -83,6 +87,8 @@ export type MessageBubbleProps = {
   onRejectCode: (toolCallId: string) => void;
   onApprovalResponse: (id: string, approved: boolean) => void;
   highlightCode: (code: string) => React.ReactNode;
+  /** Show a small progress spinner next to the model id while this message streams. */
+  streaming?: boolean;
 };
 
 export function MessageBubble({
@@ -91,6 +97,7 @@ export function MessageBubble({
   onRejectCode,
   onApprovalResponse,
   highlightCode,
+  streaming = false,
 }: MessageBubbleProps) {
   const styles = useStyles();
   const bubbleClass = message.role === 'user' ? styles.userBubble : styles.assistantBubble;
@@ -146,10 +153,16 @@ export function MessageBubble({
           }
         })}
       </div>
-      {(ts !== undefined || (message.role === 'assistant' && modelId)) && (
+      {(ts !== undefined ||
+        (message.role === 'assistant' && (modelId || streaming))) && (
         <div className={metaClass}>
           {message.role === 'assistant' && modelId && (
             <span className={styles.metaModel}>{modelId}</span>
+          )}
+          {message.role === 'assistant' && streaming && (
+            <span className={styles.metaSpinner} aria-label="Streaming response">
+              <Spinner size="extra-tiny" />
+            </span>
           )}
           {ts !== undefined && <span>{formatMessageTime(ts)}</span>}
         </div>

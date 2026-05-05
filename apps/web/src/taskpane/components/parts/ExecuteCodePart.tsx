@@ -1,6 +1,6 @@
 import React from 'react';
 import { makeStyles, tokens, Button, Badge, Text, Tooltip } from '@fluentui/react-components';
-import { Dismiss20Regular, Play20Filled } from '@fluentui/react-icons';
+import { DismissCircle24Regular, Play24Regular } from '@fluentui/react-icons';
 
 const useStyles = makeStyles({
   container: {
@@ -74,6 +74,21 @@ const useStyles = makeStyles({
   },
   resultBodyError: {
     color: tokens.colorPaletteRedForeground1,
+  },
+  approveBtn: {
+    backgroundColor: tokens.colorPaletteGreenBackground3,
+    borderColor: tokens.colorPaletteGreenBorderActive,
+    color: tokens.colorNeutralForegroundOnBrand,
+    '&:hover': {
+      backgroundColor: tokens.colorPaletteGreenForeground1,
+      borderColor: tokens.colorPaletteGreenForeground1,
+      color: tokens.colorNeutralForegroundOnBrand,
+    },
+    '&:hover:active': {
+      backgroundColor: tokens.colorPaletteGreenForeground3,
+      borderColor: tokens.colorPaletteGreenForeground3,
+      color: tokens.colorNeutralForegroundOnBrand,
+    },
   },
 });
 
@@ -151,10 +166,9 @@ export function ExecuteCodePart({ part, onApprove, onReject, highlight }: Props)
         <div className={styles.actions}>
           <Tooltip content="Approve & Run" relationship="label" withArrow>
             <Button
-              appearance="primary"
-              icon={<Play20Filled />}
+              className={styles.approveBtn}
+              icon={<Play24Regular />}
               size="small"
-              shape="circular"
               aria-label="Approve & Run"
               onClick={() => onApprove(part.toolCallId, code)}
             />
@@ -162,9 +176,8 @@ export function ExecuteCodePart({ part, onApprove, onReject, highlight }: Props)
           <Tooltip content="Reject" relationship="label" withArrow>
             <Button
               appearance="subtle"
-              icon={<Dismiss20Regular />}
+              icon={<DismissCircle24Regular />}
               size="small"
-              shape="circular"
               aria-label="Reject"
               onClick={() => onReject(part.toolCallId)}
             />
