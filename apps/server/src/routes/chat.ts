@@ -73,13 +73,19 @@ export function chatRouter(deps: ChatDeps) {
     };
     let merged: Merged[];
     if (trigger === 'submit-message' && message) {
+      const incomingMeta = (message.metadata ?? {}) as Record<string, unknown>;
+      const userMeta = {
+        ...incomingMeta,
+        createdAt:
+          typeof incomingMeta.createdAt === 'number' ? incomingMeta.createdAt : Date.now(),
+      };
       merged = [
         ...history,
         {
           id: message.id,
           role: message.role ?? 'user',
           parts: message.parts ?? [],
-          metadata: message.metadata ?? null,
+          metadata: userMeta,
           conversationId: id,
         },
       ];
@@ -107,6 +113,11 @@ export function chatRouter(deps: ChatDeps) {
     return result.toUIMessageStreamResponse({
       originalMessages: swept as any,
       generateMessageId: createIdGenerator({ prefix: 'msg', size: 16 }),
+      messageMetadata: ({ part }: { part: { type: string } }) => {
+        if (part.type === 'start') {
+          return { createdAt: Date.now(), providerId, modelId };
+        }
+      },
       onFinish: ({ messages: finalMessages }) => {
         deps.messages.replaceAll(
           id,

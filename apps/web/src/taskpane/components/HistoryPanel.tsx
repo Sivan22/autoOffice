@@ -166,7 +166,9 @@ export function HistoryPanel({
     void reload();
   }, [reload]);
 
-  const filtered = showAll ? conversations : conversations.filter((c) => c.host === currentHost);
+  const filtered = (showAll ? conversations : conversations.filter((c) => c.host === currentHost))
+    .slice()
+    .sort((a, b) => b.updatedAt - a.updatedAt);
 
   const startRename = (c: Conversation) => {
     setRenamingId(c.id);
@@ -283,7 +285,7 @@ export function HistoryPanel({
                     <Badge appearance="outline" size="small">
                       {hostLabel(c.host)}
                     </Badge>
-                    <span>{formatRelativeAgo(c.updatedAt)}</span>
+                    <span>Updated {formatRelativeAgo(c.updatedAt)}</span>
                   </div>
                 </div>
                 <div className={styles.rowActions} data-row-action="">

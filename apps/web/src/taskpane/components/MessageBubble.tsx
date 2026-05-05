@@ -32,12 +32,49 @@ const useStyles = makeStyles({
     maxWidth: '85%',
     wordBreak: 'break-word',
   },
+  metaUser: {
+    alignSelf: 'flex-end',
+    fontSize: '11px',
+    color: tokens.colorNeutralForeground3,
+    padding: '0 4px',
+    display: 'flex',
+    gap: '6px',
+  },
+  metaAssistant: {
+    alignSelf: 'flex-start',
+    fontSize: '11px',
+    color: tokens.colorNeutralForeground3,
+    padding: '0 4px',
+    display: 'flex',
+    gap: '6px',
+  },
+  metaModel: {
+    fontWeight: 500,
+  },
 });
+
+function formatMessageTime(ts: number): string {
+  const d = new Date(ts);
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  return sameDay
+    ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : d.toLocaleString([], {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+}
 
 export type UIMessageLike = {
   id?: string;
   role: 'user' | 'assistant' | 'system';
   parts: Array<Record<string, unknown> & { type: string }>;
+  metadata?: Record<string, unknown> | null;
 };
 
 export type MessageBubbleProps = {
@@ -57,6 +94,12 @@ export function MessageBubble({
 }: MessageBubbleProps) {
   const styles = useStyles();
   const bubbleClass = message.role === 'user' ? styles.userBubble : styles.assistantBubble;
+  const meta = (message.metadata ?? null) as
+    | { createdAt?: number; modelId?: string; providerId?: string }
+    | null;
+  const ts = typeof meta?.createdAt === 'number' ? meta.createdAt : undefined;
+  const modelId = typeof meta?.modelId === 'string' ? meta.modelId : undefined;
+  const metaClass = message.role === 'user' ? styles.metaUser : styles.metaAssistant;
 
   return (
     <div className={styles.container}>
@@ -103,6 +146,14 @@ export function MessageBubble({
           }
         })}
       </div>
+      {(ts !== undefined || (message.role === 'assistant' && modelId)) && (
+        <div className={metaClass}>
+          {message.role === 'assistant' && modelId && (
+            <span className={styles.metaModel}>{modelId}</span>
+          )}
+          {ts !== undefined && <span>{formatMessageTime(ts)}</span>}
+        </div>
+      )}
     </div>
   );
 }
