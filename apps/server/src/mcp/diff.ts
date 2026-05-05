@@ -10,6 +10,7 @@ const RESTART_FIELDS: ReadonlyArray<keyof StoredMcpServer> = [
   'env',
   'url',
   'headers',
+  'timeoutSeconds',
 ];
 
 function deepEqual(a: unknown, b: unknown): boolean {
@@ -25,7 +26,6 @@ export function classifyChange(prev: StoredMcpServer, next: StoredMcpServer): Ch
   }
   if (
     prev.label !== next.label ||
-    prev.timeoutSeconds !== next.timeoutSeconds ||
     prev.defaultPolicy !== next.defaultPolicy
   ) {
     return 'live';

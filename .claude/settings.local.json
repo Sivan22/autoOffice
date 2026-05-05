@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\dev\\\\autoOffice\" -Directory)",
+      "Bash(Select-Object -First 20)",
+      "Bash(bun pm *)",
+      "Bash(npm info *)",
+      "Bash(node -e \"const v=require\\('fs'\\).readFileSync\\('/dev/stdin','utf8'\\);const arr=JSON.parse\\(v\\);console.log\\(arr.slice\\(-15\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(npx npm-check-updates *)",
+      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\(0,'utf8'\\);console.log\\(JSON.parse\\(d\\).slice\\(-20\\).join\\('\\\\n'\\)\\)\")",
+      "Bash(curl -s \"https://registry.npmjs.org/@ai-sdk%2Fmcp\")",
+      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\(0,'utf8'\\);try{const j=JSON.parse\\(d\\);const vs=Object.keys\\(j.versions||{}\\);console.log\\(vs.slice\\(-20\\).join\\('\\\\n'\\)\\);}catch\\(e\\){console.log\\('parse error'\\)}\")",
+      "Bash(curl -s \"https://registry.npmjs.org/@ai-sdk%2Fmcp/1.0.20/dist/index.js\")",
+      "Bash(curl -s \"https://registry.npmjs.org/@ai-sdk%2Fmcp/1.0.30\")",
+      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\(0,'utf8'\\);try{const j=JSON.parse\\(d\\);console.log\\(j.dist?.tarball, j.version\\);}catch\\(e\\){console.log\\(e.message\\)}\")",
+      "Bash(node -e \"const d=require\\('fs'\\).readFileSync\\(0,'utf8'\\);const j=JSON.parse\\(d\\);console.log\\(j.description, '|', j['ai-sdk-mcp-changelog']?.slice?.\\(0,200\\)||''\\)\")",
+      "Bash(cd /tmp)",
+      "Bash(curl -sL \"https://registry.npmjs.org/@ai-sdk/mcp/-/mcp-1.0.25.tgz\")",
+      "Bash(tar xz *)",
+      "Bash(curl -sL https://registry.npmjs.org/@ai-sdk/mcp/-/mcp-__TRACKED_VAR__.tgz)",
+      "Bash(bun install *)"
+    ]
+  }
+}

@@ -201,14 +201,29 @@ export class McpHub {
       for (const t of conn.tools) {
         if (t.policy === 'deny') continue;
         const cliEntry = conn.rawClientTools[t.name];
+        const timeoutMs = (conn.prevConfig?.timeoutSeconds ?? 60) * 1000;
+        const rawExec: (args: unknown) => Promise<unknown> = cliEntry?.execute ?? (() => {
+          throw new Error(`Tool ${t.name} has no execute fn`);
+        });
         out.push({
           fullName: `${conn.serverId}/${t.name}`,
           description: t.description ?? null,
           inputSchema: t.inputSchema,
           needsApproval: t.policy === 'ask',
-          execute: cliEntry?.execute ?? (async () => {
-            throw new Error(`Tool ${t.name} has no execute fn`);
-          }),
+          execute: async (args: unknown) => {
+            let timer: ReturnType<typeof setTimeout> | undefined;
+            const deadline = new Promise<never>((_, reject) => {
+              timer = setTimeout(
+                () => reject(new Error(`timed out after ${conn.prevConfig?.timeoutSeconds ?? 60}s`)),
+                timeoutMs,
+              );
+            });
+            try {
+              return await Promise.race([rawExec(args), deadline]);
+            } finally {
+              clearTimeout(timer);
+            }
+          },
         });
       }
     }

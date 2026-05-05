@@ -107,6 +107,7 @@ export type TranslationKey =
   | "settings.mcpRestartAria"
   | "settings.mcpSection"
   | "settings.mcpShowLog"
+  | "settings.mcpTimeoutLabel"
   | "settings.mcpTools"
   | "settings.mcpTransportLabel"
   | "settings.mcpUrlLabel"

@@ -11,16 +11,28 @@ export type AssembleArgs = {
   mcpTools: ChatToolWrapper[];
 };
 
+function sanitizeToolName(name: string): string {
+  let s = name.replace(/[^a-zA-Z0-9_.\-:]/g, '_');
+  if (!/^[a-zA-Z_]/.test(s)) s = '_' + s;
+  return s.slice(0, 128);
+}
+
 export function assembleTools({ host, mcpTools }: AssembleArgs): ToolMap {
   const out: ToolMap = {
     lookup_skill: makeLookupSkillTool({ host }),
     execute_code: makeExecuteCodeTool(),
   };
   for (const m of mcpTools) {
-    out[m.fullName] = tool({
+    out[sanitizeToolName(m.fullName)] = tool({
       description: m.description ?? m.fullName,
       inputSchema: (m.inputSchema as any) ?? { type: 'object' },
-      execute: async (input: unknown) => m.execute(input),
+      execute: async (input: unknown) => {
+        try {
+          return await m.execute(input);
+        } catch (err) {
+          return { error: (err as Error).message ?? String(err) };
+        }
+      },
       needsApproval: m.needsApproval,
     } as any);
   }

@@ -17,7 +17,7 @@
     "@ai-sdk/gateway": "^3.0.104",
     "@ai-sdk/google": "^3.0.64",
     "@ai-sdk/groq": "^3.0.35",
-    "@ai-sdk/mcp": "^1.0.36",
+    "@ai-sdk/mcp": "1.0.26",
     "@ai-sdk/openai": "^3.0.53",
     "@ai-sdk/openai-compatible": "^2.0.41",
     "@ai-sdk/xai": "^3.0.83",

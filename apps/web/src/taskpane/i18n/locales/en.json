@@ -95,6 +95,7 @@
     "mcpEnabled": "Enabled",
     "mcpDisabled": "Disabled",
     "mcpDefault": "Default: {{policy}}",
+    "mcpTimeoutLabel": "Timeout",
     "mcpTools": "Tools",
     "mcpShowLog": "Show stderr log",
     "mcpLogAria": "stderr log for {{label}}",

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   makeStyles,
+  mergeClasses,
   tokens,
   Button,
   Input,
@@ -129,16 +130,47 @@ const useStyles = makeStyles({
     overflow: 'hidden',
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
+    minWidth: 0,
   },
-  logBox: {
-    fontFamily: 'monospace',
+});
+
+const useTriSwitchStyles = makeStyles({
+  root: {
+    display: 'inline-flex',
+    borderRadius: '6px',
+    border: `1px solid ${tokens.colorNeutralStroke1}`,
+    overflow: 'hidden',
+    flexShrink: 0,
+    backgroundColor: tokens.colorNeutralBackground1,
+  },
+  seg: {
+    padding: '2px 8px',
     fontSize: '11px',
-    whiteSpace: 'pre-wrap',
-    background: tokens.colorNeutralBackground4,
-    padding: '8px',
-    borderRadius: '4px',
-    maxHeight: '160px',
-    overflow: 'auto',
+    fontWeight: 500,
+    cursor: 'pointer',
+    border: 'none',
+    borderRight: `1px solid ${tokens.colorNeutralStroke1}`,
+    backgroundColor: 'transparent',
+    color: tokens.colorNeutralForeground3,
+    lineHeight: '1.6',
+    fontFamily: 'inherit',
+    ':last-child': { borderRight: 'none' },
+    ':hover': { backgroundColor: tokens.colorNeutralBackground3Hover, color: tokens.colorNeutralForeground1 },
+  },
+  activeAllow: {
+    backgroundColor: tokens.colorPaletteGreenBackground3,
+    color: tokens.colorNeutralForegroundOnBrand,
+    ':hover': { backgroundColor: tokens.colorPaletteGreenForeground1, color: tokens.colorNeutralForegroundOnBrand },
+  },
+  activeAsk: {
+    backgroundColor: tokens.colorPaletteYellowBackground2,
+    color: tokens.colorNeutralForeground1,
+    ':hover': { backgroundColor: tokens.colorPaletteYellowBackground2, color: tokens.colorNeutralForeground1 },
+  },
+  activeDeny: {
+    backgroundColor: tokens.colorPaletteRedBackground3,
+    color: tokens.colorNeutralForegroundOnBrand,
+    ':hover': { backgroundColor: tokens.colorPaletteRedForeground1, color: tokens.colorNeutralForegroundOnBrand },
   },
 });
 
@@ -808,7 +840,6 @@ function McpSection() {
   const [servers, setServers] = useState<McpServerView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [logs, setLogs] = useState<Record<string, string[]>>({});
 
   const reload = useCallback(async () => {
     try {
@@ -906,11 +937,34 @@ function McpSection() {
   };
 
   const setPolicy = async (id: string, tool: string, policy: McpPolicy) => {
+    setServers((prev) =>
+      prev.map((s) =>
+        s.id === id ? { ...s, tools: s.tools.map((t) => (t.name === tool ? { ...t, policy } : t)) } : s,
+      ),
+    );
     try {
       await apiSend(`/api/mcp/servers/${id}/tools/${encodeURIComponent(tool)}`, { policy }, 'PUT');
-      await reload();
     } catch (e) {
       setError((e as Error).message);
+      void reload();
+    }
+  };
+
+  const setAllPolicy = async (id: string, policy: McpPolicy) => {
+    const server = servers.find((s) => s.id === id);
+    if (!server) return;
+    setServers((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, tools: s.tools.map((t) => ({ ...t, policy })) } : s)),
+    );
+    try {
+      await Promise.all(
+        server.tools.map((t) =>
+          apiSend(`/api/mcp/servers/${id}/tools/${encodeURIComponent(t.name)}`, { policy }, 'PUT'),
+        ),
+      );
+    } catch (e) {
+      setError((e as Error).message);
+      void reload();
     }
   };
 
@@ -923,12 +977,12 @@ function McpSection() {
     }
   };
 
-  const fetchLog = async (id: string) => {
+  const setTimeoutSeconds = async (id: string, seconds: number) => {
     try {
-      const r = await apiGet<{ lines: string[] }>(`/api/mcp/servers/${id}/log`);
-      setLogs((prev) => ({ ...prev, [id]: r.lines }));
+      await apiSend(`/api/mcp/servers/${id}`, { timeoutSeconds: seconds }, 'PUT');
+      await reload();
     } catch (e) {
-      setLogs((prev) => ({ ...prev, [id]: [`error: ${(e as Error).message}`] }));
+      setError((e as Error).message);
     }
   };
 
@@ -947,12 +1001,12 @@ function McpSection() {
           <McpServerCard
             key={s.id}
             server={s}
-            log={logs[s.id]}
             onRemove={() => void remove(s.id)}
             onRestart={() => restart(s.id)}
             onToggleDisabled={() => toggleDisabled(s)}
-            onPolicyChange={(tool, p) => setPolicy(s.id, tool, p)}
-            onFetchLog={() => fetchLog(s.id)}
+            onPolicyChange={(tool, p) => void setPolicy(s.id, tool, p)}
+            onAllPolicyChange={(p) => void setAllPolicy(s.id, p)}
+            onTimeoutChange={(sec) => void setTimeoutSeconds(s.id, sec)}
           />
         ))
       )}
@@ -969,6 +1023,7 @@ function AddMcpForm({ onAdd }: { onAdd: (input: CreateMcpServerInput) => void })
   const [command, setCommand] = useState('');
   const [args, setArgs] = useState('');
   const [url, setUrl] = useState('');
+  const [timeout, setTimeout_] = useState('60');
 
   if (!open) {
     return (
@@ -997,9 +1052,10 @@ function AddMcpForm({ onAdd }: { onAdd: (input: CreateMcpServerInput) => void })
         headers: {},
       };
     }
+    const timeoutSeconds = Math.max(1, Math.min(600, parseInt(timeout, 10) || 60));
     onAdd({
       label: label.trim(),
-      timeoutSeconds: 60,
+      timeoutSeconds,
       defaultPolicy: 'ask',
       disabled: false,
       spec,
@@ -1009,6 +1065,7 @@ function AddMcpForm({ onAdd }: { onAdd: (input: CreateMcpServerInput) => void })
     setCommand('');
     setArgs('');
     setUrl('');
+    setTimeout_('60');
   };
 
   return (
@@ -1050,6 +1107,15 @@ function AddMcpForm({ onAdd }: { onAdd: (input: CreateMcpServerInput) => void })
           />
         </Field>
       )}
+      <Field label={t('settings.mcpTimeoutLabel')}>
+        <Input
+          type="number"
+          value={timeout}
+          onChange={(_, d) => setTimeout_(d.value)}
+          min={1}
+          max={600}
+        />
+      </Field>
       <div className={styles.row}>
         <Button appearance="primary" onClick={submit}>
           {t('common.save')}
@@ -1062,25 +1128,52 @@ function AddMcpForm({ onAdd }: { onAdd: (input: CreateMcpServerInput) => void })
   );
 }
 
+const POLICY_OPTIONS: McpPolicy[] = ['allow', 'ask', 'deny'];
+
+function TriSwitch({ value, onChange }: { value: McpPolicy | null; onChange: (v: McpPolicy) => void }) {
+  const s = useTriSwitchStyles();
+  return (
+    <div className={s.root} role="group">
+      {POLICY_OPTIONS.map((opt) => (
+        <button
+          key={opt}
+          type="button"
+          className={mergeClasses(
+            s.seg,
+            value === opt && opt === 'allow' && s.activeAllow,
+            value === opt && opt === 'ask' && s.activeAsk,
+            value === opt && opt === 'deny' && s.activeDeny,
+          )}
+          onClick={() => onChange(opt)}
+        >
+          {opt}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function McpServerCard({
   server,
-  log,
   onRemove,
   onRestart,
   onToggleDisabled,
   onPolicyChange,
-  onFetchLog,
+  onAllPolicyChange,
+  onTimeoutChange,
 }: {
   server: McpServerView;
-  log: string[] | undefined;
   onRemove: () => void;
   onRestart: () => void;
   onToggleDisabled: () => void;
   onPolicyChange: (tool: string, p: McpPolicy) => void;
-  onFetchLog: () => void;
+  onAllPolicyChange: (p: McpPolicy) => void;
+  onTimeoutChange: (seconds: number) => void;
 }) {
   const styles = useStyles();
   const { t } = useTranslation();
+  const [timeoutDraft, setTimeoutDraft] = useState(String(server.timeoutSeconds));
+  useEffect(() => setTimeoutDraft(String(server.timeoutSeconds)), [server.timeoutSeconds]);
   return (
     <div className={styles.card}>
       <div className={styles.cardHeader}>
@@ -1114,41 +1207,53 @@ function McpServerCard({
           onChange={onToggleDisabled}
           label={server.disabled ? t('settings.mcpDisabled') : t('settings.mcpEnabled')}
         />
-        <Text size={200}>{t('settings.mcpDefault', { policy: server.defaultPolicy })}</Text>
+      </div>
+      <div className={styles.row}>
+        <Text size={200} style={{ flexShrink: 0 }}>{t('settings.mcpTimeoutLabel')}</Text>
+        <Input
+          type="number"
+          size="small"
+          style={{ width: '70px' }}
+          value={timeoutDraft}
+          onChange={(_, d) => setTimeoutDraft(d.value)}
+          onBlur={() => {
+            const n = Math.max(1, Math.min(600, parseInt(timeoutDraft, 10) || server.timeoutSeconds));
+            setTimeoutDraft(String(n));
+            if (n !== server.timeoutSeconds) onTimeoutChange(n);
+          }}
+          min={1}
+          max={600}
+        />
+        <Text size={200}>s</Text>
       </div>
       {server.tools.length > 0 && (
         <>
           <Text weight="semibold" size={200}>
             {t('settings.mcpTools')}
           </Text>
+          <div className={styles.toolRow}>
+            <span className={styles.toolName} style={{ fontStyle: 'italic' }}>All</span>
+            <TriSwitch
+              value={
+                server.tools.every((t) => t.policy === server.tools[0].policy)
+                  ? server.tools[0].policy
+                  : null
+              }
+              onChange={onAllPolicyChange}
+            />
+          </div>
           {server.tools.map((tool) => (
             <div key={tool.name} className={styles.toolRow}>
               <span className={styles.toolName} title={tool.name}>
                 {tool.name}
               </span>
-              <Select
+              <TriSwitch
                 value={tool.policy}
-                onChange={(_, d) => onPolicyChange(tool.name, d.value as McpPolicy)}
-                aria-label={t('settings.mcpPolicyAria', { tool: tool.name })}
-                size="small"
-              >
-                <option value="allow">allow</option>
-                <option value="ask">ask</option>
-                <option value="deny">deny</option>
-              </Select>
+                onChange={(p) => onPolicyChange(tool.name, p)}
+              />
             </div>
           ))}
         </>
-      )}
-      <div className={styles.row}>
-        <Button appearance="subtle" size="small" onClick={onFetchLog}>
-          {t('settings.mcpShowLog')}
-        </Button>
-      </div>
-      {log && (
-        <div className={styles.logBox} aria-label={t('settings.mcpLogAria', { label: server.label })}>
-          {log.length === 0 ? t('settings.mcpLogEmpty') : log.join('\n')}
-        </div>
       )}
     </div>
   );

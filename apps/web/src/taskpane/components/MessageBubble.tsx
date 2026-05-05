@@ -133,7 +133,7 @@ export function MessageBubble({
               return <DynamicToolPart key={idx} part={part as any} />;
             default:
               if (typeof part.type === 'string' && part.type.startsWith('tool-')) {
-                if ((part as any).state === 'approval-requested') {
+                if ((part as any).approval != null) {
                   return (
                     <ApprovalRequestedPart
                       key={idx}

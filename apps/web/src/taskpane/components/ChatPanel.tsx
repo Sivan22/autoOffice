@@ -123,6 +123,19 @@ export interface ChatPanelProps {
   onNewChat?: () => void;
 }
 
+function isProviderError(msg: string): boolean {
+  const m = msg.toLowerCase();
+  return (
+    m.includes('api key') || m.includes('api_key') ||
+    m.includes('unauthorized') || m.includes('authentication') ||
+    m.includes('401') || m.includes('403') ||
+    m.includes('no provider') || m.includes('provider not found') ||
+    m.includes('no model') || m.includes('invalid key') ||
+    m.includes('quota') || m.includes('billing') ||
+    m.includes('permission') || m.includes('credentials')
+  );
+}
+
 export function ChatPanel({
   host,
   messages,
@@ -252,7 +265,7 @@ export function ChatPanel({
           <Text className={styles.bannerText} size={200}>
             {chatError}
           </Text>
-          {onOpenSettings && (
+          {onOpenSettings && isProviderError(chatError) && (
             <Button appearance="subtle" size="small" onClick={onOpenSettings}>
               Settings
             </Button>
