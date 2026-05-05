@@ -20,6 +20,9 @@ export function providersRouter(repo: ProvidersRepo, registry: ProviderRegistry)
     try { body = await c.req.json(); } catch { return c.json({ error: 'invalid json' }, 400); }
     const parsed = CreateProviderInputSchema.safeParse(body);
     if (!parsed.success) return c.json({ error: 'invalid', issues: parsed.error.issues }, 400);
+    if (parsed.data.kind === 'claude-code') {
+      return c.json({ error: 'claude-code provider is temporarily disabled' }, 400);
+    }
     try {
       const id = repo.create(parsed.data);
       return c.json({ id }, 201);

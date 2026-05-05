@@ -86,92 +86,110 @@ beforeEach(() => {
 });
 
 describe('SettingsPanel — Providers', () => {
-  it('lists providers from /api/providers', async () => {
+  it('shows the kind picker defaulting to Anthropic when no providers exist', async () => {
     installFetchRouter({
       '/bootstrap': () => new Response(JSON.stringify({ token: 't', version: 'v' })),
-      '/api/providers GET': () =>
-        new Response(JSON.stringify([makeProvider({ label: 'Alpha' })])),
+      '/api/settings GET': () => new Response(JSON.stringify(settingsPayload)),
+      '/api/providers GET': () => new Response(JSON.stringify([])),
     });
     await bootstrap();
 
     wrap(<SettingsPanel onClose={() => {}} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Providers' }));
+    // General tab (which contains the provider UI) is the default.
 
     await waitFor(() => {
-      expect(screen.getByText('Alpha')).toBeInTheDocument();
+      const select = screen.getByLabelText('Provider') as HTMLSelectElement;
+      expect(select.value).toBe('anthropic');
     });
   });
 
-  it('POSTs a new provider when "Add provider" form is submitted', async () => {
-    let postCount = 0;
-    let postSeen = false;
+  it('collapses the API-key input to a "Change key" link when a key is stored', async () => {
     installFetchRouter({
       '/bootstrap': () => new Response(JSON.stringify({ token: 't', version: 'v' })),
+      '/api/settings GET': () =>
+        new Response(JSON.stringify({ ...settingsPayload, selectedProviderId: 'p1' })),
+      '/api/providers GET': () =>
+        new Response(JSON.stringify([makeProvider({ id: 'p1', label: 'Anthropic' })])),
+      '/api/providers/p1/models GET': () =>
+        new Response(JSON.stringify({ models: [], source: 'fallback' })),
+    });
+    await bootstrap();
+
+    wrap(<SettingsPanel onClose={() => {}} />);
+
+    // No password input until the user clicks the link.
+    const changeLink = await screen.findByRole('button', { name: 'Change key' });
+    expect(screen.queryByPlaceholderText('sk-...')).toBeNull();
+
+    fireEvent.click(changeLink);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('sk-...')).toBeInTheDocument();
+    });
+  });
+
+  it('creates a provider silently when the user types an API key and blurs', async () => {
+    let postCount = 0;
+    let postSeen = false;
+    let settingsPut: any = null;
+    installFetchRouter({
+      '/bootstrap': () => new Response(JSON.stringify({ token: 't', version: 'v' })),
+      '/api/settings GET': () =>
+        new Response(
+          JSON.stringify(
+            postSeen
+              ? { ...settingsPayload, selectedProviderId: 'p2' }
+              : settingsPayload,
+          ),
+        ),
       '/api/providers GET': () =>
         new Response(
-          JSON.stringify(postSeen ? [makeProvider({ label: 'Beta' })] : []),
+          JSON.stringify(
+            postSeen
+              ? [makeProvider({ id: 'p2', label: 'Anthropic', kind: 'anthropic' })]
+              : [],
+          ),
         ),
+      '/api/providers/p2/models GET': () =>
+        new Response(JSON.stringify({ models: [], source: 'fallback' })),
       '/api/providers POST': (_u, init) => {
         postCount++;
         postSeen = true;
         const body = JSON.parse((init?.body as string) ?? '{}');
-        expect(body.label).toBe('Beta');
         expect(body.kind).toBe('anthropic');
+        expect(body.label).toBe('Anthropic');
         expect(body.apiKey).toBe('sk-test');
         return new Response(JSON.stringify({ id: 'p2' }), { status: 201 });
       },
-    });
-    await bootstrap();
-
-    wrap(<SettingsPanel onClose={() => {}} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Providers' }));
-    await waitFor(() =>
-      expect(screen.getByText(/No providers configured/)).toBeInTheDocument(),
-    );
-
-    fireEvent.click(screen.getByText('Add provider'));
-    fireEvent.change(screen.getByPlaceholderText('My Anthropic key'), {
-      target: { value: 'Beta' },
-    });
-    fireEvent.change(screen.getByPlaceholderText('sk-...'), {
-      target: { value: 'sk-test' },
-    });
-    fireEvent.click(screen.getByText('Save'));
-
-    await waitFor(() => {
-      expect(postCount).toBe(1);
-      expect(screen.getByText('Beta')).toBeInTheDocument();
-    });
-  });
-
-  it('DELETEs a provider immediately when remove is clicked', async () => {
-    let deleted = false;
-    installFetchRouter({
-      '/bootstrap': () => new Response(JSON.stringify({ token: 't', version: 'v' })),
-      '/api/providers GET': () =>
-        new Response(JSON.stringify(deleted ? [] : [makeProvider({ label: 'ToDelete' })])),
-      '/api/providers/p1 DELETE': () => {
-        deleted = true;
-        return new Response(null, { status: 204 });
+      '/api/settings PUT': (_u, init) => {
+        settingsPut = JSON.parse((init?.body as string) ?? '{}');
+        return new Response(
+          JSON.stringify({ ...settingsPayload, selectedProviderId: 'p2' }),
+        );
       },
     });
     await bootstrap();
 
     wrap(<SettingsPanel onClose={() => {}} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Providers' }));
-    await waitFor(() => expect(screen.getByText('ToDelete')).toBeInTheDocument());
+    // General tab (which contains the provider UI) is the default.
 
-    fireEvent.click(screen.getByLabelText('Remove ToDelete'));
+    const keyInput = await screen.findByPlaceholderText('sk-...');
+    fireEvent.change(keyInput, { target: { value: 'sk-test' } });
+    fireEvent.blur(keyInput);
 
     await waitFor(() => {
-      expect(deleted).toBe(true);
-      expect(screen.getByText(/No providers configured/)).toBeInTheDocument();
+      expect(postCount).toBe(1);
+      expect(settingsPut).toEqual({
+        selectedProviderId: 'p2',
+        selectedModelId: null,
+      });
     });
   });
 
-  it('surfaces server error message body when create fails (e.g. DPAPI unavailable)', async () => {
+  it('surfaces server error message body when key save fails (e.g. DPAPI unavailable)', async () => {
     installFetchRouter({
       '/bootstrap': () => new Response(JSON.stringify({ token: 't', version: 'v' })),
+      '/api/settings GET': () => new Response(JSON.stringify(settingsPayload)),
       '/api/providers GET': () => new Response(JSON.stringify([])),
       '/api/providers POST': () =>
         new Response(
@@ -182,19 +200,11 @@ describe('SettingsPanel — Providers', () => {
     await bootstrap();
 
     wrap(<SettingsPanel onClose={() => {}} />);
-    fireEvent.click(screen.getByRole('tab', { name: 'Providers' }));
-    await waitFor(() =>
-      expect(screen.getByText(/No providers configured/)).toBeInTheDocument(),
-    );
+    // General tab (which contains the provider UI) is the default.
 
-    fireEvent.click(screen.getByText('Add provider'));
-    fireEvent.change(screen.getByPlaceholderText('My Anthropic key'), {
-      target: { value: 'Local' },
-    });
-    fireEvent.change(screen.getByPlaceholderText('sk-...'), {
-      target: { value: 'sk-test' },
-    });
-    fireEvent.click(screen.getByText('Save'));
+    const keyInput = await screen.findByPlaceholderText('sk-...');
+    fireEvent.change(keyInput, { target: { value: 'sk-test' } });
+    fireEvent.blur(keyInput);
 
     await waitFor(() => {
       expect(screen.getByText(/Storing an API key requires Windows/)).toBeInTheDocument();
@@ -272,7 +282,7 @@ describe('SettingsPanel — MCP', () => {
   });
 });
 
-describe('SettingsPanel — Global', () => {
+describe('SettingsPanel — General', () => {
   it('PUTs settings when autoApprove toggle is changed', async () => {
     let putBody: any = null;
     installFetchRouter({
@@ -287,7 +297,7 @@ describe('SettingsPanel — Global', () => {
     await bootstrap();
 
     wrap(<SettingsPanel onClose={() => {}} />);
-    // Global tab is default
+    // General tab is default
     await waitFor(() =>
       expect(screen.getByLabelText('Auto-approve code execution')).toBeInTheDocument(),
     );

@@ -15,6 +15,7 @@ import {
   Tab,
   Badge,
   Spinner,
+  Link,
 } from '@fluentui/react-components';
 import {
   Dismiss24Regular,
@@ -32,11 +33,10 @@ import type {
   ProviderKind,
   McpServerView,
   McpPolicy,
-  CreateProviderInput,
   CreateMcpServerInput,
   McpStatus,
 } from '@autooffice/shared';
-import { getKnownModels, isCliBridge } from '@autooffice/shared';
+import { getKnownModels } from '@autooffice/shared';
 import { availableLocales, useTranslation, type LocaleId } from '../i18n/index.ts';
 
 const useStyles = makeStyles({
@@ -77,14 +77,6 @@ const useStyles = makeStyles({
     alignItems: 'center',
     gap: '8px',
   },
-  addRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  addRowDivider: {
-    flexGrow: 1,
-  },
   card: {
     display: 'flex',
     flexDirection: 'column',
@@ -106,19 +98,6 @@ const useStyles = makeStyles({
   errorBanner: {
     color: tokens.colorPaletteRedForeground1,
     padding: '6px 0',
-  },
-  notice: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '8px 10px',
-    backgroundColor: tokens.colorPaletteYellowBackground1,
-    border: `1px solid ${tokens.colorPaletteYellowBorder1}`,
-    color: tokens.colorPaletteDarkOrangeForeground1,
-    borderRadius: '4px',
-  },
-  noticeText: {
-    flex: 1,
   },
   toolRow: {
     display: 'flex',
@@ -157,7 +136,6 @@ const PROVIDER_KINDS: { value: ProviderKind; label: string }[] = [
   { value: 'ollama', label: 'Ollama' },
   { value: 'openai-compatible', label: 'OpenAI-compatible' },
   { value: 'vercel-gateway', label: 'Vercel AI Gateway' },
-  { value: 'claude-code', label: 'Claude Code (CLI)' },
   { value: 'gemini-cli', label: 'Gemini CLI' },
   { value: 'opencode', label: 'OpenCode (CLI)' },
 ];
@@ -174,11 +152,11 @@ export interface SettingsPanelProps {
   onClose: () => void;
 }
 
-type TabKey = 'global' | 'providers' | 'mcp';
+type TabKey = 'general' | 'mcp';
 
 export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const styles = useStyles();
-  const [tab, setTab] = useState<TabKey>('global');
+  const [tab, setTab] = useState<TabKey>('general');
 
   return (
     <div className={styles.container} role="dialog" aria-label="Settings">
@@ -197,32 +175,33 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           onTabSelect={(_, d) => setTab(d.value as TabKey)}
           size="small"
         >
-          <Tab value="global">Global</Tab>
-          <Tab value="providers">Providers</Tab>
+          <Tab value="general">General</Tab>
           <Tab value="mcp">MCP</Tab>
         </TabList>
       </div>
       <div className={styles.body}>
-        {tab === 'global' && <GlobalSection onGoToProviders={() => setTab('providers')} />}
-        {tab === 'providers' && <ProvidersSection />}
+        {tab === 'general' && <GeneralSection />}
         {tab === 'mcp' && <McpSection />}
       </div>
     </div>
   );
 }
 
-// ─────────────────────────── Global ───────────────────────────
+// ─────────────────────────── General ───────────────────────────
 
-function GlobalSection({ onGoToProviders }: { onGoToProviders: () => void }) {
+function GeneralSection() {
   const styles = useStyles();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<string | null>(null);
   const { setLocale } = useTranslation();
   const locales = availableLocales();
 
   const reload = useCallback(async () => {
     try {
+      setLoading(true);
       const [s, p] = await Promise.all([
         apiGet<Settings>('/api/settings'),
         apiGet<ProviderConfig[]>('/api/providers'),
@@ -232,6 +211,8 @@ function GlobalSection({ onGoToProviders }: { onGoToProviders: () => void }) {
       setError(null);
     } catch (e) {
       setError((e as Error).message);
+    } finally {
+      setLoading(false);
     }
   }, []);
 
@@ -239,8 +220,12 @@ function GlobalSection({ onGoToProviders }: { onGoToProviders: () => void }) {
     void reload();
   }, [reload]);
 
-  const update = async (patch: Partial<Settings>) => {
-    if (!settings) return;
+  if (loading || !settings) {
+    return error ? <div className={styles.errorBanner}>{error}</div> : <Spinner size="tiny" />;
+  }
+
+  const updateSettings = async (patch: Partial<Settings>) => {
+    setError(null);
     try {
       const next = await apiSend<Settings>('/api/settings', patch, 'PUT');
       setSettings(next);
@@ -249,68 +234,139 @@ function GlobalSection({ onGoToProviders }: { onGoToProviders: () => void }) {
     }
   };
 
-  // If a provider exists but none is selected (or the selection points to a
-  // deleted provider), pin to the first available one so the user never sees
-  // — None — when there's a real choice.
-  useEffect(() => {
-    if (!settings || providers.length === 0) return;
-    const selected = settings.selectedProviderId;
-    const stillExists = selected && providers.some((p) => p.id === selected);
-    if (!stillExists) {
-      void update({ selectedProviderId: providers[0]!.id, selectedModelId: null });
-    }
-    // `update` is stable enough — we only care about provider list / current selection changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [providers, settings?.selectedProviderId]);
+  // Active provider = the selected one, or fall back to the first existing.
+  // The picker still shows a kind (defaulting to anthropic) when nothing is
+  // configured yet, so the user can configure by typing into the credentials.
+  const active =
+    providers.find((p) => p.id === settings.selectedProviderId) ?? providers[0] ?? null;
+  const selectedKind: ProviderKind = active?.kind ?? 'anthropic';
 
-  if (!settings) {
-    return error ? <div className={styles.errorBanner}>{error}</div> : <Spinner size="tiny" />;
-  }
+  const findByKind = (kind: ProviderKind): ProviderConfig | null =>
+    providers.find((p) => p.kind === kind) ?? null;
+
+  const ensureSelected = async (
+    kind: ProviderKind,
+    extra?: { apiKey?: string; config?: Record<string, unknown> },
+  ): Promise<string> => {
+    const existing = findByKind(kind);
+    if (existing) {
+      if (extra && (extra.apiKey || extra.config)) {
+        await apiSend(`/api/providers/${existing.id}`, extra, 'PUT');
+      }
+      if (settings.selectedProviderId !== existing.id) {
+        const next = await apiSend<Settings>(
+          '/api/settings',
+          { selectedProviderId: existing.id, selectedModelId: null },
+          'PUT',
+        );
+        setSettings(next);
+      }
+      return existing.id;
+    }
+    const r = await apiSend<{ id: string }>('/api/providers', {
+      kind,
+      label: labelForKind(kind),
+      ...(extra?.apiKey ? { apiKey: extra.apiKey } : {}),
+      ...(extra?.config ? { config: extra.config } : {}),
+    });
+    const next = await apiSend<Settings>(
+      '/api/settings',
+      { selectedProviderId: r.id, selectedModelId: null },
+      'PUT',
+    );
+    setSettings(next);
+    return r.id;
+  };
+
+  const pickKind = async (kind: ProviderKind) => {
+    setError(null);
+    setTestResult(null);
+    try {
+      await ensureSelected(kind);
+      await reload();
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  };
+
+  const saveCredentials = async (extra: {
+    apiKey?: string;
+    config?: Record<string, unknown>;
+  }) => {
+    setError(null);
+    try {
+      await ensureSelected(selectedKind, extra);
+      await reload();
+    } catch (e) {
+      setError((e as Error).message);
+      throw e;
+    }
+  };
+
+  const saveModel = async (modelId: string) => {
+    await updateSettings({ selectedModelId: modelId || null });
+  };
+
+  const test = async () => {
+    if (!active) return;
+    setTestResult('testing…');
+    try {
+      const r = await apiSend<{ status: string; message?: string }>(
+        `/api/providers/${active.id}/test`,
+        {},
+      );
+      setTestResult(r.message ? `${r.status}: ${r.message}` : r.status);
+    } catch (e) {
+      setTestResult(`error: ${(e as Error).message}`);
+    }
+  };
 
   return (
     <>
       {error && <div className={styles.errorBanner}>{error}</div>}
-      {providers.length === 0 && (
-        <div className={styles.notice} role="status">
-          <Text className={styles.noticeText} size={200}>
-            No AI provider is configured yet. Add one to start chatting.
-          </Text>
-          <Button appearance="primary" size="small" onClick={onGoToProviders}>
-            Add provider
-          </Button>
-        </div>
-      )}
+
       <div className={styles.section}>
         <Text weight="semibold" size={300}>
-          Active provider
+          Provider
         </Text>
         <Field label="Provider">
           <Select
-            value={settings.selectedProviderId ?? ''}
-            onChange={(_, d) =>
-              void update({
-                selectedProviderId: d.value || null,
-                // reset model when provider changes
-                selectedModelId: null,
-              })
-            }
+            value={selectedKind}
+            onChange={(_, d) => void pickKind(d.value as ProviderKind)}
           >
-            {providers.length === 0 && <option value="">— None —</option>}
-            {providers.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.label} ({p.kind})
+            {PROVIDER_KINDS.map((k) => (
+              <option key={k.value} value={k.value}>
+                {k.label}
               </option>
             ))}
           </Select>
         </Field>
-        <ModelField
-          providerId={settings.selectedProviderId}
-          providerKind={
-            providers.find((p) => p.id === settings.selectedProviderId)?.kind ?? null
-          }
-          value={settings.selectedModelId ?? ''}
-          onChange={(v) => void update({ selectedModelId: v || null })}
+
+        <ProviderCredentials
+          kind={selectedKind}
+          provider={findByKind(selectedKind)}
+          onSave={saveCredentials}
         />
+
+        <ModelField
+          providerId={active?.id ?? null}
+          providerKind={selectedKind}
+          value={settings.selectedModelId ?? ''}
+          onChange={(v) => void saveModel(v)}
+        />
+
+        {active && active.kind === selectedKind && (
+          <div className={styles.row}>
+            <Button appearance="subtle" size="small" onClick={() => void test()}>
+              Test
+            </Button>
+            {testResult && (
+              <Text size={200} italic>
+                {testResult}
+              </Text>
+            )}
+          </div>
+        )}
       </div>
 
       <Divider />
@@ -322,7 +378,7 @@ function GlobalSection({ onGoToProviders }: { onGoToProviders: () => void }) {
         <Field label="Auto-approve code execution">
           <Switch
             checked={settings.autoApprove}
-            onChange={(_, d) => void update({ autoApprove: d.checked })}
+            onChange={(_, d) => void updateSettings({ autoApprove: d.checked })}
           />
         </Field>
         <Field label="Max steps per turn">
@@ -331,7 +387,7 @@ function GlobalSection({ onGoToProviders }: { onGoToProviders: () => void }) {
             value={String(settings.maxSteps)}
             onChange={(_, d) => {
               const n = parseInt(d.value, 10);
-              if (!Number.isNaN(n)) void update({ maxSteps: n });
+              if (!Number.isNaN(n)) void updateSettings({ maxSteps: n });
             }}
             min={1}
             max={50}
@@ -350,7 +406,7 @@ function GlobalSection({ onGoToProviders }: { onGoToProviders: () => void }) {
             value={settings.locale}
             onChange={(_, d) => {
               const next = d.value as LocaleId;
-              void update({ locale: next });
+              void updateSettings({ locale: next });
               void setLocale(next);
             }}
           >
@@ -469,372 +525,207 @@ function ModelField({
 
 // ─────────────────────────── Providers ───────────────────────────
 
-function ProvidersSection() {
-  const styles = useStyles();
-  const [providers, setProviders] = useState<ProviderConfig[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [testResults, setTestResults] = useState<Record<string, string>>({});
-
-  const reload = useCallback(async () => {
-    try {
-      setLoading(true);
-      setProviders(await apiGet<ProviderConfig[]>('/api/providers'));
-      setError(null);
-    } catch (e) {
-      setError((e as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void reload();
-  }, [reload]);
-
-  const addProvider = async (input: CreateProviderInput) => {
-    try {
-      await apiSend('/api/providers', input);
-      await reload();
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
-
-  const removeProvider = async (id: string) => {
-    try {
-      await apiSend(`/api/providers/${id}`, null, 'DELETE');
-      await reload();
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
-
-  const updateProvider = async (id: string, patch: { label?: string; apiKey?: string }) => {
-    try {
-      await apiSend(`/api/providers/${id}`, patch, 'PUT');
-      await reload();
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  };
-
-  const testProvider = async (id: string) => {
-    try {
-      const r = await apiSend<{ status: string; message?: string }>(
-        `/api/providers/${id}/test`,
-        {},
-      );
-      setTestResults((prev) => ({
-        ...prev,
-        [id]: r.message ? `${r.status}: ${r.message}` : r.status,
-      }));
-    } catch (e) {
-      setTestResults((prev) => ({ ...prev, [id]: `error: ${(e as Error).message}` }));
-    }
-  };
-
-  return (
-    <>
-      {error && <div className={styles.errorBanner}>{error}</div>}
-      <AddProviderForm onAdd={addProvider} />
-      {loading ? (
-        <Spinner size="tiny" />
-      ) : providers.length === 0 ? (
-        <Text italic size={200}>
-          No providers configured.
-        </Text>
-      ) : (
-        providers.map((p) => (
-          <ProviderCard
-            key={p.id}
-            provider={p}
-            testResult={testResults[p.id]}
-            onUpdate={(patch) => updateProvider(p.id, patch)}
-            onRemove={() => void removeProvider(p.id)}
-            onTest={() => testProvider(p.id)}
-          />
-        ))
-      )}
-    </>
-  );
+function labelForKind(kind: ProviderKind): string {
+  return PROVIDER_KINDS.find((k) => k.value === kind)?.label ?? kind;
 }
 
-function AddProviderForm({ onAdd }: { onAdd: (input: CreateProviderInput) => void }) {
-  const styles = useStyles();
-  const [open, setOpen] = useState(false);
-  const [kind, setKind] = useState<ProviderKind>('anthropic');
-  const [label, setLabel] = useState('');
-  const [apiKey, setApiKey] = useState('');
-  // CLI-bridge specific config
-  const [binaryPath, setBinaryPath] = useState('');
+function ProviderCredentials({
+  kind,
+  provider,
+  onSave,
+}: {
+  kind: ProviderKind;
+  provider: ProviderConfig | null;
+  onSave: (extra: { apiKey?: string; config?: Record<string, unknown> }) => Promise<void>;
+}) {
+  const cfg = (provider?.config ?? {}) as Record<string, unknown>;
+  const [binaryPath, setBinaryPath] = useState((cfg.binaryPath as string) ?? '');
   const [geminiAuthType, setGeminiAuthType] = useState<'oauth-personal' | 'gemini-api-key'>(
-    'oauth-personal',
+    (cfg.authType as 'oauth-personal' | 'gemini-api-key') ?? 'oauth-personal',
   );
-  const [opencodeHostname, setOpencodeHostname] = useState('');
-  const [opencodePort, setOpencodePort] = useState('');
+  const [opencodeHostname, setOpencodeHostname] = useState((cfg.hostname as string) ?? '');
+  const [opencodePort, setOpencodePort] = useState(
+    cfg.port != null ? String(cfg.port) : '',
+  );
 
-  if (!open) {
+  // When the user switches kind or the underlying provider changes, reset the
+  // local draft state to match the stored config.
+  useEffect(() => {
+    setBinaryPath((cfg.binaryPath as string) ?? '');
+    setGeminiAuthType(
+      (cfg.authType as 'oauth-personal' | 'gemini-api-key') ?? 'oauth-personal',
+    );
+    setOpencodeHostname((cfg.hostname as string) ?? '');
+    setOpencodePort(cfg.port != null ? String(cfg.port) : '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [provider?.id, kind]);
+
+  const commitApiKey = (key: string) => onSave({ apiKey: key });
+
+  if (kind === 'claude-code') {
     return (
-      <div className={styles.addRow}>
-        <Button appearance="primary" icon={<Add24Regular />} onClick={() => setOpen(true)}>
-          Add provider
-        </Button>
-        <Divider className={styles.addRowDivider} />
-      </div>
+      <Field label="Path to claude binary (optional)" hint="Defaults to `claude` on PATH">
+        <Input
+          value={binaryPath}
+          onChange={(_, d) => setBinaryPath(d.value)}
+          onBlur={() => {
+            const v = binaryPath.trim();
+            if ((cfg.binaryPath ?? '') === v) return;
+            const nextCfg = { ...cfg };
+            if (v) nextCfg.binaryPath = v;
+            else delete nextCfg.binaryPath;
+            void onSave({ config: nextCfg }).catch(() => {});
+          }}
+          placeholder="/usr/local/bin/claude"
+        />
+      </Field>
     );
   }
 
-  const reset = () => {
-    setLabel('');
-    setApiKey('');
-    setBinaryPath('');
-    setGeminiAuthType('oauth-personal');
-    setOpencodeHostname('');
-    setOpencodePort('');
-  };
+  if (kind === 'gemini-cli') {
+    return (
+      <>
+        <Field label="Auth" hint="OAuth uses ~/.gemini/oauth_creds.json from `gemini` setup">
+          <Select
+            value={geminiAuthType}
+            onChange={(_, d) => {
+              const next = d.value as 'oauth-personal' | 'gemini-api-key';
+              setGeminiAuthType(next);
+              void onSave({ config: { ...cfg, authType: next } }).catch(() => {});
+            }}
+          >
+            <option value="oauth-personal">OAuth (personal)</option>
+            <option value="gemini-api-key">Gemini API key</option>
+          </Select>
+        </Field>
+        {geminiAuthType === 'gemini-api-key' && (
+          <Field label="Gemini API key">
+            <ApiKeyControl
+              hasKey={!!provider?.hasKey}
+              onCommit={commitApiKey}
+              placeholder="AI..."
+            />
+          </Field>
+        )}
+      </>
+    );
+  }
 
-  const submit = () => {
-    if (!label.trim()) return;
-    const input: CreateProviderInput = {
-      kind,
-      label: label.trim(),
-    };
-    if (kind === 'claude-code') {
-      if (binaryPath.trim()) input.config = { binaryPath: binaryPath.trim() };
-    } else if (kind === 'gemini-cli') {
-      input.config = { authType: geminiAuthType };
-      if (geminiAuthType === 'gemini-api-key' && apiKey.trim()) {
-        input.config.apiKey = apiKey.trim();
-      }
-    } else if (kind === 'opencode') {
-      const cfg: Record<string, unknown> = {};
-      if (opencodeHostname.trim()) cfg.hostname = opencodeHostname.trim();
-      if (opencodePort.trim()) {
-        const port = parseInt(opencodePort.trim(), 10);
-        if (!Number.isNaN(port)) cfg.port = port;
-      }
-      if (Object.keys(cfg).length > 0) input.config = cfg;
-    } else if (apiKey.trim()) {
-      input.apiKey = apiKey.trim();
-    }
-    onAdd(input);
-    setOpen(false);
-    reset();
-  };
-
-  const cli = isCliBridge(kind);
+  if (kind === 'opencode') {
+    return (
+      <>
+        <Field label="Hostname (optional)" hint="Defaults to 127.0.0.1; auto-starts the server">
+          <Input
+            value={opencodeHostname}
+            onChange={(_, d) => setOpencodeHostname(d.value)}
+            onBlur={() => {
+              const v = opencodeHostname.trim();
+              if ((cfg.hostname ?? '') === v) return;
+              const nextCfg = { ...cfg };
+              if (v) nextCfg.hostname = v;
+              else delete nextCfg.hostname;
+              void onSave({ config: nextCfg }).catch(() => {});
+            }}
+            placeholder="127.0.0.1"
+          />
+        </Field>
+        <Field label="Port (optional)" hint="Defaults to 4096">
+          <Input
+            type="number"
+            value={opencodePort}
+            onChange={(_, d) => setOpencodePort(d.value)}
+            onBlur={() => {
+              const raw = opencodePort.trim();
+              const n = raw ? parseInt(raw, 10) : NaN;
+              const stored = cfg.port == null ? '' : String(cfg.port);
+              if (stored === raw) return;
+              const nextCfg = { ...cfg };
+              if (!Number.isNaN(n)) nextCfg.port = n;
+              else delete nextCfg.port;
+              void onSave({ config: nextCfg }).catch(() => {});
+            }}
+            placeholder="4096"
+          />
+        </Field>
+      </>
+    );
+  }
 
   return (
-    <div className={styles.card}>
-      <Text weight="semibold">Add provider</Text>
-      <Field label="Kind">
-        <Select value={kind} onChange={(_, d) => setKind(d.value as ProviderKind)}>
-          {PROVIDER_KINDS.map((k) => (
-            <option key={k.value} value={k.value}>
-              {k.label}
-            </option>
-          ))}
-        </Select>
-      </Field>
-      <Field label="Label">
-        <Input
-          value={label}
-          onChange={(_, d) => setLabel(d.value)}
-          placeholder="My provider"
-        />
-      </Field>
-
-      {kind === 'claude-code' && (
-        <Field label="Path to claude binary (optional)" hint="Defaults to `claude` on PATH">
-          <Input
-            value={binaryPath}
-            onChange={(_, d) => setBinaryPath(d.value)}
-            placeholder="/usr/local/bin/claude"
-          />
-        </Field>
-      )}
-
-      {kind === 'gemini-cli' && (
-        <>
-          <Field label="Auth" hint="OAuth uses ~/.gemini/oauth_creds.json from `gemini` setup">
-            <Select
-              value={geminiAuthType}
-              onChange={(_, d) =>
-                setGeminiAuthType(d.value as 'oauth-personal' | 'gemini-api-key')
-              }
-            >
-              <option value="oauth-personal">OAuth (personal)</option>
-              <option value="gemini-api-key">Gemini API key</option>
-            </Select>
-          </Field>
-          {geminiAuthType === 'gemini-api-key' && (
-            <Field label="Gemini API key">
-              <Input
-                type="password"
-                value={apiKey}
-                onChange={(_, d) => setApiKey(d.value)}
-                placeholder="AI..."
-              />
-            </Field>
-          )}
-        </>
-      )}
-
-      {kind === 'opencode' && (
-        <>
-          <Field label="Hostname (optional)" hint="Defaults to 127.0.0.1; auto-starts the server">
-            <Input
-              value={opencodeHostname}
-              onChange={(_, d) => setOpencodeHostname(d.value)}
-              placeholder="127.0.0.1"
-            />
-          </Field>
-          <Field label="Port (optional)" hint="Defaults to 4096">
-            <Input
-              type="number"
-              value={opencodePort}
-              onChange={(_, d) => setOpencodePort(d.value)}
-              placeholder="4096"
-            />
-          </Field>
-        </>
-      )}
-
-      {!cli && (
-        <Field label="API key">
-          <Input
-            type="password"
-            value={apiKey}
-            onChange={(_, d) => setApiKey(d.value)}
-            placeholder="sk-..."
-          />
-        </Field>
-      )}
-
-      <div className={styles.row}>
-        <Button appearance="primary" onClick={submit}>
-          Save
-        </Button>
-        <Button
-          appearance="subtle"
-          onClick={() => {
-            setOpen(false);
-            reset();
-          }}
-        >
-          Cancel
-        </Button>
-      </div>
-    </div>
+    <Field label="API key">
+      <ApiKeyControl
+        hasKey={!!provider?.hasKey}
+        onCommit={commitApiKey}
+        placeholder="sk-..."
+      />
+    </Field>
   );
 }
 
-function ProviderCard({
-  provider,
-  testResult,
-  onUpdate,
-  onRemove,
-  onTest,
+function ApiKeyControl({
+  hasKey,
+  onCommit,
+  placeholder,
 }: {
-  provider: ProviderConfig;
-  testResult: string | undefined;
-  onUpdate: (patch: { label?: string; apiKey?: string }) => void;
-  onRemove: () => void;
-  onTest: () => void;
+  hasKey: boolean;
+  onCommit: (key: string) => Promise<void>;
+  placeholder: string;
 }) {
   const styles = useStyles();
-  const [label, setLabel] = useState(provider.label);
-  const [apiKey, setApiKey] = useState('');
-  const [showKey, setShowKey] = useState(false);
-  const [editing, setEditing] = useState(false);
+  // Default to editing whenever no key is stored; collapsing to "Change key"
+  // only makes sense once a key actually exists.
+  const [editing, setEditing] = useState(!hasKey);
+  const [value, setValue] = useState('');
+  const [show, setShow] = useState(false);
+
+  // Re-sync when the underlying key state flips (e.g. provider switch, save).
+  useEffect(() => {
+    setEditing(!hasKey);
+    setValue('');
+    setShow(false);
+  }, [hasKey]);
+
+  if (!editing) {
+    return (
+      <Link as="button" type="button" onClick={() => setEditing(true)}>
+        Change key
+      </Link>
+    );
+  }
+
+  const commit = async () => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      // Empty blur after a key is already stored — silently revert to the link.
+      if (hasKey) setEditing(false);
+      return;
+    }
+    try {
+      await onCommit(trimmed);
+      setValue('');
+      // The hasKey effect above will close editing on next render once the
+      // server confirms the key was stored.
+    } catch {
+      // keep the draft so the user can retry
+    }
+  };
 
   return (
-    <div className={styles.card}>
-      <div className={styles.cardHeader}>
-        <span className={styles.cardTitle}>
-          {provider.label} <Text size={200}>({provider.kind})</Text>
-        </span>
-        <Badge appearance="outline" size="small" color={provider.hasKey ? 'success' : 'warning'}>
-          {provider.hasKey ? 'has key' : 'no key'}
-        </Badge>
-        <Badge appearance="outline" size="small">
-          {provider.status}
-        </Badge>
-        <Button
-          appearance="subtle"
-          size="small"
-          onClick={onTest}
-          aria-label={`Test ${provider.label}`}
-        >
-          Test
-        </Button>
-        <Button
-          appearance="subtle"
-          size="small"
-          icon={<Delete24Regular />}
-          aria-label={`Remove ${provider.label}`}
-          onClick={onRemove}
-        />
-      </div>
-      {testResult && (
-        <Text size={200} italic>
-          Test result: {testResult}
-        </Text>
-      )}
-      {!editing ? (
-        <Button appearance="subtle" size="small" onClick={() => setEditing(true)}>
-          Edit
-        </Button>
-      ) : (
-        <>
-          <Field label="Label">
-            <Input value={label} onChange={(_, d) => setLabel(d.value)} />
-          </Field>
-          <Field label="New API key (leave blank to keep)">
-            <div className={styles.row}>
-              <Input
-                style={{ flex: 1 }}
-                type={showKey ? 'text' : 'password'}
-                value={apiKey}
-                onChange={(_, d) => setApiKey(d.value)}
-                placeholder="sk-..."
-              />
-              <Button
-                appearance="subtle"
-                icon={showKey ? <EyeOff24Regular /> : <Eye24Regular />}
-                onClick={() => setShowKey((s) => !s)}
-                aria-label={showKey ? 'Hide key' : 'Show key'}
-              />
-            </div>
-          </Field>
-          <div className={styles.row}>
-            <Button
-              appearance="primary"
-              onClick={() => {
-                const patch: { label?: string; apiKey?: string } = {};
-                if (label !== provider.label) patch.label = label;
-                if (apiKey.trim()) patch.apiKey = apiKey.trim();
-                if (Object.keys(patch).length > 0) onUpdate(patch);
-                setEditing(false);
-                setApiKey('');
-              }}
-            >
-              Save
-            </Button>
-            <Button
-              appearance="subtle"
-              onClick={() => {
-                setEditing(false);
-                setLabel(provider.label);
-                setApiKey('');
-              }}
-            >
-              Cancel
-            </Button>
-          </div>
-        </>
-      )}
+    <div className={styles.row}>
+      <Input
+        style={{ flex: 1 }}
+        type={show ? 'text' : 'password'}
+        value={value}
+        onChange={(_, d) => setValue(d.value)}
+        onBlur={() => void commit()}
+        placeholder={placeholder}
+      />
+      <Button
+        appearance="subtle"
+        icon={show ? <EyeOff24Regular /> : <Eye24Regular />}
+        onClick={() => setShow((s) => !s)}
+        aria-label={show ? 'Hide key' : 'Show key'}
+      />
     </div>
   );
 }
@@ -1027,12 +918,9 @@ function AddMcpForm({ onAdd }: { onAdd: (input: CreateMcpServerInput) => void })
 
   if (!open) {
     return (
-      <div className={styles.addRow}>
-        <Button appearance="primary" icon={<Add24Regular />} onClick={() => setOpen(true)}>
-          Add MCP server
-        </Button>
-        <Divider className={styles.addRowDivider} />
-      </div>
+      <Button appearance="primary" icon={<Add24Regular />} onClick={() => setOpen(true)}>
+        Add MCP server
+      </Button>
     );
   }
 

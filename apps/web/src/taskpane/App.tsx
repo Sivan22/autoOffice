@@ -121,15 +121,18 @@ export function App({ host }: AppProps) {
   }, []);
 
   // The server's settings.locale is the source of truth. Push it into the
-  // LanguageProvider whenever it changes (boot-time and after settings
-  // refresh). The provider's localStorage/roamingSettings cache is kept only
-  // to avoid a flash of the wrong locale on the next boot.
-  const { locale: activeLocale, setLocale } = useTranslation();
+  // LanguageProvider whenever the *server* value changes (boot-time and after
+  // settings refresh). Do NOT re-fire on activeLocale changes — SettingsPanel
+  // calls setLocale() directly the moment the user picks a language, and App's
+  // settings copy doesn't update until refreshSettings() runs on drawer close.
+  // Keying on activeLocale would compare a fresh provider locale against a
+  // stale server locale and revert the user's choice until the drawer closes.
+  const { setLocale } = useTranslation();
   useEffect(() => {
     const next = settings?.locale;
-    if (!next || !isLocaleId(next) || next === activeLocale) return;
+    if (!next || !isLocaleId(next)) return;
     void setLocale(next);
-  }, [settings?.locale, activeLocale, setLocale]);
+  }, [settings?.locale, setLocale]);
 
   if (error) {
     return (

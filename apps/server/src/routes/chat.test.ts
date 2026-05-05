@@ -96,6 +96,23 @@ describe('POST /api/chat', () => {
     expect(conv.messages.at(-1).role).toBe('assistant');
   });
 
+  it('returns 400 with "no model picked" when modelId is empty', async () => {
+    const res = await app.request('/api/chat', {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({
+        id: convId,
+        host: 'word',
+        providerId: 'p_unused',
+        modelId: '',
+        trigger: 'submit-message',
+        message: { id: 'msg_x', role: 'user', parts: [{ type: 'text', text: 'x' }] },
+      }),
+    });
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toBe('no model picked');
+  });
+
   it('returns 404 for unknown conversation', async () => {
     const res = await app.request('/api/chat', {
       method: 'POST',

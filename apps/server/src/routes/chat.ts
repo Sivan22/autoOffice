@@ -51,6 +51,9 @@ export function chatRouter(deps: ChatDeps) {
     const conv = deps.conversations.get(id);
     if (!conv) return c.json({ error: 'not found' }, 404);
 
+    if (!providerId.trim()) return c.json({ error: 'no provider picked' }, 400);
+    if (!modelId.trim()) return c.json({ error: 'no model picked' }, 400);
+
     let model: LanguageModel;
     try {
       const resolved = deps.modelOverride
