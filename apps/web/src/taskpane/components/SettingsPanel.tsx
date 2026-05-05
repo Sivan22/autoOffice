@@ -24,6 +24,7 @@ import {
   ArrowClockwise24Regular,
   Eye24Regular,
   EyeOff24Regular,
+  Checkmark24Regular,
 } from '@fluentui/react-icons';
 import { apiGet, apiSend, getToken } from '../api.ts';
 import { ConfirmDialog } from './ConfirmDialog.tsx';
@@ -99,6 +100,23 @@ const useStyles = makeStyles({
     color: tokens.colorPaletteRedForeground1,
     padding: '6px 0',
   },
+  testRow: {
+    display: 'flex',
+    justifyContent: 'center',
+    padding: '4px 0',
+  },
+  testResult: {
+    fontStyle: 'italic',
+    fontSize: '12px',
+    whiteSpace: 'pre-wrap',
+    overflowWrap: 'anywhere',
+    maxHeight: '180px',
+    overflowY: 'auto',
+    padding: '6px 8px',
+    backgroundColor: tokens.colorNeutralBackground3,
+    border: `1px solid ${tokens.colorNeutralStroke2}`,
+    borderRadius: '4px',
+  },
   toolRow: {
     display: 'flex',
     alignItems: 'center',
@@ -156,18 +174,19 @@ type TabKey = 'general' | 'mcp';
 
 export function SettingsPanel({ onClose }: SettingsPanelProps) {
   const styles = useStyles();
+  const { t } = useTranslation();
   const [tab, setTab] = useState<TabKey>('general');
 
   return (
-    <div className={styles.container} role="dialog" aria-label="Settings">
+    <div className={styles.container} role="dialog" aria-label={t('settings.title')}>
       <div className={styles.header}>
         <Button
           appearance="subtle"
           icon={<Dismiss24Regular />}
           onClick={onClose}
-          aria-label="Close settings"
+          aria-label={t('settings.closeAria')}
         />
-        <Text weight="semibold">Settings</Text>
+        <Text weight="semibold">{t('settings.title')}</Text>
       </div>
       <div className={styles.tabs}>
         <TabList
@@ -175,8 +194,8 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
           onTabSelect={(_, d) => setTab(d.value as TabKey)}
           size="small"
         >
-          <Tab value="general">General</Tab>
-          <Tab value="mcp">MCP</Tab>
+          <Tab value="general">{t('settings.tabGeneral')}</Tab>
+          <Tab value="mcp">{t('settings.tabMcp')}</Tab>
         </TabList>
       </div>
       <div className={styles.body}>
@@ -196,7 +215,7 @@ function GeneralSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [testResult, setTestResult] = useState<string | null>(null);
-  const { setLocale } = useTranslation();
+  const { t, setLocale } = useTranslation();
   const locales = availableLocales();
 
   const reload = useCallback(async () => {
@@ -309,7 +328,7 @@ function GeneralSection() {
 
   const test = async () => {
     if (!active) return;
-    setTestResult('testing…');
+    setTestResult(t('settings.testResultTesting'));
     try {
       const r = await apiSend<{ status: string; message?: string }>(
         `/api/providers/${active.id}/test`,
@@ -327,9 +346,9 @@ function GeneralSection() {
 
       <div className={styles.section}>
         <Text weight="semibold" size={300}>
-          Provider
+          {t('settings.providerSection')}
         </Text>
-        <Field label="Provider">
+        <Field label={t('settings.providerLabel')}>
           <Select
             value={selectedKind}
             onChange={(_, d) => void pickKind(d.value as ProviderKind)}
@@ -356,16 +375,14 @@ function GeneralSection() {
         />
 
         {active && active.kind === selectedKind && (
-          <div className={styles.row}>
-            <Button appearance="subtle" size="small" onClick={() => void test()}>
-              Test
-            </Button>
-            {testResult && (
-              <Text size={200} italic>
-                {testResult}
-              </Text>
-            )}
-          </div>
+          <>
+            <div className={styles.testRow}>
+              <Button appearance="subtle" size="small" onClick={() => void test()}>
+                {t('settings.testButton')}
+              </Button>
+            </div>
+            {testResult && <div className={styles.testResult}>{testResult}</div>}
+          </>
         )}
       </div>
 
@@ -373,15 +390,15 @@ function GeneralSection() {
 
       <div className={styles.section}>
         <Text weight="semibold" size={300}>
-          Execution
+          {t('settings.executionSection')}
         </Text>
-        <Field label="Auto-approve code execution">
+        <Field label={t('settings.autoApproveLabel')}>
           <Switch
             checked={settings.autoApprove}
             onChange={(_, d) => void updateSettings({ autoApprove: d.checked })}
           />
         </Field>
-        <Field label="Max steps per turn">
+        <Field label={t('settings.maxStepsLabel')}>
           <Input
             type="number"
             value={String(settings.maxSteps)}
@@ -399,9 +416,9 @@ function GeneralSection() {
 
       <div className={styles.section}>
         <Text weight="semibold" size={300}>
-          Language
+          {t('settings.languageSection')}
         </Text>
-        <Field label="Language">
+        <Field label={t('settings.languageLabel')}>
           <Select
             value={settings.locale}
             onChange={(_, d) => {
@@ -433,6 +450,7 @@ function ModelField({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const { t } = useTranslation();
   const [draft, setDraft] = useState(value);
   const [suggestions, setSuggestions] = useState<readonly string[]>([]);
   const [source, setSource] = useState<'live' | 'fallback' | 'idle'>('idle');
@@ -459,7 +477,7 @@ function ModelField({
         if (cancelled) return;
         setSuggestions(r.models);
         setSource(r.source);
-        setHint(r.source === 'fallback' ? r.message ?? 'using built-in model list' : null);
+        setHint(r.source === 'fallback' ? r.message ?? t('settings.modelHintFallback') : null);
       })
       .catch((e) => {
         if (cancelled) return;
@@ -470,18 +488,18 @@ function ModelField({
     return () => {
       cancelled = true;
     };
-  }, [providerId, providerKind]);
+  }, [providerId, providerKind, t]);
 
   const disabled = !providerId;
   const hintText = disabled
-    ? 'Select a provider first'
+    ? t('settings.modelHintNoProvider')
     : source === 'live'
-      ? `${suggestions.length} models from provider`
-      : hint ?? 'Pick a known model or type your own';
+      ? t('settings.modelHintLive', { count: suggestions.length })
+      : hint ?? t('settings.modelHintDefault');
 
   if (suggestions.length === 0) {
     return (
-      <Field label="Model id" hint={hintText}>
+      <Field label={t('settings.modelLabel')} hint={hintText}>
         <Input
           disabled={disabled}
           value={draft}
@@ -489,14 +507,14 @@ function ModelField({
           onBlur={() => {
             if (draft !== value) onChange(draft);
           }}
-          placeholder="e.g. claude-opus-4-7"
+          placeholder={t('settings.modelPlaceholder')}
         />
       </Field>
     );
   }
 
   return (
-    <Field label="Model id" hint={hintText}>
+    <Field label={t('settings.modelLabel')} hint={hintText}>
       <Combobox
         freeform
         disabled={disabled}
@@ -511,7 +529,7 @@ function ModelField({
         onBlur={() => {
           if (draft !== value) onChange(draft);
         }}
-        placeholder="e.g. claude-opus-4-7"
+        placeholder={t('settings.modelPlaceholder')}
       >
         {suggestions.map((m) => (
           <Option key={m} value={m}>
@@ -538,6 +556,7 @@ function ProviderCredentials({
   provider: ProviderConfig | null;
   onSave: (extra: { apiKey?: string; config?: Record<string, unknown> }) => Promise<void>;
 }) {
+  const { t } = useTranslation();
   const cfg = (provider?.config ?? {}) as Record<string, unknown>;
   const [binaryPath, setBinaryPath] = useState((cfg.binaryPath as string) ?? '');
   const [geminiAuthType, setGeminiAuthType] = useState<'oauth-personal' | 'gemini-api-key'>(
@@ -564,7 +583,7 @@ function ProviderCredentials({
 
   if (kind === 'claude-code') {
     return (
-      <Field label="Path to claude binary (optional)" hint="Defaults to `claude` on PATH">
+      <Field label={t('settings.binaryPathLabel')} hint={t('settings.binaryPathHint')}>
         <Input
           value={binaryPath}
           onChange={(_, d) => setBinaryPath(d.value)}
@@ -576,7 +595,7 @@ function ProviderCredentials({
             else delete nextCfg.binaryPath;
             void onSave({ config: nextCfg }).catch(() => {});
           }}
-          placeholder="/usr/local/bin/claude"
+          placeholder={t('settings.binaryPathPlaceholder')}
         />
       </Field>
     );
@@ -585,7 +604,7 @@ function ProviderCredentials({
   if (kind === 'gemini-cli') {
     return (
       <>
-        <Field label="Auth" hint="OAuth uses ~/.gemini/oauth_creds.json from `gemini` setup">
+        <Field label={t('settings.geminiAuthLabel')} hint={t('settings.geminiAuthHint')}>
           <Select
             value={geminiAuthType}
             onChange={(_, d) => {
@@ -594,16 +613,16 @@ function ProviderCredentials({
               void onSave({ config: { ...cfg, authType: next } }).catch(() => {});
             }}
           >
-            <option value="oauth-personal">OAuth (personal)</option>
-            <option value="gemini-api-key">Gemini API key</option>
+            <option value="oauth-personal">{t('settings.geminiAuthOAuth')}</option>
+            <option value="gemini-api-key">{t('settings.geminiAuthApiKey')}</option>
           </Select>
         </Field>
         {geminiAuthType === 'gemini-api-key' && (
-          <Field label="Gemini API key">
+          <Field label={t('settings.geminiApiKeyLabel')}>
             <ApiKeyControl
               hasKey={!!provider?.hasKey}
               onCommit={commitApiKey}
-              placeholder="AI..."
+              placeholder={t('settings.geminiApiKeyPlaceholder')}
             />
           </Field>
         )}
@@ -614,7 +633,7 @@ function ProviderCredentials({
   if (kind === 'opencode') {
     return (
       <>
-        <Field label="Hostname (optional)" hint="Defaults to 127.0.0.1; auto-starts the server">
+        <Field label={t('settings.opencodeHostnameLabel')} hint={t('settings.opencodeHostnameHint')}>
           <Input
             value={opencodeHostname}
             onChange={(_, d) => setOpencodeHostname(d.value)}
@@ -626,10 +645,10 @@ function ProviderCredentials({
               else delete nextCfg.hostname;
               void onSave({ config: nextCfg }).catch(() => {});
             }}
-            placeholder="127.0.0.1"
+            placeholder={t('settings.opencodeHostnamePlaceholder')}
           />
         </Field>
-        <Field label="Port (optional)" hint="Defaults to 4096">
+        <Field label={t('settings.opencodePortLabel')} hint={t('settings.opencodePortHint')}>
           <Input
             type="number"
             value={opencodePort}
@@ -644,7 +663,7 @@ function ProviderCredentials({
               else delete nextCfg.port;
               void onSave({ config: nextCfg }).catch(() => {});
             }}
-            placeholder="4096"
+            placeholder={t('settings.opencodePortPlaceholder')}
           />
         </Field>
       </>
@@ -652,11 +671,11 @@ function ProviderCredentials({
   }
 
   return (
-    <Field label="API key">
+    <Field label={t('settings.apiKeyLabel')}>
       <ApiKeyControl
         hasKey={!!provider?.hasKey}
         onCommit={commitApiKey}
-        placeholder="sk-..."
+        placeholder={t('settings.apiKeyPlaceholder')}
       />
     </Field>
   );
@@ -672,6 +691,7 @@ function ApiKeyControl({
   placeholder: string;
 }) {
   const styles = useStyles();
+  const { t } = useTranslation();
   // Default to editing whenever no key is stored; collapsing to "Change key"
   // only makes sense once a key actually exists.
   const [editing, setEditing] = useState(!hasKey);
@@ -688,7 +708,7 @@ function ApiKeyControl({
   if (!editing) {
     return (
       <Link as="button" type="button" onClick={() => setEditing(true)}>
-        Change key
+        {t('settings.changeKey')}
       </Link>
     );
   }
@@ -720,11 +740,22 @@ function ApiKeyControl({
         onBlur={() => void commit()}
         placeholder={placeholder}
       />
+      {/* mouseDown.preventDefault keeps focus on the input so onBlur doesn't
+          fire commit() before the click handler does. */}
+      <Button
+        appearance="subtle"
+        icon={<Checkmark24Regular />}
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={() => void commit()}
+        disabled={!value.trim()}
+        aria-label={t('settings.saveKeyAria')}
+      />
       <Button
         appearance="subtle"
         icon={show ? <EyeOff24Regular /> : <Eye24Regular />}
+        onMouseDown={(e) => e.preventDefault()}
         onClick={() => setShow((s) => !s)}
-        aria-label={show ? 'Hide key' : 'Show key'}
+        aria-label={show ? t('settings.hideKeyAria') : t('settings.showKeyAria')}
       />
     </div>
   );
@@ -736,6 +767,7 @@ type StatusEvent = { serverId: string; status: McpStatus; errorMessage?: string 
 
 function McpSection() {
   const styles = useStyles();
+  const { t } = useTranslation();
   const [servers, setServers] = useState<McpServerView[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -879,7 +911,7 @@ function McpSection() {
         <Spinner size="tiny" />
       ) : servers.length === 0 ? (
         <Text italic size={200}>
-          No MCP servers configured.
+          {t('settings.mcpNoServers')}
         </Text>
       ) : (
         servers.map((s) => (
@@ -897,9 +929,9 @@ function McpSection() {
       )}
       <ConfirmDialog
         open={pendingDeleteId !== null}
-        title={`Remove MCP server ${pendingDeleteLabel}?`}
-        body="The server will be disconnected and forgotten."
-        confirmLabel="Remove"
+        title={t('settings.mcpRemoveTitle', { label: pendingDeleteLabel })}
+        body={t('settings.mcpRemoveBody')}
+        confirmLabel={t('settings.mcpRemoveConfirm')}
         onConfirm={() => void confirmRemove()}
         onCancel={() => setPendingDeleteId(null)}
       />
@@ -909,6 +941,7 @@ function McpSection() {
 
 function AddMcpForm({ onAdd }: { onAdd: (input: CreateMcpServerInput) => void }) {
   const styles = useStyles();
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState('');
   const [transport, setTransport] = useState<'stdio' | 'sse' | 'streamable-http'>('stdio');
@@ -919,7 +952,7 @@ function AddMcpForm({ onAdd }: { onAdd: (input: CreateMcpServerInput) => void })
   if (!open) {
     return (
       <Button appearance="primary" icon={<Add24Regular />} onClick={() => setOpen(true)}>
-        Add MCP server
+        {t('settings.mcpAddButton')}
       </Button>
     );
   }
@@ -959,11 +992,11 @@ function AddMcpForm({ onAdd }: { onAdd: (input: CreateMcpServerInput) => void })
 
   return (
     <div className={styles.card}>
-      <Text weight="semibold">Add MCP server</Text>
-      <Field label="Label">
+      <Text weight="semibold">{t('settings.mcpAddTitle')}</Text>
+      <Field label={t('settings.mcpLabelField')}>
         <Input value={label} onChange={(_, d) => setLabel(d.value)} />
       </Field>
-      <Field label="Transport">
+      <Field label={t('settings.mcpTransportLabel')}>
         <Select value={transport} onChange={(_, d) => setTransport(d.value as any)}>
           <option value="stdio">stdio</option>
           <option value="sse">SSE</option>
@@ -972,28 +1005,36 @@ function AddMcpForm({ onAdd }: { onAdd: (input: CreateMcpServerInput) => void })
       </Field>
       {transport === 'stdio' ? (
         <>
-          <Field label="Command">
-            <Input value={command} onChange={(_, d) => setCommand(d.value)} placeholder="node" />
+          <Field label={t('settings.mcpCommandLabel')}>
+            <Input
+              value={command}
+              onChange={(_, d) => setCommand(d.value)}
+              placeholder={t('settings.mcpCommandPlaceholder')}
+            />
           </Field>
-          <Field label="Args (space-separated)">
-            <Input value={args} onChange={(_, d) => setArgs(d.value)} placeholder="server.js" />
+          <Field label={t('settings.mcpArgsLabel')}>
+            <Input
+              value={args}
+              onChange={(_, d) => setArgs(d.value)}
+              placeholder={t('settings.mcpArgsPlaceholder')}
+            />
           </Field>
         </>
       ) : (
-        <Field label="URL">
+        <Field label={t('settings.mcpUrlLabel')}>
           <Input
             value={url}
             onChange={(_, d) => setUrl(d.value)}
-            placeholder="https://server-url/mcp"
+            placeholder={t('settings.mcpUrlPlaceholder')}
           />
         </Field>
       )}
       <div className={styles.row}>
         <Button appearance="primary" onClick={submit}>
-          Save
+          {t('common.save')}
         </Button>
         <Button appearance="subtle" onClick={() => setOpen(false)}>
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </div>
@@ -1018,6 +1059,7 @@ function McpServerCard({
   onFetchLog: () => void;
 }) {
   const styles = useStyles();
+  const { t } = useTranslation();
   return (
     <div className={styles.card}>
       <div className={styles.cardHeader}>
@@ -1030,14 +1072,14 @@ function McpServerCard({
           size="small"
           icon={<ArrowClockwise24Regular />}
           onClick={onRestart}
-          aria-label={`Restart ${server.label}`}
+          aria-label={t('settings.mcpRestartAria', { label: server.label })}
         />
         <Button
           appearance="subtle"
           size="small"
           icon={<Delete24Regular />}
           onClick={onRemove}
-          aria-label={`Remove ${server.label}`}
+          aria-label={t('settings.mcpRemoveAria', { label: server.label })}
         />
       </div>
       {server.errorMessage && (
@@ -1049,14 +1091,14 @@ function McpServerCard({
         <Switch
           checked={!server.disabled}
           onChange={onToggleDisabled}
-          label={server.disabled ? 'Disabled' : 'Enabled'}
+          label={server.disabled ? t('settings.mcpDisabled') : t('settings.mcpEnabled')}
         />
-        <Text size={200}>Default: {server.defaultPolicy}</Text>
+        <Text size={200}>{t('settings.mcpDefault', { policy: server.defaultPolicy })}</Text>
       </div>
       {server.tools.length > 0 && (
         <>
           <Text weight="semibold" size={200}>
-            Tools
+            {t('settings.mcpTools')}
           </Text>
           {server.tools.map((tool) => (
             <div key={tool.name} className={styles.toolRow}>
@@ -1066,7 +1108,7 @@ function McpServerCard({
               <Select
                 value={tool.policy}
                 onChange={(_, d) => onPolicyChange(tool.name, d.value as McpPolicy)}
-                aria-label={`Policy for ${tool.name}`}
+                aria-label={t('settings.mcpPolicyAria', { tool: tool.name })}
                 size="small"
               >
                 <option value="allow">allow</option>
@@ -1079,12 +1121,12 @@ function McpServerCard({
       )}
       <div className={styles.row}>
         <Button appearance="subtle" size="small" onClick={onFetchLog}>
-          Show stderr log
+          {t('settings.mcpShowLog')}
         </Button>
       </div>
       {log && (
-        <div className={styles.logBox} aria-label={`stderr log for ${server.label}`}>
-          {log.length === 0 ? '(empty)' : log.join('\n')}
+        <div className={styles.logBox} aria-label={t('settings.mcpLogAria', { label: server.label })}>
+          {log.length === 0 ? t('settings.mcpLogEmpty') : log.join('\n')}
         </div>
       )}
     </div>

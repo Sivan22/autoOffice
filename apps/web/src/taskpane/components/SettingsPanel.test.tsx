@@ -186,6 +186,52 @@ describe('SettingsPanel — Providers', () => {
     });
   });
 
+  it('saves the API key when the user clicks the V (save) button', async () => {
+    let postCount = 0;
+    let postSeen = false;
+    installFetchRouter({
+      '/bootstrap': () => new Response(JSON.stringify({ token: 't', version: 'v' })),
+      '/api/settings GET': () =>
+        new Response(
+          JSON.stringify(
+            postSeen
+              ? { ...settingsPayload, selectedProviderId: 'p3' }
+              : settingsPayload,
+          ),
+        ),
+      '/api/providers GET': () =>
+        new Response(
+          JSON.stringify(
+            postSeen
+              ? [makeProvider({ id: 'p3', label: 'Anthropic', kind: 'anthropic' })]
+              : [],
+          ),
+        ),
+      '/api/providers/p3/models GET': () =>
+        new Response(JSON.stringify({ models: [], source: 'fallback' })),
+      '/api/providers POST': (_u, init) => {
+        postCount++;
+        postSeen = true;
+        const body = JSON.parse((init?.body as string) ?? '{}');
+        expect(body.apiKey).toBe('sk-via-button');
+        return new Response(JSON.stringify({ id: 'p3' }), { status: 201 });
+      },
+      '/api/settings PUT': () =>
+        new Response(JSON.stringify({ ...settingsPayload, selectedProviderId: 'p3' })),
+    });
+    await bootstrap();
+
+    wrap(<SettingsPanel onClose={() => {}} />);
+
+    const keyInput = await screen.findByPlaceholderText('sk-...');
+    fireEvent.change(keyInput, { target: { value: 'sk-via-button' } });
+    fireEvent.click(screen.getByLabelText('Save key'));
+
+    await waitFor(() => {
+      expect(postCount).toBe(1);
+    });
+  });
+
   it('surfaces server error message body when key save fails (e.g. DPAPI unavailable)', async () => {
     installFetchRouter({
       '/bootstrap': () => new Response(JSON.stringify({ token: 't', version: 'v' })),
