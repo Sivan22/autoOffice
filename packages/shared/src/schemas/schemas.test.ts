@@ -15,6 +15,10 @@ describe('SettingsSchema', () => {
   it('rejects maxSteps below 1', () => {
     expect(() => SettingsSchema.parse({ maxSteps: 0 })).toThrow();
   });
+
+  it('rejects an unknown locale id', () => {
+    expect(() => SettingsSchema.parse({ locale: 'zz' })).toThrow();
+  });
 });
 
 describe('ConversationSchema', () => {

@@ -1,12 +1,17 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { TextPart } from './TextPart';
 import { ExecuteCodePart } from './ExecuteCodePart';
 import { StepStartPart } from './StepStartPart';
 import { LookupSkillPart } from './LookupSkillPart';
 import { DynamicToolPart } from './DynamicToolPart';
 import { ApprovalRequestedPart } from './ApprovalRequestedPart';
+
+function renderWithFluent(ui: React.ReactElement) {
+  return render(<FluentProvider theme={webLightTheme}>{ui}</FluentProvider>);
+}
 
 describe('TextPart', () => {
   it('renders text', () => {
@@ -25,7 +30,7 @@ describe('StepStartPart', () => {
 describe('ExecuteCodePart', () => {
   it('shows Approve when state is input-available', () => {
     const onApprove = vi.fn();
-    render(
+    renderWithFluent(
       <ExecuteCodePart
         part={{ state: 'input-available', toolCallId: 'tc', input: { code: 'await 1' } }}
         onApprove={onApprove}
@@ -33,12 +38,12 @@ describe('ExecuteCodePart', () => {
         highlight={(s) => s}
       />,
     );
-    fireEvent.click(screen.getByText('Approve'));
+    fireEvent.click(screen.getByRole('button', { name: /Approve & Run/i }));
     expect(onApprove).toHaveBeenCalledWith('tc', 'await 1');
   });
 
   it('shows output-error message in error state', () => {
-    render(
+    renderWithFluent(
       <ExecuteCodePart
         part={{ state: 'output-error', toolCallId: 'tc', errorText: 'kaboom' }}
         onApprove={() => {}}

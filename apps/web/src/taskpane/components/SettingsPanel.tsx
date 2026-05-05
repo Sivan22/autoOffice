@@ -37,6 +37,7 @@ import type {
   McpStatus,
 } from '@autooffice/shared';
 import { getKnownModels, isCliBridge } from '@autooffice/shared';
+import { availableLocales, useTranslation, type LocaleId } from '../i18n/index.ts';
 
 const useStyles = makeStyles({
   container: {
@@ -75,6 +76,14 @@ const useStyles = makeStyles({
     display: 'flex',
     alignItems: 'center',
     gap: '8px',
+  },
+  addRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  addRowDivider: {
+    flexGrow: 1,
   },
   card: {
     display: 'flex',
@@ -209,6 +218,8 @@ function GlobalSection({ onGoToProviders }: { onGoToProviders: () => void }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const { setLocale } = useTranslation();
+  const locales = availableLocales();
 
   const reload = useCallback(async () => {
     try {
@@ -237,6 +248,20 @@ function GlobalSection({ onGoToProviders }: { onGoToProviders: () => void }) {
       setError((e as Error).message);
     }
   };
+
+  // If a provider exists but none is selected (or the selection points to a
+  // deleted provider), pin to the first available one so the user never sees
+  // — None — when there's a real choice.
+  useEffect(() => {
+    if (!settings || providers.length === 0) return;
+    const selected = settings.selectedProviderId;
+    const stillExists = selected && providers.some((p) => p.id === selected);
+    if (!stillExists) {
+      void update({ selectedProviderId: providers[0]!.id, selectedModelId: null });
+    }
+    // `update` is stable enough — we only care about provider list / current selection changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [providers, settings?.selectedProviderId]);
 
   if (!settings) {
     return error ? <div className={styles.errorBanner}>{error}</div> : <Spinner size="tiny" />;
@@ -270,7 +295,7 @@ function GlobalSection({ onGoToProviders }: { onGoToProviders: () => void }) {
               })
             }
           >
-            <option value="">— None —</option>
+            {providers.length === 0 && <option value="">— None —</option>}
             {providers.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.label} ({p.kind})
@@ -318,14 +343,23 @@ function GlobalSection({ onGoToProviders }: { onGoToProviders: () => void }) {
 
       <div className={styles.section}>
         <Text weight="semibold" size={300}>
-          Locale
+          Language
         </Text>
-        <Field label="Locale">
-          <Input
+        <Field label="Language">
+          <Select
             value={settings.locale}
-            onChange={(_, d) => void update({ locale: d.value })}
-            placeholder="en"
-          />
+            onChange={(_, d) => {
+              const next = d.value as LocaleId;
+              void update({ locale: next });
+              void setLocale(next);
+            }}
+          >
+            {locales.map((l) => (
+              <option key={l.id} value={l.id}>
+                {l.nativeName}
+              </option>
+            ))}
+          </Select>
         </Field>
       </div>
     </>
@@ -382,15 +416,18 @@ function ModelField({
     };
   }, [providerId, providerKind]);
 
-  const hintText =
-    source === 'live'
+  const disabled = !providerId;
+  const hintText = disabled
+    ? 'Select a provider first'
+    : source === 'live'
       ? `${suggestions.length} models from provider`
       : hint ?? 'Pick a known model or type your own';
 
   if (suggestions.length === 0) {
     return (
-      <Field label="Model id" hint={hint ?? undefined}>
+      <Field label="Model id" hint={hintText}>
         <Input
+          disabled={disabled}
           value={draft}
           onChange={(_, d) => setDraft(d.value)}
           onBlur={() => {
@@ -406,6 +443,7 @@ function ModelField({
     <Field label="Model id" hint={hintText}>
       <Combobox
         freeform
+        disabled={disabled}
         value={draft}
         selectedOptions={suggestions.includes(draft) ? [draft] : []}
         onInput={(e) => setDraft((e.target as HTMLInputElement).value)}
@@ -437,9 +475,6 @@ function ProvidersSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, string>>({});
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const pendingDeleteLabel =
-    providers.find((p) => p.id === pendingDeleteId)?.label ?? 'this provider';
 
   const reload = useCallback(async () => {
     try {
@@ -466,12 +501,7 @@ function ProvidersSection() {
     }
   };
 
-  const removeProvider = (id: string) => setPendingDeleteId(id);
-
-  const confirmRemoveProvider = async () => {
-    const id = pendingDeleteId;
-    if (!id) return;
-    setPendingDeleteId(null);
+  const removeProvider = async (id: string) => {
     try {
       await apiSend(`/api/providers/${id}`, null, 'DELETE');
       await reload();
@@ -508,7 +538,6 @@ function ProvidersSection() {
     <>
       {error && <div className={styles.errorBanner}>{error}</div>}
       <AddProviderForm onAdd={addProvider} />
-      <Divider />
       {loading ? (
         <Spinner size="tiny" />
       ) : providers.length === 0 ? (
@@ -522,19 +551,11 @@ function ProvidersSection() {
             provider={p}
             testResult={testResults[p.id]}
             onUpdate={(patch) => updateProvider(p.id, patch)}
-            onRemove={() => removeProvider(p.id)}
+            onRemove={() => void removeProvider(p.id)}
             onTest={() => testProvider(p.id)}
           />
         ))
       )}
-      <ConfirmDialog
-        open={pendingDeleteId !== null}
-        title={`Remove ${pendingDeleteLabel}?`}
-        body="The stored API key will be removed."
-        confirmLabel="Remove"
-        onConfirm={() => void confirmRemoveProvider()}
-        onCancel={() => setPendingDeleteId(null)}
-      />
     </>
   );
 }
@@ -555,9 +576,12 @@ function AddProviderForm({ onAdd }: { onAdd: (input: CreateProviderInput) => voi
 
   if (!open) {
     return (
-      <Button appearance="primary" icon={<Add24Regular />} onClick={() => setOpen(true)}>
-        Add provider
-      </Button>
+      <div className={styles.addRow}>
+        <Button appearance="primary" icon={<Add24Regular />} onClick={() => setOpen(true)}>
+          Add provider
+        </Button>
+        <Divider className={styles.addRowDivider} />
+      </div>
     );
   }
 
@@ -960,7 +984,6 @@ function McpSection() {
     <>
       {error && <div className={styles.errorBanner}>{error}</div>}
       <AddMcpForm onAdd={create} />
-      <Divider />
       {loading ? (
         <Spinner size="tiny" />
       ) : servers.length === 0 ? (
@@ -1004,9 +1027,12 @@ function AddMcpForm({ onAdd }: { onAdd: (input: CreateMcpServerInput) => void })
 
   if (!open) {
     return (
-      <Button appearance="primary" icon={<Add24Regular />} onClick={() => setOpen(true)}>
-        Add MCP server
-      </Button>
+      <div className={styles.addRow}>
+        <Button appearance="primary" icon={<Add24Regular />} onClick={() => setOpen(true)}>
+          Add MCP server
+        </Button>
+        <Divider className={styles.addRowDivider} />
+      </div>
     );
   }
 

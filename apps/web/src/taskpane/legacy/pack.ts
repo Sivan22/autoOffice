@@ -1,11 +1,14 @@
-import type { LegacyImportPayload } from '@autooffice/shared';
+import { isLocaleId, type LegacyImportPayload } from '@autooffice/shared';
 import type { LegacyBlob } from './detect';
 
 export function pack(blob: LegacyBlob): LegacyImportPayload | null {
   const settingsRaw = blob.roamingSettingsRaw?.['autoOffice.settings'] as Record<string, unknown> | undefined;
   const settings = settingsRaw
     ? {
-        locale: typeof settingsRaw.locale === 'string' ? settingsRaw.locale : undefined,
+        locale:
+          typeof settingsRaw.locale === 'string' && isLocaleId(settingsRaw.locale)
+            ? settingsRaw.locale
+            : undefined,
         autoApprove: typeof settingsRaw.autoApprove === 'boolean' ? settingsRaw.autoApprove : undefined,
         maxSteps: typeof settingsRaw.maxSteps === 'number' ? settingsRaw.maxSteps : undefined,
       }

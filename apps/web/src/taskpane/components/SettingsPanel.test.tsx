@@ -4,10 +4,15 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { FluentProvider, webLightTheme } from '@fluentui/react-components';
 import { SettingsPanel } from './SettingsPanel';
 import { bootstrap, _resetForTests } from '../api';
+import { LanguageProvider } from '../i18n/index';
 import type { ProviderConfig, McpServerView, Settings } from '@autooffice/shared';
 
 const wrap = (ui: React.ReactElement) =>
-  render(<FluentProvider theme={webLightTheme}>{ui}</FluentProvider>);
+  render(
+    <LanguageProvider initialLocale="en">
+      <FluentProvider theme={webLightTheme}>{ui}</FluentProvider>
+    </LanguageProvider>,
+  );
 
 const settingsPayload: Settings = {
   locale: 'en',
@@ -139,7 +144,7 @@ describe('SettingsPanel — Providers', () => {
     });
   });
 
-  it('DELETEs a provider when remove is clicked and confirmed', async () => {
+  it('DELETEs a provider immediately when remove is clicked', async () => {
     let deleted = false;
     installFetchRouter({
       '/bootstrap': () => new Response(JSON.stringify({ token: 't', version: 'v' })),
@@ -157,9 +162,6 @@ describe('SettingsPanel — Providers', () => {
     await waitFor(() => expect(screen.getByText('ToDelete')).toBeInTheDocument());
 
     fireEvent.click(screen.getByLabelText('Remove ToDelete'));
-    // ConfirmDialog opens; click its Remove button.
-    const removeButtons = await screen.findAllByRole('button', { name: 'Remove' });
-    fireEvent.click(removeButtons[removeButtons.length - 1]);
 
     await waitFor(() => {
       expect(deleted).toBe(true);

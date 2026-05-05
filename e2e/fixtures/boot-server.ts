@@ -24,6 +24,7 @@ export const test = base.extend<Fixtures>({
         AUTOOFFICE_TOKEN: token,
         AUTOOFFICE_DATA_DIR: dataDir,
         AUTOOFFICE_TEST_PROVIDER: 'fake',
+        AUTOOFFICE_NO_TLS: '1',
         NODE_ENV: 'development',
       };
       const bunBin = process.env.AUTOOFFICE_BUN_BIN ?? 'bun';

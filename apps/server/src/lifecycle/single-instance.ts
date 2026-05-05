@@ -1,4 +1,5 @@
 import { openSync, closeSync, writeFileSync, unlinkSync, existsSync, readFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
 import { join } from 'node:path';
 
 export type LockHandle = { dir: string; fd: number };
@@ -28,5 +29,18 @@ export function releaseLock(handle: LockHandle): void {
 }
 
 function isAlive(pid: number): boolean {
+  // On Windows, `process.kill(pid, 0)` can return true for some dead PIDs
+  // (no signal-0 semantics), which traps stale locks forever. Verify against
+  // tasklist on win32; fall back to kill(0) elsewhere.
+  if (process.platform === 'win32') {
+    try {
+      const out = execSync(`tasklist /FI "PID eq ${pid}" /NH /FO CSV`, {
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).toString();
+      return out.includes(`"${pid}"`);
+    } catch {
+      return false;
+    }
+  }
   try { process.kill(pid, 0); return true; } catch { return false; }
 }

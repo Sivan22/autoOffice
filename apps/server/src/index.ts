@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createApp } from './app';
 import { openDb } from './db/index';
@@ -62,6 +63,27 @@ if (cfg?.certPath && cfg?.keyPath) {
       key: readFileSync(join(dataDir, cfg.keyPath)),
     },
   };
+} else if (IS_DEV && process.env.AUTOOFFICE_NO_TLS !== '1') {
+  // Dev fallback: pick up office-addin-dev-certs so Office (which loads the
+  // task pane over HTTPS per the manifest) can reach this server.
+  const devCertDir = join(homedir(), '.office-addin-dev-certs');
+  const devCert = join(devCertDir, 'localhost.crt');
+  const devKey = join(devCertDir, 'localhost.key');
+  if (existsSync(devCert) && existsSync(devKey)) {
+    serveOpts = {
+      ...serveOpts,
+      tls: {
+        cert: readFileSync(devCert),
+        key: readFileSync(devKey),
+      },
+    };
+  } else {
+    console.warn(
+      `[autoOffice] dev TLS certs not found at ${devCertDir}. ` +
+        'Run `npm --workspace @autooffice/web run certs` to install them, ' +
+        'or set AUTOOFFICE_NO_TLS=1 to silence this warning.',
+    );
+  }
 }
 
 const server = Bun.serve(serveOpts);

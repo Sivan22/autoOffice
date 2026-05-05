@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { makeStyles, tokens } from '@fluentui/react-components';
 import { useChat } from '@ai-sdk/react';
 import {
@@ -18,6 +18,7 @@ import type { Settings, Conversation, Message } from '@autooffice/shared';
 import { detectLegacy } from './legacy/detect.ts';
 import { pack } from './legacy/pack.ts';
 import { LegacyImportModal } from './components/LegacyImportModal.tsx';
+import { useTranslation, isLocaleId } from './i18n/index.ts';
 
 const useStyles = makeStyles({
   root: {
@@ -119,6 +120,17 @@ export function App({ host }: AppProps) {
     }
   }, []);
 
+  // The server's settings.locale is the source of truth. Push it into the
+  // LanguageProvider whenever it changes (boot-time and after settings
+  // refresh). The provider's localStorage/roamingSettings cache is kept only
+  // to avoid a flash of the wrong locale on the next boot.
+  const { locale: activeLocale, setLocale } = useTranslation();
+  useEffect(() => {
+    const next = settings?.locale;
+    if (!next || !isLocaleId(next) || next === activeLocale) return;
+    void setLocale(next);
+  }, [settings?.locale, activeLocale, setLocale]);
+
   if (error) {
     return (
       <div className={styles.root}>
@@ -202,14 +214,26 @@ function ChatScreen({
     return () => sandbox.destroy();
   }, [sandbox]);
 
+  // useChat captures the transport on first render and never swaps it. Route
+  // current provider/model selection through a ref so a single transport
+  // instance always reads the latest values.
+  const selectionRef = useRef({
+    providerId: settings.selectedProviderId ?? '',
+    modelId: settings.selectedModelId ?? '',
+  });
+  selectionRef.current = {
+    providerId: settings.selectedProviderId ?? '',
+    modelId: settings.selectedModelId ?? '',
+  };
+
   const transport = useMemo(
     () =>
       makeChatTransport({
         host: host.kind,
-        providerId: settings.selectedProviderId ?? '',
-        modelId: settings.selectedModelId ?? '',
+        getProviderId: () => selectionRef.current.providerId,
+        getModelId: () => selectionRef.current.modelId,
       }),
-    [host.kind, settings.selectedProviderId, settings.selectedModelId],
+    [host.kind],
   );
 
   const runInIframe = async (code: string): Promise<unknown> => {

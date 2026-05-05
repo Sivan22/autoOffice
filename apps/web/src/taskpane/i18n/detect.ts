@@ -27,8 +27,16 @@ export interface DetectInput {
 export function detectLocale({ saved }: DetectInput): LocaleId {
   if (saved && isLocaleId(saved)) return saved;
 
+  // Prefer the document/content language (e.g., Word document language) over
+  // the Office UI language so a Hebrew document opens the pane in Hebrew even
+  // when Office's chrome is English.
   try {
     const off = (globalThis as any).Office;
+    const content = off?.context?.contentLanguage;
+    if (typeof content === 'string') {
+      const hit = normalizeLanguageTag(content);
+      if (hit) return hit;
+    }
     const display = off?.context?.displayLanguage;
     if (typeof display === 'string') {
       const hit = normalizeLanguageTag(display);

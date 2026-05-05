@@ -42,4 +42,21 @@ describe('settings routes', () => {
     });
     expect(res.status).toBe(400);
   });
+
+  it('PUT accepts a known locale and rejects an unknown one', async () => {
+    const ok = await app.request('/api/settings', {
+      method: 'PUT',
+      headers: { ...auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locale: 'he' }),
+    });
+    expect(ok.status).toBe(200);
+    expect((await ok.json()).locale).toBe('he');
+
+    const bad = await app.request('/api/settings', {
+      method: 'PUT',
+      headers: { ...auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ locale: 'zz' }),
+    });
+    expect(bad.status).toBe(400);
+  });
 });

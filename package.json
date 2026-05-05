@@ -19,9 +19,9 @@
     "sideload:excel": "npm --workspace @autooffice/web run sideload:excel",
     "sideload:powerpoint": "npm --workspace @autooffice/web run sideload:powerpoint",
     "stop": "npm --workspace @autooffice/web run stop",
-    "dev:sideload": "concurrently -k -s first -n server,sideload -c blue,magenta \"npm run dev\" \"wait-on -t 60000 http-get://127.0.0.1:47318/health && npm run sideload\"",
-    "dev:sideload:excel": "concurrently -k -s first -n server,sideload -c blue,magenta \"npm run dev\" \"wait-on -t 60000 http-get://127.0.0.1:47318/health && npm run sideload:excel\"",
-    "dev:sideload:powerpoint": "concurrently -k -s first -n server,sideload -c blue,magenta \"npm run dev\" \"wait-on -t 60000 http-get://127.0.0.1:47318/health && npm run sideload:powerpoint\""
+    "dev:sideload": "concurrently --kill-others-on-fail -n server,sideload -c blue,magenta \"npm run dev\" \"wait-on -t 60000 tcp:127.0.0.1:47318 && npm run sideload\"",
+    "dev:sideload:excel": "concurrently --kill-others-on-fail -n server,sideload -c blue,magenta \"npm run dev\" \"wait-on -t 60000 tcp:127.0.0.1:47318 && npm run sideload:excel\"",
+    "dev:sideload:powerpoint": "concurrently --kill-others-on-fail -n server,sideload -c blue,magenta \"npm run dev\" \"wait-on -t 60000 tcp:127.0.0.1:47318 && npm run sideload:powerpoint\""
   },
   "devDependencies": {
     "concurrently": "^9.1.0",

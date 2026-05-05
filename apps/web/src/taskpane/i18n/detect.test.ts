@@ -42,7 +42,14 @@ describe('detectLocale', () => {
     expect(detectLocale({ saved: 'xx' as any })).toBe('en');
   });
 
-  it('uses Office.context.displayLanguage when no saved value', () => {
+  it('prefers Office.context.contentLanguage (document language) over displayLanguage', () => {
+    vi.stubGlobal('Office', {
+      context: { contentLanguage: 'he-IL', displayLanguage: 'en-US' },
+    });
+    expect(detectLocale({})).toBe('he');
+  });
+
+  it('falls back to Office.context.displayLanguage when contentLanguage is missing', () => {
     vi.stubGlobal('Office', { context: { displayLanguage: 'he-IL' } });
     expect(detectLocale({})).toBe('he');
   });

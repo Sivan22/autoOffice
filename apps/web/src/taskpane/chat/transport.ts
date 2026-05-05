@@ -2,18 +2,24 @@ import { DefaultChatTransport } from 'ai';
 import { getToken } from '../api';
 import type { Host } from '@autooffice/shared';
 
-export function makeChatTransport(args: { host: Host; providerId: string; modelId: string }) {
+export function makeChatTransport(args: {
+  host: Host;
+  getProviderId: () => string;
+  getModelId: () => string;
+}) {
   return new DefaultChatTransport({
     api: '/api/chat',
     headers: () => ({ Authorization: `Bearer ${getToken()}` }),
     prepareSendMessagesRequest: ({ id, messages, trigger, messageId }) => {
+      const providerId = args.getProviderId();
+      const modelId = args.getModelId();
       if (trigger === 'submit-message') {
         return {
           body: {
             id,
             host: args.host,
-            providerId: args.providerId,
-            modelId: args.modelId,
+            providerId,
+            modelId,
             trigger,
             message: messages[messages.length - 1],
           },
@@ -23,8 +29,8 @@ export function makeChatTransport(args: { host: Host; providerId: string; modelI
         body: {
           id,
           host: args.host,
-          providerId: args.providerId,
-          modelId: args.modelId,
+          providerId,
+          modelId,
           trigger,
           messageId,
         },
