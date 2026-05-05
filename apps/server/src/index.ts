@@ -41,7 +41,7 @@ if (!lock) {
 }
 
 const db = openDb({ url: dbPath() });
-const app = createApp({ version: VERSION, db, authToken: token });
+const app = createApp({ version: VERSION, db, authToken: token, dev: IS_DEV });
 
 if (IS_DEV) {
   const { makeViteMiddleware } = await import('./middleware/vite-dev');

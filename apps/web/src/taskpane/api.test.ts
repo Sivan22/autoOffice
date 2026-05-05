@@ -65,4 +65,20 @@ describe('api', () => {
     (fetch as any).mockResolvedValueOnce(new Response('nope', { status: 500 }));
     await expect(apiGet('/api/settings')).rejects.toThrow(/500/);
   });
+
+  it('apiSend surfaces JSON error body in the thrown message', async () => {
+    (fetch as any).mockResolvedValueOnce(
+      new Response(JSON.stringify({ token: 't5', version: 'v' }), { status: 200 }),
+    );
+    await bootstrap();
+    (fetch as any).mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'API key requires Windows (DPAPI)' }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    await expect(
+      apiSend('/api/providers', { kind: 'anthropic', label: 'x', apiKey: 'sk' }),
+    ).rejects.toThrow(/API key requires Windows \(DPAPI\)/);
+  });
 });

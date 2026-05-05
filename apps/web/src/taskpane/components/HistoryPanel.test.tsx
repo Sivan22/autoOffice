@@ -134,6 +134,35 @@ describe('HistoryPanel', () => {
     });
   });
 
+  it('deletes a conversation via the in-app ConfirmDialog (not native confirm)', async () => {
+    const apiSendSpy = vi.spyOn(api, 'apiSend').mockResolvedValue(undefined as any);
+    // Make sure native confirm is *not* what gates the flow.
+    const confirmSpy = vi.spyOn(globalThis, 'confirm').mockReturnValue(false);
+    wrap(
+      <HistoryPanel
+        currentHost="word"
+        activeConversationId={null}
+        onSelectConversation={() => {}}
+        onClose={() => {}}
+        loadConversations={async () => sample}
+      />,
+    );
+    await waitFor(() => {
+      expect(screen.getByText('Word doc edits')).toBeInTheDocument();
+    });
+    const deleteBtns = screen.getAllByLabelText('Delete conversation');
+    fireEvent.click(deleteBtns[0]);
+    // ConfirmDialog opens; native confirm should not have been called.
+    expect(confirmSpy).not.toHaveBeenCalled();
+    const confirmBtn = await screen.findByRole('button', { name: 'Delete' });
+    fireEvent.click(confirmBtn);
+    await waitFor(() => {
+      expect(apiSendSpy).toHaveBeenCalledWith('/api/conversations/c1', null, 'DELETE');
+    });
+    apiSendSpy.mockRestore();
+    confirmSpy.mockRestore();
+  });
+
   it('calls onClose when the close button is clicked', async () => {
     const onClose = vi.fn();
     wrap(

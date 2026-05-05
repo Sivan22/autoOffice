@@ -110,6 +110,15 @@ export function App({ host }: AppProps) {
     await loadConversation(created.id);
   }, [host.kind, loadConversation]);
 
+  const refreshSettings = useCallback(async () => {
+    try {
+      const s = await apiGet<Settings>('/api/settings');
+      setSettings(s);
+    } catch {
+      /* keep last-known settings on transient failure */
+    }
+  }, []);
+
   if (error) {
     return (
       <div className={styles.root}>
@@ -145,7 +154,12 @@ export function App({ host }: AppProps) {
       />
       {settingsOpen && (
         <div className={styles.drawer}>
-          <SettingsPanel onClose={() => setSettingsOpen(false)} />
+          <SettingsPanel
+            onClose={() => {
+              setSettingsOpen(false);
+              void refreshSettings();
+            }}
+          />
         </div>
       )}
       {historyOpen && (
@@ -206,7 +220,7 @@ function ChatScreen({
     return { output: result.output, logs: result.logs };
   };
 
-  const { messages, sendMessage, status, addToolOutput, addToolApprovalResponse } = useChat({
+  const { messages, sendMessage, status, error, addToolOutput, addToolApprovalResponse } = useChat({
     id: conversationId,
     messages: initialMessages as any,
     transport,
@@ -220,6 +234,8 @@ function ChatScreen({
     }),
   });
 
+  const noProvider = !settings.selectedProviderId;
+
   const highlightCode = useHighlightCode();
 
   return (
@@ -227,6 +243,8 @@ function ChatScreen({
       host={host}
       messages={messages as any}
       status={status as any}
+      noProvider={noProvider}
+      chatError={error ? error.message : null}
       onSubmit={(text) => sendMessage({ text })}
       onApproveCode={async (toolCallId, code) => {
         try {

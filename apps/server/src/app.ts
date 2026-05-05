@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { logger } from 'hono/logger';
 import type { Database } from 'bun:sqlite';
 import type { LanguageModel } from 'ai';
 import { healthRouter } from './routes/health';
@@ -26,10 +27,15 @@ export type AppConfig = {
   authToken: string;
   mcpClientFactory?: CreateClientFn;
   modelOverride?: (providerId: string, modelId: string) => LanguageModel;
+  dev?: boolean;
 };
 
 export function createApp(config: AppConfig) {
   const app = new Hono();
+  if (config.dev) {
+    app.use('/api/*', logger());
+    app.use('/health', logger());
+  }
   const settings = new SettingsRepo(config.db);
   const conversations = new ConversationsRepo(config.db);
   const messages = new MessagesRepo(config.db);

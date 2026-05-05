@@ -151,17 +151,51 @@ describe('SettingsPanel — Providers', () => {
       },
     });
     await bootstrap();
-    vi.spyOn(globalThis, 'confirm').mockReturnValue(true);
 
     wrap(<SettingsPanel onClose={() => {}} />);
     fireEvent.click(screen.getByRole('tab', { name: 'Providers' }));
     await waitFor(() => expect(screen.getByText('ToDelete')).toBeInTheDocument());
 
     fireEvent.click(screen.getByLabelText('Remove ToDelete'));
+    // ConfirmDialog opens; click its Remove button.
+    const removeButtons = await screen.findAllByRole('button', { name: 'Remove' });
+    fireEvent.click(removeButtons[removeButtons.length - 1]);
 
     await waitFor(() => {
       expect(deleted).toBe(true);
       expect(screen.getByText(/No providers configured/)).toBeInTheDocument();
+    });
+  });
+
+  it('surfaces server error message body when create fails (e.g. DPAPI unavailable)', async () => {
+    installFetchRouter({
+      '/bootstrap': () => new Response(JSON.stringify({ token: 't', version: 'v' })),
+      '/api/providers GET': () => new Response(JSON.stringify([])),
+      '/api/providers POST': () =>
+        new Response(
+          JSON.stringify({ error: 'Storing an API key requires Windows (DPAPI).' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } },
+        ),
+    });
+    await bootstrap();
+
+    wrap(<SettingsPanel onClose={() => {}} />);
+    fireEvent.click(screen.getByRole('tab', { name: 'Providers' }));
+    await waitFor(() =>
+      expect(screen.getByText(/No providers configured/)).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByText('Add provider'));
+    fireEvent.change(screen.getByPlaceholderText('My Anthropic key'), {
+      target: { value: 'Local' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('sk-...'), {
+      target: { value: 'sk-test' },
+    });
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Storing an API key requires Windows/)).toBeInTheDocument();
     });
   });
 });

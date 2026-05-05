@@ -23,6 +23,7 @@ import {
   EyeOff24Regular,
 } from '@fluentui/react-icons';
 import { apiGet, apiSend, getToken } from '../api.ts';
+import { ConfirmDialog } from './ConfirmDialog.tsx';
 import type {
   Settings,
   ProviderConfig,
@@ -93,6 +94,19 @@ const useStyles = makeStyles({
   errorBanner: {
     color: tokens.colorPaletteRedForeground1,
     padding: '6px 0',
+  },
+  notice: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 10px',
+    backgroundColor: tokens.colorPaletteYellowBackground1,
+    border: `1px solid ${tokens.colorPaletteYellowBorder1}`,
+    color: tokens.colorPaletteDarkOrangeForeground1,
+    borderRadius: '4px',
+  },
+  noticeText: {
+    flex: 1,
   },
   toolRow: {
     display: 'flex',
@@ -174,7 +188,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
         </TabList>
       </div>
       <div className={styles.body}>
-        {tab === 'global' && <GlobalSection />}
+        {tab === 'global' && <GlobalSection onGoToProviders={() => setTab('providers')} />}
         {tab === 'providers' && <ProvidersSection />}
         {tab === 'mcp' && <McpSection />}
       </div>
@@ -184,7 +198,7 @@ export function SettingsPanel({ onClose }: SettingsPanelProps) {
 
 // ─────────────────────────── Global ───────────────────────────
 
-function GlobalSection() {
+function GlobalSection({ onGoToProviders }: { onGoToProviders: () => void }) {
   const styles = useStyles();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
@@ -225,6 +239,16 @@ function GlobalSection() {
   return (
     <>
       {error && <div className={styles.errorBanner}>{error}</div>}
+      {providers.length === 0 && (
+        <div className={styles.notice} role="status">
+          <Text className={styles.noticeText} size={200}>
+            No AI provider is configured yet. Add one to start chatting.
+          </Text>
+          <Button appearance="primary" size="small" onClick={onGoToProviders}>
+            Add provider
+          </Button>
+        </div>
+      )}
       <div className={styles.section}>
         <Text weight="semibold" size={300}>
           Active provider
@@ -309,6 +333,9 @@ function ProvidersSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [testResults, setTestResults] = useState<Record<string, string>>({});
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const pendingDeleteLabel =
+    providers.find((p) => p.id === pendingDeleteId)?.label ?? 'this provider';
 
   const reload = useCallback(async () => {
     try {
@@ -335,8 +362,12 @@ function ProvidersSection() {
     }
   };
 
-  const removeProvider = async (id: string) => {
-    if (!confirm('Remove this provider?')) return;
+  const removeProvider = (id: string) => setPendingDeleteId(id);
+
+  const confirmRemoveProvider = async () => {
+    const id = pendingDeleteId;
+    if (!id) return;
+    setPendingDeleteId(null);
     try {
       await apiSend(`/api/providers/${id}`, null, 'DELETE');
       await reload();
@@ -386,6 +417,14 @@ function ProvidersSection() {
           />
         ))
       )}
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        title={`Remove ${pendingDeleteLabel}?`}
+        body="The stored API key will be removed."
+        confirmLabel="Remove"
+        onConfirm={() => void confirmRemoveProvider()}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </>
   );
 }
@@ -576,6 +615,9 @@ function McpSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<Record<string, string[]>>({});
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const pendingDeleteLabel =
+    servers.find((s) => s.id === pendingDeleteId)?.label ?? 'this server';
 
   const reload = useCallback(async () => {
     try {
@@ -654,8 +696,12 @@ function McpSection() {
     }
   };
 
-  const remove = async (id: string) => {
-    if (!confirm('Remove this MCP server?')) return;
+  const remove = (id: string) => setPendingDeleteId(id);
+
+  const confirmRemove = async () => {
+    const id = pendingDeleteId;
+    if (!id) return;
+    setPendingDeleteId(null);
     try {
       await apiSend(`/api/mcp/servers/${id}`, null, 'DELETE');
       await reload();
@@ -725,6 +771,14 @@ function McpSection() {
           />
         ))
       )}
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        title={`Remove MCP server ${pendingDeleteLabel}?`}
+        body="The server will be disconnected and forgotten."
+        confirmLabel="Remove"
+        onConfirm={() => void confirmRemove()}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </>
   );
 }

@@ -18,6 +18,7 @@ import {
 } from '@fluentui/react-icons';
 import { apiGet, apiSend } from '../api.ts';
 import type { Conversation, Host } from '@autooffice/shared';
+import { ConfirmDialog } from './ConfirmDialog.tsx';
 
 const useStyles = makeStyles({
   container: {
@@ -144,6 +145,7 @@ export function HistoryPanel({
   const [showAll, setShowAll] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -189,8 +191,12 @@ export function HistoryPanel({
     setRenameDraft('');
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this conversation?')) return;
+  const requestDelete = (id: string) => setPendingDeleteId(id);
+
+  const confirmDelete = async () => {
+    const id = pendingDeleteId;
+    if (!id) return;
+    setPendingDeleteId(null);
     try {
       await apiSend(`/api/conversations/${id}`, null, 'DELETE');
       await reload();
@@ -312,7 +318,7 @@ export function HistoryPanel({
                         appearance="subtle"
                         size="small"
                         icon={<Delete20Regular />}
-                        onClick={() => void handleDelete(c.id)}
+                        onClick={() => requestDelete(c.id)}
                         aria-label="Delete conversation"
                       />
                     </>
@@ -323,6 +329,15 @@ export function HistoryPanel({
           })
         )}
       </div>
+
+      <ConfirmDialog
+        open={pendingDeleteId !== null}
+        title="Delete this conversation?"
+        body="This permanently removes the conversation and its messages."
+        confirmLabel="Delete"
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setPendingDeleteId(null)}
+      />
     </div>
   );
 }

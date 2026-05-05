@@ -74,6 +74,25 @@ const useStyles = makeStyles({
     borderTop: `1px solid ${tokens.colorNeutralStroke1}`,
     flexShrink: 0,
   },
+  banner: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 12px',
+    backgroundColor: tokens.colorPaletteYellowBackground1,
+    borderBottom: `1px solid ${tokens.colorPaletteYellowBorder1}`,
+    color: tokens.colorPaletteDarkOrangeForeground1,
+    flexShrink: 0,
+  },
+  bannerError: {
+    backgroundColor: tokens.colorPaletteRedBackground1,
+    borderBottomColor: tokens.colorPaletteRedBorder1,
+    color: tokens.colorPaletteRedForeground1,
+  },
+  bannerText: {
+    flex: 1,
+    minWidth: 0,
+  },
   input: {
     flex: 1,
   },
@@ -90,6 +109,10 @@ export interface ChatPanelProps {
   host: HostContext;
   messages: UIMessageLike[];
   status: 'submitted' | 'streaming' | 'ready' | 'error' | string;
+  /** Last error from the chat stream, if any. Surfaced as an inline banner. */
+  chatError?: string | null;
+  /** True when no provider is configured/selected; disables send and shows banner. */
+  noProvider?: boolean;
   onSubmit: (text: string) => void;
   onApproveCode: (toolCallId: string, code: string) => Promise<void> | void;
   onRejectCode: (toolCallId: string) => void;
@@ -104,6 +127,8 @@ export function ChatPanel({
   host,
   messages,
   status,
+  chatError,
+  noProvider,
   onSubmit,
   onApproveCode,
   onRejectCode,
@@ -146,7 +171,7 @@ export function ChatPanel({
   }, [inputText]);
 
   const handleSubmit = () => {
-    if (!inputText.trim() || isLoading) return;
+    if (!inputText.trim() || isLoading || noProvider) return;
     onSubmit(inputText);
     setInputText('');
   };
@@ -205,6 +230,36 @@ export function ChatPanel({
         </div>
       </div>
 
+      {noProvider && (
+        <div className={styles.banner} role="status">
+          <Text className={styles.bannerText} size={200}>
+            No AI provider is configured. Add one in Settings to start chatting.
+          </Text>
+          {onOpenSettings && (
+            <Button appearance="primary" size="small" onClick={onOpenSettings}>
+              Open Settings
+            </Button>
+          )}
+        </div>
+      )}
+
+      {chatError && !noProvider && (
+        <div
+          className={`${styles.banner} ${styles.bannerError}`}
+          role="alert"
+          aria-label="Chat error"
+        >
+          <Text className={styles.bannerText} size={200}>
+            {chatError}
+          </Text>
+          {onOpenSettings && (
+            <Button appearance="subtle" size="small" onClick={onOpenSettings}>
+              Settings
+            </Button>
+          )}
+        </div>
+      )}
+
       <div className={styles.messageList}>
         {messages.length === 0 ? (
           <div className={styles.empty}>
@@ -253,7 +308,7 @@ export function ChatPanel({
           icon={<Send24Regular />}
           aria-label={t('chat.sendButton')}
           onClick={handleSubmit}
-          disabled={!inputText.trim() || isLoading}
+          disabled={!inputText.trim() || isLoading || !!noProvider}
         />
       </div>
     </div>
