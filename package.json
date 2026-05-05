@@ -18,9 +18,14 @@
     "sideload": "npm --workspace @autooffice/web run sideload",
     "sideload:excel": "npm --workspace @autooffice/web run sideload:excel",
     "sideload:powerpoint": "npm --workspace @autooffice/web run sideload:powerpoint",
-    "stop": "npm --workspace @autooffice/web run stop"
+    "stop": "npm --workspace @autooffice/web run stop",
+    "dev:sideload": "concurrently -k -s first -n server,sideload -c blue,magenta \"npm run dev\" \"wait-on -t 60000 http-get://127.0.0.1:47318/health && npm run sideload\"",
+    "dev:sideload:excel": "concurrently -k -s first -n server,sideload -c blue,magenta \"npm run dev\" \"wait-on -t 60000 http-get://127.0.0.1:47318/health && npm run sideload:excel\"",
+    "dev:sideload:powerpoint": "concurrently -k -s first -n server,sideload -c blue,magenta \"npm run dev\" \"wait-on -t 60000 http-get://127.0.0.1:47318/health && npm run sideload:powerpoint\""
   },
   "devDependencies": {
-    "typescript": "^6.0.3"
+    "concurrently": "^9.1.0",
+    "typescript": "^6.0.3",
+    "wait-on": "^8.0.1"
   }
 }
