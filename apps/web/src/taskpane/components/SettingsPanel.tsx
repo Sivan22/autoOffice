@@ -27,7 +27,6 @@ import {
   Checkmark24Regular,
 } from '@fluentui/react-icons';
 import { apiGet, apiSend, getToken } from '../api.ts';
-import { ConfirmDialog } from './ConfirmDialog.tsx';
 import type {
   Settings,
   ProviderConfig,
@@ -810,9 +809,6 @@ function McpSection() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<Record<string, string[]>>({});
-  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
-  const pendingDeleteLabel =
-    servers.find((s) => s.id === pendingDeleteId)?.label ?? 'this server';
 
   const reload = useCallback(async () => {
     try {
@@ -891,12 +887,7 @@ function McpSection() {
     }
   };
 
-  const remove = (id: string) => setPendingDeleteId(id);
-
-  const confirmRemove = async () => {
-    const id = pendingDeleteId;
-    if (!id) return;
-    setPendingDeleteId(null);
+  const remove = async (id: string) => {
     try {
       await apiSend(`/api/mcp/servers/${id}`, null, 'DELETE');
       await reload();
@@ -957,7 +948,7 @@ function McpSection() {
             key={s.id}
             server={s}
             log={logs[s.id]}
-            onRemove={() => remove(s.id)}
+            onRemove={() => void remove(s.id)}
             onRestart={() => restart(s.id)}
             onToggleDisabled={() => toggleDisabled(s)}
             onPolicyChange={(tool, p) => setPolicy(s.id, tool, p)}
@@ -965,14 +956,6 @@ function McpSection() {
           />
         ))
       )}
-      <ConfirmDialog
-        open={pendingDeleteId !== null}
-        title={t('settings.mcpRemoveTitle', { label: pendingDeleteLabel })}
-        body={t('settings.mcpRemoveBody')}
-        confirmLabel={t('settings.mcpRemoveConfirm')}
-        onConfirm={() => void confirmRemove()}
-        onCancel={() => setPendingDeleteId(null)}
-      />
     </>
   );
 }

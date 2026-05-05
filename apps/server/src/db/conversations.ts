@@ -8,6 +8,7 @@ import {
 
 export type CreateConversationInput = {
   host: Host;
+  id?: string;
   title?: string | null;
   providerId?: string | null;
   modelId?: string | null;
@@ -17,7 +18,7 @@ export class ConversationsRepo {
   constructor(private readonly db: Database) {}
 
   create(input: CreateConversationInput): string {
-    const id = newId('c');
+    const id = input.id ?? newId('c');
     const now = Date.now();
     this.db
       .prepare(

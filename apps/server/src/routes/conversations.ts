@@ -6,6 +6,10 @@ import type { MessagesRepo } from '../db/messages';
 
 const CreateBody = z.object({
   host: HostSchema,
+  id: z
+    .string()
+    .regex(/^c_[0-9A-HJKMNP-TV-Z]+$/, 'invalid conversation id')
+    .optional(),
   title: z.string().nullish(),
   providerId: z.string().nullish(),
   modelId: z.string().nullish(),
@@ -27,8 +31,12 @@ export function conversationsRouter(convs: ConversationsRepo, msgs: MessagesRepo
     }
     const parsed = CreateBody.safeParse(body);
     if (!parsed.success) return c.json({ error: 'invalid', issues: parsed.error.issues }, 400);
+    if (parsed.data.id && convs.get(parsed.data.id)) {
+      return c.json({ id: parsed.data.id }, 200);
+    }
     const id = convs.create({
       host: parsed.data.host,
+      ...(parsed.data.id ? { id: parsed.data.id } : {}),
       title: parsed.data.title ?? null,
       providerId: parsed.data.providerId ?? null,
       modelId: parsed.data.modelId ?? null,

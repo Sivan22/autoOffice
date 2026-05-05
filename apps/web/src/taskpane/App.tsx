@@ -15,6 +15,7 @@ import { bootstrap, apiGet, apiSend } from './api.ts';
 import { makeChatTransport } from './chat/transport.ts';
 import { makeOnToolCall } from './chat/on-tool-call.ts';
 import type { Settings, Message } from '@autooffice/shared';
+import { newId } from '@autooffice/shared';
 import { detectLegacy } from './legacy/detect.ts';
 import { pack } from './legacy/pack.ts';
 import { LegacyImportModal } from './components/LegacyImportModal.tsx';
@@ -56,6 +57,9 @@ export function App({ host }: AppProps) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [initialMessages, setInitialMessages] = useState<Message[]>([]);
+  // Defer POST /api/conversations until the user sends a message, so opening
+  // the pane (or clicking New Chat) doesn't litter History with empty rows.
+  const [persisted, setPersisted] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [pendingLegacy, setPendingLegacy] = useState<ReturnType<typeof pack> | null>(null);
@@ -71,14 +75,11 @@ export function App({ host }: AppProps) {
       try {
         await bootstrap();
         const s = await apiGet<Settings>('/api/settings');
-        // Always start with a fresh, empty chat when the task pane opens —
-        // we don't want chats from other documents to leak in. Older
-        // conversations are still reachable via the History panel.
-        const created = await apiSend<{ id: string }>('/api/conversations', { host: host.kind });
         if (cancelled) return;
         setSettings(s);
-        setConversationId(created.id);
+        setConversationId(newId('c'));
         setInitialMessages([]);
+        setPersisted(false);
         setReady(true);
       } catch (err) {
         if (cancelled) return;
@@ -96,12 +97,20 @@ export function App({ host }: AppProps) {
     );
     setConversationId(id);
     setInitialMessages(conv.messages);
+    setPersisted(true);
   }, []);
 
-  const createConversation = useCallback(async () => {
-    const created = await apiSend<{ id: string }>('/api/conversations', { host: host.kind });
-    await loadConversation(created.id);
-  }, [host.kind, loadConversation]);
+  const createConversation = useCallback(() => {
+    setConversationId(newId('c'));
+    setInitialMessages([]);
+    setPersisted(false);
+  }, []);
+
+  const ensurePersisted = useCallback(async () => {
+    if (persisted || !conversationId) return;
+    await apiSend('/api/conversations', { id: conversationId, host: host.kind });
+    setPersisted(true);
+  }, [persisted, conversationId, host.kind]);
 
   const refreshSettings = useCallback(async () => {
     try {
@@ -153,11 +162,10 @@ export function App({ host }: AppProps) {
         conversationId={conversationId}
         initialMessages={initialMessages}
         settings={settings}
+        ensurePersisted={ensurePersisted}
         onOpenSettings={() => setSettingsOpen(true)}
         onOpenHistory={() => setHistoryOpen(true)}
-        onNewChat={() => {
-          void createConversation();
-        }}
+        onNewChat={createConversation}
       />
       {settingsOpen && (
         <div className={styles.drawer}>
@@ -191,6 +199,7 @@ function ChatScreen({
   conversationId,
   initialMessages,
   settings,
+  ensurePersisted,
   onOpenSettings,
   onOpenHistory,
   onNewChat,
@@ -199,6 +208,7 @@ function ChatScreen({
   conversationId: string;
   initialMessages: Message[];
   settings: Settings;
+  ensurePersisted: () => Promise<void>;
   onOpenSettings: () => void;
   onOpenHistory: () => void;
   onNewChat: () => void;
@@ -264,7 +274,10 @@ function ChatScreen({
       status={status as any}
       noProvider={noProvider}
       chatError={error ? error.message : null}
-      onSubmit={(text) => sendMessage({ text })}
+      onSubmit={async (text) => {
+        await ensurePersisted();
+        await sendMessage({ text });
+      }}
       onApproveCode={async (toolCallId, code) => {
         try {
           const output = await runInIframe(code);

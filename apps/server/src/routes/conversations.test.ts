@@ -79,6 +79,28 @@ describe('conversations routes', () => {
     expect(list).toHaveLength(0);
   });
 
+  it('honors a client-supplied id and is idempotent on resend', async () => {
+    const id = 'c_01J9ZK8R0YQ3WBE2DXG5T7HMNA';
+    const r1 = await app.request('/api/conversations', {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({ id, host: 'word' }),
+    });
+    expect(r1.status).toBe(201);
+    expect((await r1.json()).id).toBe(id);
+
+    const r2 = await app.request('/api/conversations', {
+      method: 'POST',
+      headers: auth,
+      body: JSON.stringify({ id, host: 'word' }),
+    });
+    expect(r2.status).toBe(200);
+    expect((await r2.json()).id).toBe(id);
+
+    const list = await (await app.request('/api/conversations', { headers: auth })).json();
+    expect(list).toHaveLength(1);
+  });
+
   it('rejects invalid host in POST', async () => {
     const r = await app.request('/api/conversations', {
       method: 'POST',
