@@ -1,7 +1,9 @@
 type Part = Record<string, unknown> & { type: string };
 type Msg = { id: string; role: string; parts: Part[] };
 
-const TERMINAL_STATES = new Set(['output-available', 'output-error']);
+// 'approval-responded' = user responded to an approval request; tool is queued to
+// execute on the next round-trip — not orphaned, must not be overwritten.
+const TERMINAL_STATES = new Set(['output-available', 'output-error', 'approval-responded']);
 
 /**
  * Heal dangling tool-call parts before convertToModelMessages.

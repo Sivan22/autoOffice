@@ -84,16 +84,21 @@ export function chatRouter(deps: ChatDeps) {
         createdAt:
           typeof incomingMeta.createdAt === 'number' ? incomingMeta.createdAt : Date.now(),
       };
-      merged = [
-        ...history,
-        {
-          id: message.id,
-          role: message.role ?? 'user',
-          parts: message.parts ?? [],
-          metadata: userMeta,
-          conversationId: id,
-        },
-      ];
+      const incoming = {
+        id: message.id,
+        role: message.role ?? 'user',
+        parts: message.parts ?? [],
+        metadata: userMeta,
+        conversationId: id,
+      };
+      // The SDK re-sends the *same* assistant message (with updated tool state, e.g.
+      // approval-responded or output-available) as the "new" message after the user
+      // approves a tool or after a client-side tool result is added.  Appending would
+      // create a duplicate entry that breaks convertToModelMessages.  Replace instead.
+      const existingIdx = history.findIndex((m) => m.id === message.id);
+      merged = existingIdx >= 0
+        ? history.map((m, i) => (i === existingIdx ? incoming : m))
+        : [...history, incoming];
     } else if (trigger === 'regenerate-message' && messageId) {
       const idx = history.findIndex((m) => m.id === messageId);
       merged = idx >= 0 ? history.slice(0, idx) : history;
