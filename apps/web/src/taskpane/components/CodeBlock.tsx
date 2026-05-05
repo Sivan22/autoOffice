@@ -58,6 +58,7 @@ export function CodeBlock({
     return (
       <div
         data-testid="code-block-shiki"
+        dir="ltr"
         // Shiki returns <pre><code>...</code></pre> with inline styles.
         dangerouslySetInnerHTML={{ __html: html }}
       />
@@ -65,7 +66,7 @@ export function CodeBlock({
   }
 
   return (
-    <pre data-testid="code-block-fallback" style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+    <pre data-testid="code-block-fallback" dir="ltr" style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
       {code}
     </pre>
   );

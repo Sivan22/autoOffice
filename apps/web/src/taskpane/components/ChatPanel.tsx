@@ -185,7 +185,7 @@ export function ChatPanel({
 
   return (
     <div className={styles.container}>
-      <div className={styles.header}>
+      <div className={styles.header} dir="ltr">
         <div className={styles.brand}>
           <img
             src={`${import.meta.env.BASE_URL}assets/icon-64.png`}

@@ -234,6 +234,36 @@ await Word.run(async (context) => {
 });
 ```
 
+## lineSpacing Values Reference
+
+`lineSpacing` is in **points**, not a multiplier. Common mappings:
+
+| Word UI label | `lineSpacing` value |
+|---|---|
+| Single (1×) | 12 |
+| 1.15× | ~13.8 |
+| 1.5× | 18 |
+| Double (2×) | 24 |
+| Exactly 14pt | 14 |
+
+```javascript
+para.lineSpacing = 24; // double spacing
+para.lineSpacing = 18; // 1.5 spacing
+```
+
+## Hanging Indent (negative firstLineIndent)
+
+```javascript
+await Word.run(async (context) => {
+  const para = context.document.body.paragraphs.getFirst();
+  para.leftIndent = 36;        // body of paragraph indented 0.5in
+  para.firstLineIndent = -36;  // first line pulled back to left margin (hanging)
+  await context.sync();
+});
+```
+
+Positive `firstLineIndent` → first-line indent. Negative → hanging indent.
+
 ## Common Pitfalls
 
 - Font color accepts hex strings (`"#FF0000"`) or named colors (`"red"`)
@@ -242,3 +272,6 @@ await Word.run(async (context) => {
 - Alignment uses `Word.Alignment` enum: left, centered, right, justified
 - `font.bold = true` may not appear visually if the paragraph's style overrides it — use `styleBuiltIn = Word.BuiltInStyleName.strong` instead
 - `subscript` and `superscript` are mutually exclusive — setting one resets the other
+- `lineSpacing` is in **points**, not a multiplier — 24 = double, 18 = 1.5×, 12 = single
+- Direct font formatting (on a Range/Paragraph) wins over the style's font when both are set, but if you later change the style, the direct override stays. To reset to style defaults, set the property back to `undefined` or remove the direct formatting
+- Setting `para.alignment`, `para.leftIndent`, etc. on a paragraph applies **direct** paragraph formatting, overriding whatever the paragraph's style specifies for that property
