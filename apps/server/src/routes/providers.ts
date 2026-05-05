@@ -49,11 +49,24 @@ export function providersRouter(repo: ProvidersRepo, registry: ProviderRegistry)
     return c.body(null, 204);
   });
 
+  r.get('/:id/models', async (c) => {
+    const id = c.req.param('id');
+    if (!repo.get(id)) return c.json({ error: 'not found' }, 404);
+    return c.json(await registry.listModels(id));
+  });
+
   r.post('/:id/test', async (c) => {
     const id = c.req.param('id');
     if (!repo.get(id)) return c.json({ error: 'not found' }, 404);
-    const status = await registry.getStatus(id);
-    return c.json({ status });
+    let modelIdOverride: string | undefined;
+    try {
+      const body = (await c.req.json()) as { modelId?: unknown } | null;
+      if (body && typeof body.modelId === 'string') modelIdOverride = body.modelId;
+    } catch {
+      // empty body is fine
+    }
+    const result = await registry.verifyAuth(id, modelIdOverride);
+    return c.json(result);
   });
 
   return r;

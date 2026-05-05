@@ -1,5 +1,5 @@
-import type { LanguageModel } from 'ai';
-import { isCliBridge, type ProviderKind } from '@autooffice/shared';
+import { generateText, type LanguageModel } from 'ai';
+import { isCliBridge, getKnownModels, type ProviderKind } from '@autooffice/shared';
 import type { ProvidersRepo } from '../db/providers';
 import { makeAnthropic } from './factories/anthropic';
 import { makeOpenAI } from './factories/openai';
@@ -15,6 +15,7 @@ import { makeClaudeCode } from './factories/claude-code';
 import { makeGeminiCli } from './factories/gemini-cli';
 import { makeOpencode } from './factories/opencode';
 import { probeForKind, type ProbeStatus } from './readiness';
+import { listModelsForProvider, type ListModelsResult } from './list-models';
 
 export class ProviderRegistry {
   constructor(private readonly repo: ProvidersRepo) {}
@@ -33,11 +34,52 @@ export class ProviderRegistry {
     return this.buildCli(cfg.kind, modelId, cfg.config as Record<string, unknown>);
   }
 
+  async listModels(providerId: string): Promise<ListModelsResult> {
+    const cfg = this.repo.get(providerId);
+    if (!cfg) return { models: [], source: 'fallback', message: 'provider not found' };
+    const apiKey = isCliBridge(cfg.kind) ? null : this.repo.getDecryptedKey(providerId);
+    return listModelsForProvider(cfg.kind, apiKey, cfg.config);
+  }
+
   async getStatus(providerId: string): Promise<ProbeStatus> {
     const cfg = this.repo.get(providerId);
     if (!cfg) return 'unknown';
     if (isCliBridge(cfg.kind)) return probeForKind(cfg.kind);
     return this.repo.getDecryptedKey(providerId) ? 'ready' : 'needs-key' as ProbeStatus;
+  }
+
+  // Actively verify a provider can authenticate. For CLI bridges this probes the
+  // binary (same as getStatus). For direct API providers, runs a 1-token generation
+  // against modelIdOverride, the first known model for the kind, or fails with
+  // 'no-model'. Returns a free-form status plus an optional error message so the
+  // UI can surface the upstream rejection text.
+  async verifyAuth(
+    providerId: string,
+    modelIdOverride?: string,
+  ): Promise<{ status: string; message?: string }> {
+    const cfg = this.repo.get(providerId);
+    if (!cfg) return { status: 'unknown', message: 'provider not found' };
+    if (isCliBridge(cfg.kind)) {
+      return { status: await probeForKind(cfg.kind) };
+    }
+    const apiKey = this.repo.getDecryptedKey(providerId);
+    if (!apiKey) return { status: 'needs-key' };
+    const modelId = modelIdOverride?.trim() || getKnownModels(cfg.kind)[0];
+    if (!modelId) {
+      return { status: 'no-model', message: 'no model id supplied for this provider kind' };
+    }
+    try {
+      const model = this.buildDirect(
+        cfg.kind,
+        modelId,
+        apiKey,
+        cfg.config as Record<string, unknown>,
+      );
+      await generateText({ model, prompt: 'ping', maxOutputTokens: 1 });
+      return { status: 'ready' };
+    } catch (err) {
+      return { status: 'invalid', message: (err as Error).message };
+    }
   }
 
   private buildDirect(

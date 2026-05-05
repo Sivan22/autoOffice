@@ -15,7 +15,13 @@ export class SettingsRepo {
   }
 
   update(patch: Partial<Settings>): Settings {
-    const merged = SettingsSchema.parse({ ...this.get(), ...patch });
+    // Drop undefined entries so they don't shadow existing values when spread,
+    // which would otherwise re-apply Zod defaults on parse.
+    const defined: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(patch)) {
+      if (v !== undefined) defined[k] = v;
+    }
+    const merged = SettingsSchema.parse({ ...this.get(), ...defined });
     this.db
       .prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value')
       .run(KEY, JSON.stringify(merged));

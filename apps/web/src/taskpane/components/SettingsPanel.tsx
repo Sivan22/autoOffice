@@ -7,6 +7,8 @@ import {
   Field,
   Switch,
   Select,
+  Combobox,
+  Option,
   Text,
   Divider,
   TabList,
@@ -34,6 +36,7 @@ import type {
   CreateMcpServerInput,
   McpStatus,
 } from '@autooffice/shared';
+import { getKnownModels, isCliBridge } from '@autooffice/shared';
 
 const useStyles = makeStyles({
   container: {
@@ -145,6 +148,9 @@ const PROVIDER_KINDS: { value: ProviderKind; label: string }[] = [
   { value: 'ollama', label: 'Ollama' },
   { value: 'openai-compatible', label: 'OpenAI-compatible' },
   { value: 'vercel-gateway', label: 'Vercel AI Gateway' },
+  { value: 'claude-code', label: 'Claude Code (CLI)' },
+  { value: 'gemini-cli', label: 'Gemini CLI' },
+  { value: 'opencode', label: 'OpenCode (CLI)' },
 ];
 
 const STATUS_BADGE: Record<McpStatus, 'informative' | 'success' | 'danger' | 'warning' | 'subtle'> = {
@@ -272,13 +278,14 @@ function GlobalSection({ onGoToProviders }: { onGoToProviders: () => void }) {
             ))}
           </Select>
         </Field>
-        <Field label="Model id">
-          <Input
-            value={settings.selectedModelId ?? ''}
-            onChange={(_, d) => void update({ selectedModelId: d.value || null })}
-            placeholder="e.g. claude-opus-4-7"
-          />
-        </Field>
+        <ModelField
+          providerId={settings.selectedProviderId}
+          providerKind={
+            providers.find((p) => p.id === settings.selectedProviderId)?.kind ?? null
+          }
+          value={settings.selectedModelId ?? ''}
+          onChange={(v) => void update({ selectedModelId: v || null })}
+        />
       </div>
 
       <Divider />
@@ -322,6 +329,103 @@ function GlobalSection({ onGoToProviders }: { onGoToProviders: () => void }) {
         </Field>
       </div>
     </>
+  );
+}
+
+function ModelField({
+  providerId,
+  providerKind,
+  value,
+  onChange,
+}: {
+  providerId: string | null;
+  providerKind: ProviderKind | null;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [suggestions, setSuggestions] = useState<readonly string[]>([]);
+  const [source, setSource] = useState<'live' | 'fallback' | 'idle'>('idle');
+  const [hint, setHint] = useState<string | null>(null);
+
+  useEffect(() => setDraft(value), [value]);
+
+  // Pull the catalog from the provider on each provider change. Server falls
+  // back to KNOWN_MODELS when the live fetch fails (e.g. no key, offline).
+  useEffect(() => {
+    if (!providerId || !providerKind) {
+      setSuggestions(providerKind ? getKnownModels(providerKind) : []);
+      setSource('idle');
+      setHint(null);
+      return;
+    }
+    let cancelled = false;
+    setSource('idle');
+    setHint(null);
+    apiGet<{ models: string[]; source: 'live' | 'fallback'; message?: string }>(
+      `/api/providers/${providerId}/models`,
+    )
+      .then((r) => {
+        if (cancelled) return;
+        setSuggestions(r.models);
+        setSource(r.source);
+        setHint(r.source === 'fallback' ? r.message ?? 'using built-in model list' : null);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setSuggestions(getKnownModels(providerKind));
+        setSource('fallback');
+        setHint((e as Error).message);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [providerId, providerKind]);
+
+  const hintText =
+    source === 'live'
+      ? `${suggestions.length} models from provider`
+      : hint ?? 'Pick a known model or type your own';
+
+  if (suggestions.length === 0) {
+    return (
+      <Field label="Model id" hint={hint ?? undefined}>
+        <Input
+          value={draft}
+          onChange={(_, d) => setDraft(d.value)}
+          onBlur={() => {
+            if (draft !== value) onChange(draft);
+          }}
+          placeholder="e.g. claude-opus-4-7"
+        />
+      </Field>
+    );
+  }
+
+  return (
+    <Field label="Model id" hint={hintText}>
+      <Combobox
+        freeform
+        value={draft}
+        selectedOptions={suggestions.includes(draft) ? [draft] : []}
+        onInput={(e) => setDraft((e.target as HTMLInputElement).value)}
+        onOptionSelect={(_, d) => {
+          const v = d.optionValue ?? '';
+          setDraft(v);
+          if (v !== value) onChange(v);
+        }}
+        onBlur={() => {
+          if (draft !== value) onChange(draft);
+        }}
+        placeholder="e.g. claude-opus-4-7"
+      >
+        {suggestions.map((m) => (
+          <Option key={m} value={m}>
+            {m}
+          </Option>
+        ))}
+      </Combobox>
+    </Field>
   );
 }
 
@@ -387,8 +491,14 @@ function ProvidersSection() {
 
   const testProvider = async (id: string) => {
     try {
-      const r = await apiSend<{ status: string }>(`/api/providers/${id}/test`, {});
-      setTestResults((prev) => ({ ...prev, [id]: r.status }));
+      const r = await apiSend<{ status: string; message?: string }>(
+        `/api/providers/${id}/test`,
+        {},
+      );
+      setTestResults((prev) => ({
+        ...prev,
+        [id]: r.message ? `${r.status}: ${r.message}` : r.status,
+      }));
     } catch (e) {
       setTestResults((prev) => ({ ...prev, [id]: `error: ${(e as Error).message}` }));
     }
@@ -435,6 +545,13 @@ function AddProviderForm({ onAdd }: { onAdd: (input: CreateProviderInput) => voi
   const [kind, setKind] = useState<ProviderKind>('anthropic');
   const [label, setLabel] = useState('');
   const [apiKey, setApiKey] = useState('');
+  // CLI-bridge specific config
+  const [binaryPath, setBinaryPath] = useState('');
+  const [geminiAuthType, setGeminiAuthType] = useState<'oauth-personal' | 'gemini-api-key'>(
+    'oauth-personal',
+  );
+  const [opencodeHostname, setOpencodeHostname] = useState('');
+  const [opencodePort, setOpencodePort] = useState('');
 
   if (!open) {
     return (
@@ -444,18 +561,45 @@ function AddProviderForm({ onAdd }: { onAdd: (input: CreateProviderInput) => voi
     );
   }
 
+  const reset = () => {
+    setLabel('');
+    setApiKey('');
+    setBinaryPath('');
+    setGeminiAuthType('oauth-personal');
+    setOpencodeHostname('');
+    setOpencodePort('');
+  };
+
   const submit = () => {
     if (!label.trim()) return;
     const input: CreateProviderInput = {
       kind,
       label: label.trim(),
     };
-    if (apiKey.trim()) input.apiKey = apiKey.trim();
+    if (kind === 'claude-code') {
+      if (binaryPath.trim()) input.config = { binaryPath: binaryPath.trim() };
+    } else if (kind === 'gemini-cli') {
+      input.config = { authType: geminiAuthType };
+      if (geminiAuthType === 'gemini-api-key' && apiKey.trim()) {
+        input.config.apiKey = apiKey.trim();
+      }
+    } else if (kind === 'opencode') {
+      const cfg: Record<string, unknown> = {};
+      if (opencodeHostname.trim()) cfg.hostname = opencodeHostname.trim();
+      if (opencodePort.trim()) {
+        const port = parseInt(opencodePort.trim(), 10);
+        if (!Number.isNaN(port)) cfg.port = port;
+      }
+      if (Object.keys(cfg).length > 0) input.config = cfg;
+    } else if (apiKey.trim()) {
+      input.apiKey = apiKey.trim();
+    }
     onAdd(input);
     setOpen(false);
-    setLabel('');
-    setApiKey('');
+    reset();
   };
+
+  const cli = isCliBridge(kind);
 
   return (
     <div className={styles.card}>
@@ -473,22 +617,88 @@ function AddProviderForm({ onAdd }: { onAdd: (input: CreateProviderInput) => voi
         <Input
           value={label}
           onChange={(_, d) => setLabel(d.value)}
-          placeholder="My Anthropic key"
+          placeholder="My provider"
         />
       </Field>
-      <Field label="API key">
-        <Input
-          type="password"
-          value={apiKey}
-          onChange={(_, d) => setApiKey(d.value)}
-          placeholder="sk-..."
-        />
-      </Field>
+
+      {kind === 'claude-code' && (
+        <Field label="Path to claude binary (optional)" hint="Defaults to `claude` on PATH">
+          <Input
+            value={binaryPath}
+            onChange={(_, d) => setBinaryPath(d.value)}
+            placeholder="/usr/local/bin/claude"
+          />
+        </Field>
+      )}
+
+      {kind === 'gemini-cli' && (
+        <>
+          <Field label="Auth" hint="OAuth uses ~/.gemini/oauth_creds.json from `gemini` setup">
+            <Select
+              value={geminiAuthType}
+              onChange={(_, d) =>
+                setGeminiAuthType(d.value as 'oauth-personal' | 'gemini-api-key')
+              }
+            >
+              <option value="oauth-personal">OAuth (personal)</option>
+              <option value="gemini-api-key">Gemini API key</option>
+            </Select>
+          </Field>
+          {geminiAuthType === 'gemini-api-key' && (
+            <Field label="Gemini API key">
+              <Input
+                type="password"
+                value={apiKey}
+                onChange={(_, d) => setApiKey(d.value)}
+                placeholder="AI..."
+              />
+            </Field>
+          )}
+        </>
+      )}
+
+      {kind === 'opencode' && (
+        <>
+          <Field label="Hostname (optional)" hint="Defaults to 127.0.0.1; auto-starts the server">
+            <Input
+              value={opencodeHostname}
+              onChange={(_, d) => setOpencodeHostname(d.value)}
+              placeholder="127.0.0.1"
+            />
+          </Field>
+          <Field label="Port (optional)" hint="Defaults to 4096">
+            <Input
+              type="number"
+              value={opencodePort}
+              onChange={(_, d) => setOpencodePort(d.value)}
+              placeholder="4096"
+            />
+          </Field>
+        </>
+      )}
+
+      {!cli && (
+        <Field label="API key">
+          <Input
+            type="password"
+            value={apiKey}
+            onChange={(_, d) => setApiKey(d.value)}
+            placeholder="sk-..."
+          />
+        </Field>
+      )}
+
       <div className={styles.row}>
         <Button appearance="primary" onClick={submit}>
           Save
         </Button>
-        <Button appearance="subtle" onClick={() => setOpen(false)}>
+        <Button
+          appearance="subtle"
+          onClick={() => {
+            setOpen(false);
+            reset();
+          }}
+        >
           Cancel
         </Button>
       </div>
