@@ -6,13 +6,37 @@
 - `Word.TableCell` — body, value, columnWidth, shadingColor
 - `Word.TableBorder` — type, color, width
 
-## Create a Table
+## Create a Table at the Current Selection
+
+Insert a table after the current cursor/selection (no need to navigate to body):
+
+```javascript
+await Word.run(async (context) => {
+  const range = context.document.getSelection();
+
+  const data = [
+    ["Name", "Age", "City"],
+    ["Alice", "30", "NYC"],
+    ["Bob",   "25", "LA"],
+  ];
+  const rows = data.length;
+  const cols = data[0].length;
+
+  const table = range.insertTable(rows, cols, Word.InsertLocation.after, data);
+  table.styleBuiltIn = Word.BuiltInStyleName.gridTable1Light; // clean default style
+  table.getRow(0).font.bold = true;
+  table.getRow(0).shadingColor = "#D9E2F3";
+
+  await context.sync();
+});
+```
+
+## Create a Table at End of Document
 
 ```javascript
 await Word.run(async (context) => {
   const body = context.document.body;
   
-  // Insert a 3x3 table with values
   const values = [
     ["Name", "Age", "City"],
     ["Alice", "30", "NYC"],
@@ -26,6 +50,31 @@ await Word.run(async (context) => {
   table.getRow(0).shadingColor = "#D9E2F3";
   
   await context.sync();
+});
+```
+
+## Get Info About All Tables in the Document
+
+```javascript
+await Word.run(async (context) => {
+  const tables = context.document.body.tables;
+  tables.load("items");
+  await context.sync();
+
+  // Load rowCount and values in first loop — split-loop pattern
+  for (const table of tables.items) {
+    table.load("rowCount,values");
+  }
+  await context.sync();
+
+  const result = tables.items.map((table, i) => ({
+    index: i,
+    rowCount: table.rowCount,
+    columnCount: table.values?.[0]?.length ?? 0,
+  }));
+
+  console.log(JSON.stringify(result, null, 2));
+  return result;
 });
 ```
 

@@ -77,12 +77,37 @@ await Word.run(async (context) => {
 });
 ```
 
-## Delete a Range
+## Delete a Range (safe — check for selection first)
 
 ```javascript
 await Word.run(async (context) => {
   const selection = context.document.getSelection();
-  selection.delete(); // removes the text from the document
+  selection.load("text");
+  await context.sync();
+
+  if (selection.text && selection.text.length > 0) {
+    selection.delete(); // removes selected text
+  }
+  // If nothing is selected, delete() on a collapsed range is a no-op
+  await context.sync();
+});
+```
+
+## Insert Paragraph Chain (insertionPoint pattern)
+
+When inserting multiple paragraphs in sequence after the cursor, chain insertions via `getRange('End')`:
+
+```javascript
+await Word.run(async (context) => {
+  const range = context.document.getSelection();
+  let insertionPoint = range.getRange("End");
+
+  const lines = ["First line", "Second line", "Third line"];
+  for (const line of lines) {
+    const para = insertionPoint.insertParagraph(line, Word.InsertLocation.after);
+    insertionPoint = para.getRange("End"); // advance insertion point
+  }
+
   await context.sync();
 });
 ```

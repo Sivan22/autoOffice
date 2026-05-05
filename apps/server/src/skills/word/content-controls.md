@@ -160,11 +160,76 @@ await Word.run(async (context) => {
 });
 ```
 
+## Bookmarks via Content Controls (tag-based navigation)
+
+Word's native bookmark API is limited. A robust alternative is to use content controls with a
+tag convention — works across saves and is queryable without iterating everything:
+
+```javascript
+// Insert a named bookmark at the selection
+await Word.run(async (context) => {
+  const bookmarkName = "section_intro"; // no spaces — underscores only
+
+  const range = context.document.getSelection();
+  const cc = range.insertContentControl();
+  cc.tag = `bookmark_${bookmarkName}`;
+  cc.title = bookmarkName;
+  cc.appearance = Word.ContentControlAppearance.tags;
+
+  await context.sync();
+});
+```
+
+```javascript
+// Navigate to a named bookmark (split-loop — no sync inside loop)
+await Word.run(async (context) => {
+  const bookmarkName = "section_intro";
+  const tag = `bookmark_${bookmarkName}`;
+
+  const controls = context.document.contentControls;
+  controls.load("items");
+  await context.sync();
+
+  // Load tag+title in first loop
+  for (const cc of controls.items) {
+    cc.load("tag,title");
+  }
+  await context.sync();
+
+  // Find and select in second loop
+  for (const cc of controls.items) {
+    if (cc.tag === tag || cc.title === bookmarkName) {
+      cc.select();
+      await context.sync();
+      return `Navigated to: ${bookmarkName}`;
+    }
+  }
+
+  return `Bookmark not found: ${bookmarkName}`;
+});
+```
+
+Alternatively, use `getByTag()` for a direct lookup:
+
+```javascript
+await Word.run(async (context) => {
+  const matches = context.document.contentControls.getByTag("bookmark_section_intro");
+  matches.load("items");
+  await context.sync();
+
+  if (matches.items.length > 0) {
+    matches.items[0].select();
+    await context.sync();
+  }
+});
+```
+
 ## Common Pitfalls
 
 - Content controls wrap existing content — select the content first, then wrap
-- Use `.getByTag()` or `.getByTitle()` for efficient lookups
+- Use `.getByTag()` or `.getByTitle()` for efficient lookups instead of iterating all controls
 - `appearance` controls visual style: `tags` shows tag markers, `boundingBox` shows a box, `hidden` shows nothing
 - `cannotEdit = true` also blocks API writes to that control's content — set it only after populating
 - `getCheckedState()` returns a proxy — load its `value` before reading it
 - `temporary = true` means the CC auto-removes itself on first edit; useful for placeholder behaviour
+- When navigating to a bookmark via content controls, never sync inside the search loop — use the split-loop pattern

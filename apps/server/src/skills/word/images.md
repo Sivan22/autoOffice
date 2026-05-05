@@ -4,7 +4,59 @@
 - `Word.InlinePicture` — width, height, altTextTitle, altTextDescription, hyperlink
 - `Word.Body.insertInlinePictureFromBase64()` — insert image from base64 string
 
-## Insert Image from Base64
+## Insert Image at Current Selection (from Base64)
+
+Insert at the cursor/selection — works on any Range, Paragraph, or Body:
+
+```javascript
+await Word.run(async (context) => {
+  const range = context.document.getSelection();
+
+  // base64ImageString: raw base64 — NO "data:image/png;base64," prefix
+  const picture = range.insertInlinePictureFromBase64(
+    base64ImageString,
+    Word.InsertLocation.replace  // or: after, before, end, start
+  );
+
+  picture.width = 300;   // points (optional — omit to keep original size)
+  picture.height = 200;  // points (optional)
+  picture.altTextTitle = "My image";
+
+  await context.sync();
+});
+```
+
+## Insert Image from URL (fetch → base64 → insert)
+
+The Word API only accepts base64 — fetch the URL first, convert, then insert:
+
+```javascript
+await Word.run(async (context) => {
+  // 1. Fetch the image and convert to base64 outside Word.run
+  const response = await fetch(imageUrl);
+  const blob = await response.blob();
+  const base64 = await new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      // Strip the data:image/...;base64, prefix
+      resolve(reader.result.split(",")[1]);
+    };
+    reader.readAsDataURL(blob);
+  });
+
+  // 2. Insert via the Word API
+  const range = context.document.getSelection();
+  const picture = range.insertInlinePictureFromBase64(base64, Word.InsertLocation.after);
+  picture.width = 300;
+
+  await context.sync();
+});
+```
+
+Note: `fetch()` inside `Word.run` is fine — it's still within an async function. Just make sure
+the fetch completes before `context.sync()`.
+
+## Insert Image from Base64 at End of Document
 
 ```javascript
 await Word.run(async (context) => {

@@ -4,7 +4,28 @@
 - `Word.Font` — bold, italic, color, size, name, underline, highlightColor, subscript, superscript, strikeThrough, doubleStrikeThrough, hidden
 - `Word.ParagraphFormat` — alignment, lineSpacing, spaceAfter, spaceBefore, firstLineIndent
 
-## Font Formatting
+## Apply Multiple Font Properties at Once (single Word.run)
+
+Apply bold, italic, underline, size, color, highlight — all optional, in one shot:
+
+```javascript
+await Word.run(async (context) => {
+  const range = context.document.getSelection();
+
+  // Only set what you need — omit the rest
+  if (bold !== undefined)           range.font.bold = bold;
+  if (italic !== undefined)         range.font.italic = italic;
+  if (underline !== undefined)      range.font.underline = underline ? Word.UnderlineType.single : Word.UnderlineType.none;
+  if (fontSize !== undefined)       range.font.size = fontSize;
+  if (fontColor !== undefined)      range.font.color = fontColor;
+  if (highlightColor !== undefined) range.font.highlightColor = highlightColor;
+  if (fontName !== undefined)       range.font.name = fontName;
+
+  await context.sync();
+});
+```
+
+## Font Formatting (all at once)
 
 ```javascript
 await Word.run(async (context) => {
@@ -20,6 +41,42 @@ await Word.run(async (context) => {
   selection.font.highlightColor = Word.HighlightColor.yellow;
   
   await context.sync();
+});
+```
+
+## Clear All Formatting (reset to Normal)
+
+```javascript
+await Word.run(async (context) => {
+  const range = context.document.getSelection();
+  range.font.bold = false;
+  range.font.italic = false;
+  range.font.underline = Word.UnderlineType.none;
+  range.styleBuiltIn = Word.BuiltInStyleName.normal;
+  await context.sync();
+});
+```
+
+## Read Current Selection Formatting
+
+Load multiple nested font properties in a single load() call using slash-paths:
+
+```javascript
+await Word.run(async (context) => {
+  const range = context.document.getSelection();
+  range.load("text,style,font/name,font/size,font/bold,font/italic,font/underline,font/color");
+  await context.sync();
+
+  return {
+    text:      range.text,
+    style:     range.style,
+    fontName:  range.font.name,
+    fontSize:  range.font.size,
+    bold:      range.font.bold,
+    italic:    range.font.italic,
+    underline: range.font.underline,
+    color:     range.font.color,
+  };
 });
 ```
 

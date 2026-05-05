@@ -44,7 +44,8 @@ export function CodeBlock({
       try {
         const hi = await getSharedHighlighter();
         const out = hi.codeToHtml(code, { lang, theme: THEME });
-        if (!cancelled) setHtml(out);
+        const ltr = out.replace('<pre ', '<pre style="direction:ltr;text-align:left" ');
+        if (!cancelled) setHtml(ltr);
       } catch {
         if (!cancelled) setHtml(null);
       }
@@ -59,6 +60,7 @@ export function CodeBlock({
       <div
         data-testid="code-block-shiki"
         dir="ltr"
+        style={{ direction: 'ltr', textAlign: 'left' }}
         // Shiki returns <pre><code>...</code></pre> with inline styles.
         dangerouslySetInnerHTML={{ __html: html }}
       />

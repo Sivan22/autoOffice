@@ -165,6 +165,88 @@ await Word.run(async (context) => {
 });
 ```
 
+## Document Statistics (word count, character count, paragraph count)
+
+```javascript
+await Word.run(async (context) => {
+  const body = context.document.body;
+  body.load("text");
+  const paragraphs = body.paragraphs;
+  paragraphs.load("items");
+  await context.sync();
+
+  const text = body.text || "";
+  const wordCount = text.split(/\s+/).filter(w => w.length > 0).length;
+  const charCount = text.length;
+  const paragraphCount = paragraphs.items.length;
+
+  return { wordCount, characterCount: charCount, paragraphCount };
+});
+```
+
+## Insert Multiple Paragraphs in Sequence (insertionPoint pattern)
+
+When inserting several paragraphs after the cursor, advance the insertion point each time:
+
+```javascript
+await Word.run(async (context) => {
+  const range = context.document.getSelection();
+  let insertionPoint = range.getRange("End");
+
+  const paragraphTexts = ["Line one", "Line two", "Line three"];
+  for (const text of paragraphTexts) {
+    const para = insertionPoint.insertParagraph(text, Word.InsertLocation.after);
+    insertionPoint = para.getRange("End"); // advance so next para comes after
+  }
+
+  await context.sync();
+});
+```
+
+## Insert Markdown-style Content (headings, bold, code, lists)
+
+Convert markdown structure to Word formatting by mapping styles paragraph by paragraph:
+
+```javascript
+await Word.run(async (context) => {
+  const range = context.document.getSelection();
+  let insertionPoint = range.getRange("End");
+
+  const parts = [
+    { text: "Introduction",   style: "heading1" },
+    { text: "Normal prose.",  style: null },
+    { text: "Key term",       style: "bold" },
+    { text: "code example()", style: "code" },
+    { text: "Quoted note",    style: "quote" },
+  ];
+
+  for (const part of parts) {
+    const para = insertionPoint.insertParagraph(part.text, Word.InsertLocation.after);
+
+    switch (part.style) {
+      case "heading1": para.styleBuiltIn = Word.BuiltInStyleName.heading1; break;
+      case "heading2": para.styleBuiltIn = Word.BuiltInStyleName.heading2; break;
+      case "heading3": para.styleBuiltIn = Word.BuiltInStyleName.heading3; break;
+      case "bold":     para.font.bold = true; break;
+      case "italic":   para.font.italic = true; break;
+      case "code":
+        para.font.name = "Consolas";
+        para.font.color = "#d63384";
+        para.styleBuiltIn = Word.BuiltInStyleName.noSpacing;
+        break;
+      case "quote":
+        para.styleBuiltIn = Word.BuiltInStyleName.quote;
+        para.font.italic = true;
+        break;
+    }
+
+    insertionPoint = para.getRange("End");
+  }
+
+  await context.sync();
+});
+```
+
 ## Common Pitfalls
 
 - `context.document.body` gives you the main body; headers/footers are accessed through sections

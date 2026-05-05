@@ -19,18 +19,29 @@ const useStyles = makeStyles({
     borderBottom: `1px solid ${tokens.colorNeutralStroke1}`,
   },
   codeArea: {
-    overflow: 'auto',
+    overflowX: 'auto',
+    overflowY: 'auto',
     maxHeight: '300px',
     fontFamily: 'Consolas, "Courier New", monospace',
     fontSize: '12px',
     lineHeight: '1.5',
     color: tokens.colorNeutralForeground1,
+    direction: 'ltr',
+    textAlign: 'left',
     '& pre': {
       margin: 0,
       padding: '12px',
       display: 'block',
       minWidth: 'max-content',
+      whiteSpace: 'pre',
       boxSizing: 'border-box',
+      direction: 'ltr',
+      textAlign: 'left',
+    },
+    '& code': {
+      whiteSpace: 'pre',
+      direction: 'ltr',
+      textAlign: 'left',
     },
   },
   actions: {
@@ -71,6 +82,8 @@ const useStyles = makeStyles({
     maxHeight: '300px',
     overflow: 'auto',
     color: tokens.colorNeutralForeground1,
+    direction: 'ltr',
+    textAlign: 'left',
   },
   resultBodyError: {
     color: tokens.colorPaletteRedForeground1,
@@ -161,7 +174,7 @@ export function ExecuteCodePart({ part, onApprove, onReject, highlight }: Props)
     : '';
 
   return (
-    <div className={styles.container}>
+    <div className={styles.container} dir="ltr">
       <div className={styles.header}>
         <Text size={200} weight="semibold">office.js</Text>
         <Badge appearance="filled" color={STATUS_COLORS[status]}>
@@ -169,7 +182,7 @@ export function ExecuteCodePart({ part, onApprove, onReject, highlight }: Props)
         </Badge>
       </div>
 
-      <div className={styles.codeArea} dir="ltr">{highlight(code)}</div>
+      <div className={styles.codeArea} style={{ direction: 'ltr', textAlign: 'left' }}>{highlight(code)}</div>
 
       {status === 'pending' && (
         <div className={styles.actions}>
@@ -199,12 +212,12 @@ export function ExecuteCodePart({ part, onApprove, onReject, highlight }: Props)
           className={`${styles.details} ${isError ? styles.detailsError : ''}`}
           open={isError}
         >
-          <summary className={`${styles.summary} ${isError ? styles.summaryError : ''}`}>
+          <summary className={`${styles.summary} ${isError ? styles.summaryError : ''}`} style={{ direction: 'ltr', textAlign: 'left' }}>
             {isError ? 'Error details' : 'Result'}
           </summary>
           <div
             className={`${styles.resultBody} ${isError ? styles.resultBodyError : ''}`}
-            dir="ltr"
+            style={{ direction: 'ltr', textAlign: 'left' }}
           >
             {resultText}
           </div>
